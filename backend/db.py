@@ -4,12 +4,10 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/resq_ai"
 
 engine = create_engine(DATABASE_URL)
-
 SessionLocal = sessionmaker(bind=engine)
-
 Base = declarative_base()
 
-# Emergency Table
+
 class EmergencyModel(Base):
     __tablename__ = "emergencies"
 
@@ -18,6 +16,8 @@ class EmergencyModel(Base):
     description = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
+    location_text = Column(String)
+    status = Column(String, default="pending")
 
-# Create table
+
 Base.metadata.create_all(bind=engine)
