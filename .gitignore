@@ -1,3 +1,17 @@
-node_modules/ 
-__pycache__/ 
-.env 
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+backend/venv/
+
+# Environment
+.env
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

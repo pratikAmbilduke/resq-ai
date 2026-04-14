@@ -4,31 +4,53 @@ import * as Location from 'expo-location';
 
 export default function App() {
   const [location, setLocation] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleSOS = async () => {
     try {
+      setLoading(true);
+
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required for SOS.');
+        setLoading(false);
         return;
       }
 
       const currentLocation = await Location.getCurrentPositionAsync({});
-      const coords = {
-        latitude: currentLocation.coords.latitude,
-        longitude: currentLocation.coords.longitude,
-      };
+      const latitude = currentLocation.coords.latitude;
+      const longitude = currentLocation.coords.longitude;
 
-      setLocation(coords);
+      setLocation({ latitude, longitude });
 
-      Alert.alert(
-        'SOS Location Captured',
-        `Latitude: ${coords.latitude}\nLongitude: ${coords.longitude}`
-      );
+      const response = await fetch('http://localhost:8000/emergency', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'emergency',
+          description: 'SOS triggered from mobile app',
+          latitude: latitude,
+          longitude: longitude,
+          location_text: 'Auto captured from device',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send emergency');
+      }
+
+      const data = await response.json();
+      console.log('Backend response:', data);
+
+      Alert.alert('Success', 'Emergency sent successfully.');
     } catch (error) {
-      Alert.alert('Error', 'Unable to fetch current location.');
-      console.log(error);
+      console.log('SOS Error:', error);
+      Alert.alert('Error', 'Failed to send emergency to backend.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,8 +58,14 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.title}>🚑 ResQ AI</Text>
 
-      <TouchableOpacity style={styles.sosButton} onPress={handleSOS}>
-        <Text style={styles.sosText}>🚨 SOS</Text>
+      <TouchableOpacity
+        style={styles.sosButton}
+        onPress={handleSOS}
+        disabled={loading}
+      >
+        <Text style={styles.sosText}>
+          {loading ? 'Sending...' : '🚨 SOS'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button}>
@@ -51,12 +79,8 @@ export default function App() {
       {location && (
         <View style={styles.locationBox}>
           <Text style={styles.locationTitle}>Current Location</Text>
-          <Text style={styles.locationText}>
-            Latitude: {location.latitude}
-          </Text>
-          <Text style={styles.locationText}>
-            Longitude: {location.longitude}
-          </Text>
+          <Text style={styles.locationText}>Latitude: {location.latitude}</Text>
+          <Text style={styles.locationText}>Longitude: {location.longitude}</Text>
         </View>
       )}
     </View>
