@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from db import SessionLocal, EmergencyModel, ProfileModel
+from db import SessionLocal, EmergencyModel, ProfileModel, UserModel
 
 app = FastAPI()
 
@@ -32,12 +32,86 @@ class Profile(BaseModel):
     emergency_contact_phone: str
 
 
+class UserRegister(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
 # -----------------------------
 # Home API
 # -----------------------------
 @app.get("/")
 def home():
     return {"message": "ResQ AI backend is running"}
+
+
+# -----------------------------
+# Auth APIs
+# -----------------------------
+@app.post("/register")
+def register_user(user: UserRegister):
+    db = SessionLocal()
+
+    existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
+    if existing_user:
+        db.close()
+        return {"error": "Email already registered"}
+
+    new_user = UserModel(
+        name=user.name,
+        email=user.email,
+        password=user.password
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    response_data = {
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email
+    }
+
+    db.close()
+
+    return {
+        "message": "User registered successfully",
+        "data": response_data
+    }
+
+
+@app.post("/login")
+def login_user(user: UserLogin):
+    db = SessionLocal()
+
+    existing_user = db.query(UserModel).filter(
+        UserModel.email == user.email,
+        UserModel.password == user.password
+    ).first()
+
+    if not existing_user:
+        db.close()
+        return {"error": "Invalid email or password"}
+
+    response_data = {
+        "id": existing_user.id,
+        "name": existing_user.name,
+        "email": existing_user.email
+    }
+
+    db.close()
+
+    return {
+        "message": "Login successful",
+        "data": response_data
+    }
 
 
 # -----------------------------
