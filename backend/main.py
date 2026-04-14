@@ -135,3 +135,18 @@ def update_emergency(id: int, updated_data: EmergencyUpdate):
     db.close()
 
     return {"status": "Emergency updated successfully", "data": response_data}
+
+@app.delete("/emergency/{id}")
+def delete_emergency(id: int):
+    db = SessionLocal()
+    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == id).first()
+
+    if not emergency:
+        db.close()
+        return {"error": "Emergency not found"}
+
+    db.delete(emergency)
+    db.commit()
+    db.close()
+
+    return {"status": f"Emergency with id {id} deleted successfully"}
