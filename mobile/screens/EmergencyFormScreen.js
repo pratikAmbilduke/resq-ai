@@ -1,130 +1,62 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
-export default function EmergencyFormScreen() {
-  const [type, setType] = useState("");
-  const [description, setDescription] = useState("");
-  const [locationText, setLocationText] = useState("");
+export default function EmergencyScreen() {
 
-  const handleSubmit = () => {
-    if (!type || !description || !locationText) {
-      Alert.alert("Validation Error", "Please fill all fields.");
-      return;
+  const sendEmergency = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/emergency", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "medical",
+          description: "Test emergency from mobile",
+          latitude: 18.5204,
+          longitude: 73.8567,
+          location_text: "Pune",
+        }),
+      });
+
+      const data = await response.json();
+
+      Alert.alert("Success", "Emergency Sent Successfully 🚨");
+
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error", "Failed to send emergency ❌");
     }
-
-    Alert.alert("Success", "Emergency form submitted successfully.");
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.heading}>Emergency Details</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>🚨 Emergency</Text>
 
-        <Text style={styles.label}>Emergency Type</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Medical / Fire / Accident"
-          value={type}
-          onChangeText={setType}
-        />
-
-        <Text style={styles.label}>Description</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Describe the emergency"
-          multiline
-          numberOfLines={4}
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        <Text style={styles.label}>Location</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter area / landmark / city"
-          value={locationText}
-          onChangeText={setLocationText}
-        />
-
-        <TouchableOpacity style={styles.locationButton}>
-          <Text style={styles.locationButtonText}>Use Current Location</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Emergency</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <TouchableOpacity style={styles.button} onPress={sendEmergency}>
+        <Text style={styles.buttonText}>SEND SOS</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8f9fa",
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  scrollContainer: {
+  title: { 
+    fontSize: 26, 
+    marginBottom: 30 
+  },
+  button: {
+    backgroundColor: 'red',
     padding: 20,
+    borderRadius: 10,
   },
-  heading: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#d32f2f",
-    marginBottom: 25,
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
-    marginTop: 10,
-  },
-  input: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: "#ddd",
-  },
-  textArea: {
-    height: 110,
-    textAlignVertical: "top",
-  },
-  locationButton: {
-    marginTop: 18,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#d32f2f",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  locationButtonText: {
-    color: "#d32f2f",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
-  submitButton: {
-    marginTop: 24,
-    backgroundColor: "#d32f2f",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold'
+  }
 });
