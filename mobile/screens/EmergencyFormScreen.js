@@ -1,13 +1,29 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import * as Location from 'expo-location';
 
 export default function EmergencyScreen() {
   const [loading, setLoading] = useState(false);
+  const [type, setType] = useState('medical');
+  const [description, setDescription] = useState('');
   const [locationInfo, setLocationInfo] = useState(null);
 
   const sendEmergency = async () => {
     try {
+      if (!description.trim()) {
+        Alert.alert('Validation Error', 'Please enter emergency description.');
+        return;
+      }
+
       setLoading(true);
 
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -56,8 +72,8 @@ export default function EmergencyScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: 'medical',
-          description: 'Emergency reported from mobile app',
+          type: type,
+          description: description,
           latitude: latitude,
           longitude: longitude,
           location_text: locationText,
@@ -72,7 +88,8 @@ export default function EmergencyScreen() {
         return;
       }
 
-      Alert.alert('Success', 'Emergency Sent Successfully 🚨');
+      Alert.alert('Success', 'Emergency sent successfully 🚨');
+      setDescription('');
     } catch (error) {
       console.log('Error:', error);
       Alert.alert('Error', 'Something went wrong while sending emergency.');
@@ -82,8 +99,48 @@ export default function EmergencyScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🚨 Emergency</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>🚨 Report Emergency</Text>
+
+      <Text style={styles.label}>Select Emergency Type</Text>
+      <View style={styles.typeContainer}>
+        <TouchableOpacity
+          style={[styles.typeButton, type === 'medical' && styles.activeType]}
+          onPress={() => setType('medical')}
+        >
+          <Text style={[styles.typeText, type === 'medical' && styles.activeTypeText]}>
+            Medical
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.typeButton, type === 'accident' && styles.activeType]}
+          onPress={() => setType('accident')}
+        >
+          <Text style={[styles.typeText, type === 'accident' && styles.activeTypeText]}>
+            Accident
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.typeButton, type === 'fire' && styles.activeType]}
+          onPress={() => setType('fire')}
+        >
+          <Text style={[styles.typeText, type === 'fire' && styles.activeTypeText]}>
+            Fire
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.label}>Emergency Description</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Describe the emergency clearly"
+        multiline
+        numberOfLines={4}
+        value={description}
+        onChangeText={setDescription}
+      />
 
       <TouchableOpacity
         style={styles.button}
@@ -105,28 +162,70 @@ export default function EmergencyScreen() {
           <Text style={styles.infoText}>Address: {locationInfo.locationText}</Text>
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 20,
-    justifyContent: 'center',
     backgroundColor: '#f8f9fa',
+    flexGrow: 1,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+    marginBottom: 25,
     textAlign: 'center',
-    marginBottom: 30,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  typeButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  activeType: {
+    backgroundColor: '#007bff',
+    borderColor: '#007bff',
+  },
+  typeText: {
+    color: '#333',
+    fontWeight: '600',
+  },
+  activeTypeText: {
+    color: '#fff',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    textAlignVertical: 'top',
+    minHeight: 120,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   button: {
     backgroundColor: 'red',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
+    marginTop: 25,
   },
   buttonText: {
     color: 'white',
