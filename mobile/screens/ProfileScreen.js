@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,18 +10,56 @@ import {
 } from 'react-native';
 
 export default function ProfileScreen() {
-  const [name, setName] = useState('Pratik Ambilduke');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
-  const handleSave = () => {
-    if (!name.trim() || !phone.trim()) {
-      Alert.alert('Validation Error', 'Please fill your name and phone number.');
-      return;
-    }
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
-    Alert.alert('Success', 'Profile details saved successfully.');
+  const fetchProfile = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/profile');
+      const data = await response.json();
+
+      if (data.name) {
+        setName(data.name);
+        setPhone(data.phone);
+        setEmergencyContactName(data.emergency_contact_name);
+        setEmergencyContactPhone(data.emergency_contact_phone);
+      }
+    } catch (error) {
+      console.log('Fetch Profile Error:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (!name.trim() || !phone.trim()) {
+        Alert.alert('Validation Error', 'Please fill required fields');
+        return;
+      }
+
+      const response = await fetch('http://localhost:8000/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          phone,
+          emergency_contact_name: emergencyContactName,
+          emergency_contact_phone: emergencyContactPhone,
+        }),
+      });
+
+      const data = await response.json();
+
+      Alert.alert('Success', 'Profile saved successfully');
+    } catch (error) {
+      console.log(error);
+      Alert.alert('Error', 'Failed to save profile');
+    }
   };
 
   return (
@@ -32,17 +70,17 @@ export default function ProfileScreen() {
         <Text style={styles.label}>Full Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter your full name"
           value={name}
           onChangeText={setName}
+          placeholder="Enter your name"
         />
 
         <Text style={styles.label}>Phone Number</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter your phone number"
           value={phone}
           onChangeText={setPhone}
+          placeholder="Enter your phone number"
           keyboardType="phone-pad"
         />
 
@@ -51,17 +89,17 @@ export default function ProfileScreen() {
         <Text style={styles.label}>Contact Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter emergency contact name"
           value={emergencyContactName}
           onChangeText={setEmergencyContactName}
+          placeholder="Enter emergency contact name"
         />
 
         <Text style={styles.label}>Contact Phone</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter emergency contact phone"
           value={emergencyContactPhone}
           onChangeText={setEmergencyContactPhone}
+          placeholder="Enter emergency contact phone"
           keyboardType="phone-pad"
         />
 
@@ -92,38 +130,31 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   label: {
-    fontSize: 15,
+    marginTop: 10,
     fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 12,
-    color: '#333',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 10,
-    color: '#111',
   },
   input: {
     backgroundColor: '#f9f9f9',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
   },
   saveButton: {
     backgroundColor: '#007bff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 25,
     alignItems: 'center',
-    marginTop: 28,
   },
   saveButtonText: {
-    color: '#fff',
-    fontSize: 17,
+    color: 'white',
     fontWeight: 'bold',
   },
 });

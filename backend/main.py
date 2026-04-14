@@ -5,6 +5,9 @@ from db import SessionLocal, EmergencyModel
 app = FastAPI()
 
 
+# -----------------------------
+# Pydantic Models
+# -----------------------------
 class Emergency(BaseModel):
     type: str
     description: str
@@ -22,11 +25,30 @@ class EmergencyUpdate(BaseModel):
     status: str
 
 
+class Profile(BaseModel):
+    name: str
+    phone: str
+    emergency_contact_name: str
+    emergency_contact_phone: str
+
+
+# -----------------------------
+# Temporary Profile Storage
+# -----------------------------
+profile_data = {}
+
+
+# -----------------------------
+# Home API
+# -----------------------------
 @app.get("/")
 def home():
     return {"message": "ResQ AI backend is running"}
 
 
+# -----------------------------
+# Emergency APIs
+# -----------------------------
 @app.post("/emergency")
 def create_emergency(emergency: Emergency):
     db = SessionLocal()
@@ -56,7 +78,10 @@ def create_emergency(emergency: Emergency):
 
     db.close()
 
-    return {"status": "Saved in DB", "data": response_data}
+    return {
+        "status": "Saved in DB",
+        "data": response_data
+    }
 
 
 @app.get("/emergencies")
@@ -134,7 +159,11 @@ def update_emergency(id: int, updated_data: EmergencyUpdate):
 
     db.close()
 
-    return {"status": "Emergency updated successfully", "data": response_data}
+    return {
+        "status": "Emergency updated successfully",
+        "data": response_data
+    }
+
 
 @app.delete("/emergency/{id}")
 def delete_emergency(id: int):
@@ -150,3 +179,18 @@ def delete_emergency(id: int):
     db.close()
 
     return {"status": f"Emergency with id {id} deleted successfully"}
+
+
+# -----------------------------
+# Profile APIs
+# -----------------------------
+@app.post("/profile")
+def save_profile(profile: Profile):
+    global profile_data
+    profile_data = profile.dict()
+    return {"message": "Profile saved successfully"}
+
+
+@app.get("/profile")
+def get_profile():
+    return profile_data

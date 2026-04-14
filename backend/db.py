@@ -20,4 +20,14 @@ class EmergencyModel(Base):
     status = Column(String, default="pending")
 
 
+class ProfileModel(Base):
+    __tablename__ = "profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    phone = Column(String)
+    emergency_contact_name = Column(String)
+    emergency_contact_phone = Column(String)
+
+
 Base.metadata.create_all(bind=engine)
