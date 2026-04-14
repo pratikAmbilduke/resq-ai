@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from db import SessionLocal, EmergencyModel
+from db import SessionLocal, EmergencyModel, ProfileModel
 
 app = FastAPI()
 
@@ -30,12 +30,6 @@ class Profile(BaseModel):
     phone: str
     emergency_contact_name: str
     emergency_contact_phone: str
-
-
-# -----------------------------
-# Temporary Profile Storage
-# -----------------------------
-profile_data = {}
 
 
 # -----------------------------
@@ -186,11 +180,76 @@ def delete_emergency(id: int):
 # -----------------------------
 @app.post("/profile")
 def save_profile(profile: Profile):
-    global profile_data
-    profile_data = profile.dict()
-    return {"message": "Profile saved successfully"}
+    db = SessionLocal()
+
+    existing_profile = db.query(ProfileModel).first()
+
+    if existing_profile:
+        existing_profile.name = profile.name
+        existing_profile.phone = profile.phone
+        existing_profile.emergency_contact_name = profile.emergency_contact_name
+        existing_profile.emergency_contact_phone = profile.emergency_contact_phone
+
+        db.commit()
+        db.refresh(existing_profile)
+
+        response_data = {
+            "id": existing_profile.id,
+            "name": existing_profile.name,
+            "phone": existing_profile.phone,
+            "emergency_contact_name": existing_profile.emergency_contact_name,
+            "emergency_contact_phone": existing_profile.emergency_contact_phone
+        }
+
+        db.close()
+        return {
+            "message": "Profile updated successfully",
+            "data": response_data
+        }
+
+    new_profile = ProfileModel(
+        name=profile.name,
+        phone=profile.phone,
+        emergency_contact_name=profile.emergency_contact_name,
+        emergency_contact_phone=profile.emergency_contact_phone
+    )
+
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+
+    response_data = {
+        "id": new_profile.id,
+        "name": new_profile.name,
+        "phone": new_profile.phone,
+        "emergency_contact_name": new_profile.emergency_contact_name,
+        "emergency_contact_phone": new_profile.emergency_contact_phone
+    }
+
+    db.close()
+
+    return {
+        "message": "Profile saved successfully",
+        "data": response_data
+    }
 
 
 @app.get("/profile")
 def get_profile():
-    return profile_data
+    db = SessionLocal()
+    profile = db.query(ProfileModel).first()
+
+    if not profile:
+        db.close()
+        return {}
+
+    response_data = {
+        "id": profile.id,
+        "name": profile.name,
+        "phone": profile.phone,
+        "emergency_contact_name": profile.emergency_contact_name,
+        "emergency_contact_phone": profile.emergency_contact_phone
+    }
+
+    db.close()
+    return response_data
