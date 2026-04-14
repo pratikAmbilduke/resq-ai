@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 
 export default function App() {
   const [location, setLocation] = useState(null);
+  const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSOS = async () => {
@@ -24,6 +25,31 @@ export default function App() {
 
       setLocation({ latitude, longitude });
 
+      // Reverse geocoding
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      let locationText = 'Auto captured from device';
+
+      if (reverseGeocode.length > 0) {
+        const place = reverseGeocode[0];
+        locationText = [
+          place.name,
+          place.street,
+          place.subregion,
+          place.city,
+          place.region,
+          place.postalCode,
+          place.country,
+        ]
+          .filter(Boolean)
+          .join(', ');
+      }
+
+      setAddress(locationText);
+
       const response = await fetch('http://localhost:8000/emergency', {
         method: 'POST',
         headers: {
@@ -34,21 +60,23 @@ export default function App() {
           description: 'SOS triggered from mobile app',
           latitude: latitude,
           longitude: longitude,
-          location_text: 'Auto captured from device',
+          location_text: locationText,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to send emergency');
-      }
+      const responseText = await response.text();
+      console.log('Status:', response.status);
+      console.log('Response Text:', responseText);
 
-      const data = await response.json();
-      console.log('Backend response:', data);
+      if (!response.ok) {
+        Alert.alert('Backend Error', `Status: ${response.status}\n${responseText}`);
+        return;
+      }
 
       Alert.alert('Success', 'Emergency sent successfully.');
     } catch (error) {
       console.log('SOS Error:', error);
-      Alert.alert('Error', 'Failed to send emergency to backend.');
+      Alert.alert('Error', String(error));
     } finally {
       setLoading(false);
     }
@@ -81,6 +109,7 @@ export default function App() {
           <Text style={styles.locationTitle}>Current Location</Text>
           <Text style={styles.locationText}>Latitude: {location.latitude}</Text>
           <Text style={styles.locationText}>Longitude: {location.longitude}</Text>
+          <Text style={styles.locationText}>Address: {address}</Text>
         </View>
       )}
     </View>
