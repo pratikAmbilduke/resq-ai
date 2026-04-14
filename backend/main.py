@@ -75,3 +75,14 @@ def get_emergencies():
     db.close()
 
     return emergencies
+
+@app.get("/emergency/{id}")
+def get_emergency_by_id(id: int):
+    db = SessionLocal()
+    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == id).first()
+    db.close()
+
+    if not emergency:
+        return {"error": "Emergency not found"}
+
+    return emergency
