@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "ResQ AI",
+    "slug": "resq-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic"
+  }
+}
