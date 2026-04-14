@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [emergencyContactName, setEmergencyContactName] = useState('');
@@ -81,6 +81,24 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userId');
+      await AsyncStorage.removeItem('userName');
+      await AsyncStorage.removeItem('userEmail');
+
+      Alert.alert('Logged Out', 'You have been logged out successfully');
+
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
+    } catch (error) {
+      console.log('Logout Error:', error);
+      Alert.alert('Error', 'Failed to logout');
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>👤 My Profile</Text>
@@ -124,6 +142,10 @@ export default function ProfileScreen() {
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Save Profile</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -173,6 +195,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
     color: 'white',
     fontWeight: 'bold',
   },
