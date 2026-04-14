@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HistoryScreen() {
   const [emergencies, setEmergencies] = useState([]);
@@ -16,11 +19,22 @@ export default function HistoryScreen() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://localhost:8000/emergencies');
+      const userId = await AsyncStorage.getItem('userId');
+
+      if (!userId) {
+        Alert.alert('Error', 'User not logged in.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/emergencies/${userId}`);
       const data = await response.json();
 
-      if (!response.ok) {
-        Alert.alert('Error', 'Failed to fetch emergency history.');
+      console.log('History response:', data);
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        setLoading(false);
         return;
       }
 
@@ -33,9 +47,11 @@ export default function HistoryScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchEmergencies();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchEmergencies();
+    }, [])
+  );
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
@@ -50,7 +66,11 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📜 Emergency History</Text>
+      <Text style={styles.title}>📜 My Emergency History</Text>
+
+      <TouchableOpacity style={styles.refreshButton} onPress={fetchEmergencies}>
+        <Text style={styles.refreshButtonText}>Refresh</Text>
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator size="large" color="#007bff" />
@@ -77,8 +97,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 15,
     textAlign: 'center',
+  },
+  refreshButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   card: {
     backgroundColor: 'white',

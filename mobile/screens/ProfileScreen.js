@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
   const [name, setName] = useState('');
@@ -21,7 +22,12 @@ export default function ProfileScreen() {
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch('http://localhost:8000/profile');
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/profile/${userId}`);
       const data = await response.json();
 
       if (data.name) {
@@ -37,6 +43,13 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     try {
+      const userId = await AsyncStorage.getItem('userId');
+
+      if (!userId) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
+
       if (!name.trim() || !phone.trim()) {
         Alert.alert('Validation Error', 'Please fill required fields');
         return;
@@ -50,10 +63,16 @@ export default function ProfileScreen() {
           phone,
           emergency_contact_name: emergencyContactName,
           emergency_contact_phone: emergencyContactPhone,
+          user_id: parseInt(userId),
         }),
       });
 
       const data = await response.json();
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        return;
+      }
 
       Alert.alert('Success', 'Profile saved successfully');
     } catch (error) {
@@ -64,7 +83,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>👤 Profile</Text>
+      <Text style={styles.title}>👤 My Profile</Text>
 
       <View style={styles.card}>
         <Text style={styles.label}>Full Name</Text>

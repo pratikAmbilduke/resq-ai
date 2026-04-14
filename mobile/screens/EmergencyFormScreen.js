@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function EmergencyScreen() {
   const [loading, setLoading] = useState(false);
@@ -26,11 +27,16 @@ export default function EmergencyScreen() {
 
       setLoading(true);
 
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
+
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required.');
-        setLoading(false);
         return;
       }
 
@@ -72,26 +78,26 @@ export default function EmergencyScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: type,
-          description: description,
-          latitude: latitude,
-          longitude: longitude,
+          type,
+          description,
+          latitude,
+          longitude,
           location_text: locationText,
+          user_id: parseInt(userId),
         }),
       });
 
       const data = await response.json();
-      console.log('Backend Response:', data);
 
-      if (!response.ok) {
-        Alert.alert('Error', 'Failed to send emergency.');
+      if (data.error) {
+        Alert.alert('Error', data.error);
         return;
       }
 
       Alert.alert('Success', 'Emergency sent successfully 🚨');
       setDescription('');
     } catch (error) {
-      console.log('Error:', error);
+      console.log('Emergency Error:', error);
       Alert.alert('Error', 'Something went wrong while sending emergency.');
     } finally {
       setLoading(false);

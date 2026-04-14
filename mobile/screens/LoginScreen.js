@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -27,10 +28,14 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
+      await AsyncStorage.setItem('userId', String(data.data.id));
+      await AsyncStorage.setItem('userName', data.data.name);
+      await AsyncStorage.setItem('userEmail', data.data.email);
+
       Alert.alert('Success', 'Login successful');
       navigation.replace('Home');
     } catch (error) {
-      console.log(error);
+      console.log('Login Error:', error);
       Alert.alert('Error', 'Failed to login');
     }
   };
