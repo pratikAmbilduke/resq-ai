@@ -60,7 +60,6 @@ def home():
 @app.post("/register")
 def register(user: UserRegister):
     db = SessionLocal()
-
     try:
         existing = db.query(UserModel).filter(UserModel.email == user.email).first()
         if existing:
@@ -89,11 +88,9 @@ def register(user: UserRegister):
                 "role": new_user.role
             }
         }
-
     except Exception as e:
         print("Register Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -101,7 +98,6 @@ def register(user: UserRegister):
 @app.post("/login")
 def login(user: UserLogin):
     db = SessionLocal()
-
     try:
         existing = db.query(UserModel).filter(UserModel.email == user.email).first()
 
@@ -120,11 +116,9 @@ def login(user: UserLogin):
                 "role": existing.role
             }
         }
-
     except Exception as e:
         print("Login Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -132,7 +126,6 @@ def login(user: UserLogin):
 @app.post("/emergency")
 def create_emergency(e: Emergency):
     db = SessionLocal()
-
     try:
         new = EmergencyModel(
             type=e.type,
@@ -161,11 +154,9 @@ def create_emergency(e: Emergency):
                 "user_id": new.user_id
             }
         }
-
     except Exception as e:
         print("Emergency Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -173,7 +164,6 @@ def create_emergency(e: Emergency):
 @app.get("/emergencies/{user_id}")
 def get_emergencies_by_user(user_id: int):
     db = SessionLocal()
-
     try:
         data = db.query(EmergencyModel).filter(EmergencyModel.user_id == user_id).all()
 
@@ -190,11 +180,9 @@ def get_emergencies_by_user(user_id: int):
             }
             for e in data
         ]
-
     except Exception as e:
         print("Fetch Emergencies Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -202,7 +190,6 @@ def get_emergencies_by_user(user_id: int):
 @app.post("/admin/emergencies")
 def get_all_emergencies(payload: AdminAccessRequest):
     db = SessionLocal()
-
     try:
         admin_user = db.query(UserModel).filter(UserModel.id == payload.user_id).first()
 
@@ -227,11 +214,9 @@ def get_all_emergencies(payload: AdminAccessRequest):
             }
             for e in data
         ]
-
     except Exception as e:
         print("Admin Fetch Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -239,7 +224,6 @@ def get_all_emergencies(payload: AdminAccessRequest):
 @app.put("/emergency/{emergency_id}/status")
 def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
     db = SessionLocal()
-
     try:
         emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
@@ -247,7 +231,6 @@ def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
             return {"error": "Emergency not found"}
 
         allowed_statuses = ["pending", "in_progress", "resolved"]
-
         if payload.status not in allowed_statuses:
             return {"error": "Invalid status value"}
 
@@ -262,11 +245,9 @@ def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
                 "status": emergency.status
             }
         }
-
     except Exception as e:
         print("Update Status Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -274,7 +255,6 @@ def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
 @app.post("/profile")
 def save_profile(p: Profile):
     db = SessionLocal()
-
     try:
         existing = db.query(ProfileModel).filter(ProfileModel.user_id == p.user_id).first()
 
@@ -321,11 +301,9 @@ def save_profile(p: Profile):
                 "user_id": profile.user_id
             }
         }
-
     except Exception as e:
         print("Profile Save Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -333,7 +311,6 @@ def save_profile(p: Profile):
 @app.get("/profile/{user_id}")
 def get_profile(user_id: int):
     db = SessionLocal()
-
     try:
         profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
 
@@ -348,10 +325,8 @@ def get_profile(user_id: int):
             "emergency_contact_phone": profile.emergency_contact_phone,
             "user_id": profile.user_id
         }
-
     except Exception as e:
         print("Profile Fetch Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()

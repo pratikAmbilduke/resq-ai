@@ -4,7 +4,6 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/resq_ai"
 
 engine = create_engine(DATABASE_URL)
-
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()

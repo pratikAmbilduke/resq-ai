@@ -15,7 +15,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
   const handleLogin = async () => {
     try {
-      if (!email || !password) {
+      if (!email.trim() || !password.trim()) {
         Alert.alert('Error', 'Please fill all fields');
         return;
       }
@@ -23,7 +23,10 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       const response = await fetch('http://localhost:8000/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
       });
 
       const data = await response.json();
@@ -34,8 +37,8 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       }
 
       await AsyncStorage.setItem('userId', String(data.data.id));
-      await AsyncStorage.setItem('userName', data.data.name);
-      await AsyncStorage.setItem('userEmail', data.data.email);
+      await AsyncStorage.setItem('userName', data.data.name || '');
+      await AsyncStorage.setItem('userEmail', data.data.email || '');
       await AsyncStorage.setItem('userRole', data.data.role || 'user');
 
       Alert.alert('Success', 'Login successful');
@@ -59,14 +62,15 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
 
       <TextInput
         style={styles.input}
         placeholder="Enter password"
-        secureTextEntry
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
       />
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
@@ -111,9 +115,11 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   link: {
     textAlign: 'center',
     color: '#007bff',
+    fontWeight: '500',
   },
 });

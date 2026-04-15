@@ -30,9 +30,9 @@ export default function ProfileScreen({ onLogout }) {
 
       if (data.name) {
         setName(data.name);
-        setPhone(data.phone);
-        setEmergencyContactName(data.emergency_contact_name);
-        setEmergencyContactPhone(data.emergency_contact_phone);
+        setPhone(data.phone || '');
+        setEmergencyContactName(data.emergency_contact_name || '');
+        setEmergencyContactPhone(data.emergency_contact_phone || '');
       }
     } catch (error) {
       console.log('Fetch Profile Error:', error);
@@ -86,29 +86,18 @@ export default function ProfileScreen({ onLogout }) {
       'Confirm Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: handleLogout,
+          onPress: async () => {
+            if (onLogout) {
+              await onLogout();
+            }
+          },
         },
       ]
     );
-  };
-
-  const handleLogout = async () => {
-    try {
-      if (onLogout) {
-        await onLogout();
-      }
-      Alert.alert('Logged Out', 'You have been logged out successfully');
-    } catch (error) {
-      console.log('Logout Error:', error);
-      Alert.alert('Error', 'Failed to logout');
-    }
   };
 
   return (

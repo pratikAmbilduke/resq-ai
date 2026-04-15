@@ -34,30 +34,21 @@ function MainStack({ onLogout }) {
         {(props) => <HomeScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
 
-      <Stack.Screen name="Emergency">
-        {(props) => <EmergencyScreen {...props} />}
-      </Stack.Screen>
-
-      <Stack.Screen name="History">
-        {(props) => <HistoryScreen {...props} />}
-      </Stack.Screen>
-
+      <Stack.Screen name="Emergency" component={EmergencyScreen} />
+      <Stack.Screen name="History" component={HistoryScreen} />
       <Stack.Screen name="Profile">
         {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
-
       <Stack.Screen
         name="EmergencyLocation"
         component={EmergencyLocationScreen}
         options={{ title: 'Emergency Map View' }}
       />
-
       <Stack.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{ title: 'Dashboard' }}
       />
-
       <Stack.Screen
         name="Admin"
         component={AdminScreen}
@@ -70,21 +61,21 @@ function MainStack({ onLogout }) {
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [navResetKey, setNavResetKey] = useState('');
+  const [navKey, setNavKey] = useState(`init-${Date.now()}`);
 
   useEffect(() => {
-    initializeApp();
+    checkLoginStatus();
   }, []);
 
-  const initializeApp = async () => {
+  const checkLoginStatus = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
       setIsLoggedIn(!!userId);
-      setNavResetKey(`app-start-${Date.now()}`);
+      setNavKey(`startup-${Date.now()}`);
     } catch (error) {
-      console.log('App Init Error:', error);
+      console.log('Session Check Error:', error);
       setIsLoggedIn(false);
-      setNavResetKey(`app-start-${Date.now()}`);
+      setNavKey(`startup-${Date.now()}`);
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +83,7 @@ export default function App() {
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
-    setNavResetKey(`login-${Date.now()}`);
+    setNavKey(`login-${Date.now()}`);
   };
 
   const handleLogout = async () => {
@@ -102,7 +93,7 @@ export default function App() {
       await AsyncStorage.removeItem('userEmail');
       await AsyncStorage.removeItem('userRole');
       setIsLoggedIn(false);
-      setNavResetKey(`logout-${Date.now()}`);
+      setNavKey(`logout-${Date.now()}`);
     } catch (error) {
       console.log('Logout Error:', error);
     }
@@ -118,7 +109,7 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer key={`${navResetKey}-${isLoggedIn ? 'logged-in' : 'logged-out'}`}>
+    <NavigationContainer key={navKey}>
       {isLoggedIn ? (
         <MainStack onLogout={handleLogout} />
       ) : (
@@ -133,6 +124,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   loaderText: {
     marginTop: 15,

@@ -153,7 +153,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111',
   },
-
   skeletonCard: {
     backgroundColor: '#fff',
     padding: 20,

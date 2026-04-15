@@ -10,6 +10,8 @@ import {
   TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function AdminScreen() {
       setEmergencies(data);
     } catch (error) {
       console.log('Admin Fetch Error:', error);
-      Alert.alert('Error', 'Failed to load emergencies');
+      Alert.alert('Error', 'Failed to load admin data');
     } finally {
       setLoading(false);
     }
@@ -100,17 +102,76 @@ export default function AdminScreen() {
     );
   };
 
-  const filteredEmergencies = emergencies.filter((item) => {
-    const matchesFilter =
-      filter === 'all' || item.status === filter;
+  const exportToCSV = async () => {
+    try {
+      if (filteredEmergencies.length === 0) {
+        Alert.alert('No Data', 'There is no admin data to export.');
+        return;
+      }
 
-    const matchesSearch =
+      const headers = [
+        'ID',
+        'Type',
+        'Description',
+        'Latitude',
+        'Longitude',
+        'Location',
+        'Status',
+        'User ID',
+      ];
+
+      const rows = filteredEmergencies.map((item) => [
+        item.id,
+        `"${String(item.type).replace(/"/g, '""')}"`,
+        `"${String(item.description).replace(/"/g, '""')}"`,
+        item.latitude,
+        item.longitude,
+        `"${String(item.location_text).replace(/"/g, '""')}"`,
+        `"${String(item.status).replace(/"/g, '""')}"`,
+        item.user_id,
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.join(',')),
+      ].join('\n');
+
+      const fileUri =
+        FileSystem.documentDirectory +
+        `admin_emergency_history_${Date.now()}.csv`;
+
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert('Exported', `CSV file saved at:\n${fileUri}`);
+        return;
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export Admin Emergency Data',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      console.log('Admin CSV Export Error:', error);
+      Alert.alert('Error', 'Failed to export CSV file.');
+    }
+  };
+
+  const filteredEmergencies = emergencies.filter((item) => {
+    const matchFilter = filter === 'all' || item.status === filter;
+
+    const matchSearch =
       item.type.toLowerCase().includes(searchText.toLowerCase()) ||
       item.description.toLowerCase().includes(searchText.toLowerCase()) ||
       item.location_text.toLowerCase().includes(searchText.toLowerCase()) ||
       String(item.user_id).includes(searchText);
 
-    return matchesFilter && matchesSearch;
+    return matchFilter && matchSearch;
   });
 
   const getStatusStyle = (status) => {
@@ -122,7 +183,7 @@ export default function AdminScreen() {
       case 'resolved':
         return styles.resolved;
       default:
-        return {};
+        return styles.defaultStatus;
     }
   };
 
@@ -164,7 +225,7 @@ export default function AdminScreen() {
 
   const renderNoResults = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyEmoji}>🔎</Text>
+      <Text style={styles.emptyEmoji}>📂</Text>
       <Text style={styles.emptyTitle}>No Matching Records</Text>
       <Text style={styles.emptySubtitle}>
         Try another search term or filter.
@@ -182,7 +243,7 @@ export default function AdminScreen() {
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by type, description, location, user ID"
+        placeholder="Search by type, description, location or user ID"
         value={searchText}
         onChangeText={setSearchText}
       />
@@ -217,8 +278,12 @@ export default function AdminScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.refresh} onPress={fetchAllEmergencies}>
-        <Text style={styles.refreshText}>Refresh</Text>
+      <TouchableOpacity style={styles.exportButton} onPress={exportToCSV}>
+        <Text style={styles.exportButtonText}>Export CSV</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.refreshButton} onPress={fetchAllEmergencies}>
+        <Text style={styles.refreshButtonText}>Refresh</Text>
       </TouchableOpacity>
 
       <FlatList
@@ -233,14 +298,17 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f4f6f8' },
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f4f6f8',
+  },
   title: {
     fontSize: 24,
     textAlign: 'center',
     marginBottom: 12,
     fontWeight: 'bold',
   },
-
   searchInput: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -249,12 +317,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
-
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
     justifyContent: 'center',
   },
   filterButton: {
@@ -270,19 +337,28 @@ const styles = StyleSheet.create({
     color: '#111',
     fontWeight: '600',
   },
-
-  refresh: {
+  exportButton: {
     backgroundColor: '#111827',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  exportButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  refreshButton: {
+    backgroundColor: '#374151',
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 14,
   },
-  refreshText: {
+  refreshButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },
-
   card: {
     backgroundColor: '#fff',
     padding: 16,
@@ -315,7 +391,9 @@ const styles = StyleSheet.create({
   resolved: {
     color: '#28a745',
   },
-
+  defaultStatus: {
+    color: '#555',
+  },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -340,7 +418,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
