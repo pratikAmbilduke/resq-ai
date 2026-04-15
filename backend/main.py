@@ -40,6 +40,10 @@ class Profile(BaseModel):
     user_id: int
 
 
+class AdminAccessRequest(BaseModel):
+    user_id: int
+
+
 def hash_password(password: str):
     return pwd_context.hash(password[:50])
 
@@ -63,9 +67,6 @@ def register(user: UserRegister):
             return {"error": "Email already exists"}
 
         hashed = hash_password(user.password)
-
-        # Simple admin rule:
-        # if email is admin@resqai.com -> admin role
         role = "admin" if user.email.lower() == "admin@resqai.com" else "user"
 
         new_user = UserModel(
@@ -198,11 +199,19 @@ def get_emergencies_by_user(user_id: int):
         db.close()
 
 
-@app.get("/admin/emergencies")
-def get_all_emergencies():
+@app.post("/admin/emergencies")
+def get_all_emergencies(payload: AdminAccessRequest):
     db = SessionLocal()
 
     try:
+        admin_user = db.query(UserModel).filter(UserModel.id == payload.user_id).first()
+
+        if not admin_user:
+            return {"error": "User not found"}
+
+        if admin_user.role != "admin":
+            return {"error": "Access denied. Admin only."}
+
         data = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
 
         return [
