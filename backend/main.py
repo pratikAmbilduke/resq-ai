@@ -8,9 +8,6 @@ app = FastAPI()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# -----------------------------
-# Pydantic Models
-# -----------------------------
 class UserRegister(BaseModel):
     name: str
     email: str
@@ -43,9 +40,6 @@ class Profile(BaseModel):
     user_id: int
 
 
-# -----------------------------
-# Helper Functions
-# -----------------------------
 def hash_password(password: str):
     return pwd_context.hash(password[:50])
 
@@ -54,17 +48,11 @@ def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password[:50], hashed_password)
 
 
-# -----------------------------
-# Home API
-# -----------------------------
 @app.get("/")
 def home():
     return {"message": "Backend running"}
 
 
-# -----------------------------
-# Auth APIs
-# -----------------------------
 @app.post("/register")
 def register(user: UserRegister):
     db = SessionLocal()
@@ -133,9 +121,6 @@ def login(user: UserLogin):
         db.close()
 
 
-# -----------------------------
-# Emergency APIs
-# -----------------------------
 @app.post("/emergency")
 def create_emergency(e: Emergency):
     db = SessionLocal()
@@ -206,6 +191,35 @@ def get_emergencies_by_user(user_id: int):
         db.close()
 
 
+@app.get("/admin/emergencies")
+def get_all_emergencies():
+    db = SessionLocal()
+
+    try:
+        data = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
+
+        return [
+            {
+                "id": e.id,
+                "type": e.type,
+                "description": e.description,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "location_text": e.location_text,
+                "status": e.status,
+                "user_id": e.user_id
+            }
+            for e in data
+        ]
+
+    except Exception as e:
+        print("Admin Fetch Error:", e)
+        return {"error": str(e)}
+
+    finally:
+        db.close()
+
+
 @app.put("/emergency/{emergency_id}/status")
 def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
     db = SessionLocal()
@@ -241,9 +255,6 @@ def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
         db.close()
 
 
-# -----------------------------
-# Profile APIs
-# -----------------------------
 @app.post("/profile")
 def save_profile(p: Profile):
     db = SessionLocal()

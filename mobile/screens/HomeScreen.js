@@ -72,6 +72,16 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.card}
+          onPress={() => navigation.navigate('Admin')}
+        >
+          <Text style={styles.cardTitle}>🛠️ Admin Panel</Text>
+          <Text style={styles.cardDescription}>
+            View and manage all emergency reports
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
           onPress={() => navigation.navigate('Profile')}
         >
           <Text style={styles.cardTitle}>👤 Profile</Text>
