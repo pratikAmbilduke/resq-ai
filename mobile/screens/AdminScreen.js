@@ -32,11 +32,52 @@ export default function AdminScreen() {
 
       setEmergencies(data);
     } catch (error) {
-      console.log('Admin Screen Error:', error);
-      Alert.alert('Error', 'Failed to load admin data');
+      console.log('Admin Fetch Error:', error);
+      Alert.alert('Error', 'Failed to load emergencies');
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateStatus = async (id, newStatus) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/emergency/${id}/status`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        return;
+      }
+
+      Alert.alert('Success', `Status updated to ${newStatus}`);
+
+      fetchAllEmergencies();
+    } catch (error) {
+      console.log('Update Status Error:', error);
+      Alert.alert('Error', 'Failed to update status');
+    }
+  };
+
+  const confirmUpdate = (id, status) => {
+    Alert.alert(
+      'Confirm Update',
+      `Change status to ${status}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: () => updateStatus(id, status),
+        },
+      ]
+    );
   };
 
   const filteredEmergencies =
@@ -47,165 +88,130 @@ export default function AdminScreen() {
   const getStatusStyle = (status) => {
     switch (status) {
       case 'pending':
-        return styles.pendingStatus;
+        return styles.pending;
       case 'in_progress':
-        return styles.inProgressStatus;
+        return styles.progress;
       case 'resolved':
-        return styles.resolvedStatus;
+        return styles.resolved;
       default:
-        return styles.defaultStatus;
+        return {};
     }
   };
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <Text style={styles.type}>{item.type.toUpperCase()}</Text>
-      <Text style={styles.text}>Description: {item.description}</Text>
-      <Text style={styles.text}>Location: {item.location_text}</Text>
-      <Text style={styles.text}>User ID: {item.user_id}</Text>
+      <Text>Description: {item.description}</Text>
+      <Text>Location: {item.location_text}</Text>
+
       <Text style={[styles.status, getStatusStyle(item.status)]}>
         Status: {item.status}
       </Text>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={styles.btnPending}
+          onPress={() => confirmUpdate(item.id, 'pending')}
+        >
+          <Text style={styles.btnText}>Pending</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.btnProgress}
+          onPress={() => confirmUpdate(item.id, 'in_progress')}
+        >
+          <Text style={styles.btnText}>In Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.btnResolved}
+          onPress={() => confirmUpdate(item.id, 'resolved')}
+        >
+          <Text style={styles.btnText}>Resolved</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
   if (loading) {
-    return <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 50 }} />;
+    return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🛠️ Admin Panel</Text>
 
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'all' && styles.activeFilter]}
-          onPress={() => setFilter('all')}
-        >
-          <Text style={styles.filterText}>All</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'pending' && styles.activeFilter]}
-          onPress={() => setFilter('pending')}
-        >
-          <Text style={styles.filterText}>Pending</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'in_progress' && styles.activeFilter]}
-          onPress={() => setFilter('in_progress')}
-        >
-          <Text style={styles.filterText}>In Progress</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, filter === 'resolved' && styles.activeFilter]}
-          onPress={() => setFilter('resolved')}
-        >
-          <Text style={styles.filterText}>Resolved</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.refreshButton} onPress={fetchAllEmergencies}>
-        <Text style={styles.refreshButtonText}>Refresh</Text>
-      </TouchableOpacity>
-
       <FlatList
         data={filteredEmergencies}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No emergencies found.</Text>
-        }
       />
+
+      <TouchableOpacity style={styles.refresh} onPress={fetchAllEmergencies}>
+        <Text style={styles.refreshText}>Refresh</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f4f6f8',
-  },
+  container: { flex: 1, padding: 16 },
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 24,
     textAlign: 'center',
-    marginBottom: 16,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-    justifyContent: 'center',
-  },
-  filterButton: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  activeFilter: {
-    backgroundColor: '#007bff',
-  },
-  filterText: {
-    color: '#111',
-    fontWeight: '600',
-  },
-  refreshButton: {
-    backgroundColor: '#111827',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  refreshButtonText: {
-    color: '#fff',
+    marginBottom: 10,
     fontWeight: 'bold',
   },
   card: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    elevation: 3,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    elevation: 2,
   },
-  type: {
-    fontSize: 16,
+  type: { fontWeight: 'bold', fontSize: 16 },
+  status: { marginTop: 5, fontWeight: 'bold' },
+
+  pending: { color: '#f39c12' },
+  progress: { color: '#3498db' },
+  resolved: { color: '#2ecc71' },
+
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+
+  btnPending: {
+    backgroundColor: '#f39c12',
+    padding: 8,
+    borderRadius: 8,
+  },
+  btnProgress: {
+    backgroundColor: '#3498db',
+    padding: 8,
+    borderRadius: 8,
+  },
+  btnResolved: {
+    backgroundColor: '#2ecc71',
+    padding: 8,
+    borderRadius: 8,
+  },
+
+  btnText: {
+    color: '#fff',
     fontWeight: 'bold',
-    color: '#007bff',
-    marginBottom: 8,
   },
-  text: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 6,
+
+  refresh: {
+    backgroundColor: '#000',
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
   },
-  status: {
-    marginTop: 8,
-    fontSize: 14,
+  refreshText: {
+    color: '#fff',
     fontWeight: 'bold',
-  },
-  pendingStatus: {
-    color: '#e0a800',
-  },
-  inProgressStatus: {
-    color: '#17a2b8',
-  },
-  resolvedStatus: {
-    color: '#28a745',
-  },
-  defaultStatus: {
-    color: '#555',
-  },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 30,
-    color: '#666',
-    fontSize: 16,
   },
 });
