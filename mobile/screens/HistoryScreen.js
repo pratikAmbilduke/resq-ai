@@ -4,8 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,7 +18,7 @@ export default function HistoryScreen({ navigation }) {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
+        setEmergencies([]);
         return;
       }
 
@@ -28,26 +26,26 @@ export default function HistoryScreen({ navigation }) {
       const data = await response.json();
 
       if (data.error) {
-        Alert.alert('Error', data.error);
+        setEmergencies([]);
         return;
       }
 
       setEmergencies(data);
     } catch (error) {
       console.log('History Error:', error);
+      setEmergencies([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial load when screen opens
   useFocusEffect(
     useCallback(() => {
+      setLoading(true);
       fetchEmergencies();
     }, [])
   );
 
-  // 🔥 Auto refresh every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchEmergencies();
@@ -84,34 +82,63 @@ export default function HistoryScreen({ navigation }) {
     }
   };
 
-  const renderItem = ({ item }) => (
+  const renderEmergencyCard = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
       onPress={() => openEmergencyLocation(item)}
     >
-      <Text style={styles.type}>Type: {item.type}</Text>
-      <Text style={styles.text}>Description: {item.description}</Text>
-      <Text style={styles.text}>Location: {item.location_text}</Text>
+      <Text style={styles.type}>{item.type.toUpperCase()}</Text>
+      <Text style={styles.description}>{item.description}</Text>
+      <Text style={styles.location}>{item.location_text}</Text>
       <Text style={[styles.status, getStatusStyle(item.status)]}>
-        Status: {item.status}
+        {item.status.replace('_', ' ').toUpperCase()}
       </Text>
-      <Text style={styles.tapHint}>Tap to view on map</Text>
+      <Text style={styles.tapHint}>Tap to view details and map</Text>
     </TouchableOpacity>
   );
+
+  const renderSkeleton = () => {
+    return (
+      <View>
+        {[1, 2, 3].map((item) => (
+          <View key={item} style={styles.skeletonCard}>
+            <View style={styles.skeletonLineShort} />
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonLineMedium} />
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderEmptyState = () => {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyEmoji}>📭</Text>
+        <Text style={styles.emptyTitle}>No Emergency History</Text>
+        <Text style={styles.emptySubtitle}>
+          Your emergency reports will appear here once you submit them.
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>📜 My Emergency History</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#007bff" />
+        renderSkeleton()
       ) : emergencies.length === 0 ? (
-        <Text style={styles.empty}>No emergency history found.</Text>
+        renderEmptyState()
       ) : (
         <FlatList
           data={emergencies}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
+          renderItem={renderEmergencyCard}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -121,34 +148,44 @@ export default function HistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15,
-    backgroundColor: '#f8f9fa',
+    padding: 16,
+    backgroundColor: '#f4f6f8',
   },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 15,
     textAlign: 'center',
+    marginBottom: 18,
+    color: '#111',
   },
+
   card: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 15,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 14,
     elevation: 3,
   },
   type: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#007bff',
+    marginBottom: 8,
   },
-  text: {
-    fontSize: 14,
-    marginTop: 5,
+  description: {
+    fontSize: 15,
+    color: '#222',
+    marginBottom: 8,
+  },
+  location: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 8,
   },
   status: {
-    marginTop: 8,
+    fontSize: 13,
     fontWeight: 'bold',
+    marginBottom: 10,
   },
   pendingStatus: {
     color: '#e0a800',
@@ -163,12 +200,59 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   tapHint: {
-    marginTop: 10,
     color: '#dc3545',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: 13,
   },
-  empty: {
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 80,
+    paddingHorizontal: 20,
+  },
+  emptyEmoji: {
+    fontSize: 50,
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#666',
     textAlign: 'center',
-    marginTop: 50,
+    lineHeight: 22,
+  },
+
+  skeletonCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 14,
+    elevation: 2,
+  },
+  skeletonLine: {
+    height: 14,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  skeletonLineShort: {
+    width: '35%',
+    height: 14,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  skeletonLineMedium: {
+    width: '50%',
+    height: 14,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 8,
   },
 });

@@ -3,8 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,7 +20,12 @@ export default function DashboardScreen() {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        Alert.alert('Error', 'User not logged in');
+        setStats({
+          total: 0,
+          pending: 0,
+          in_progress: 0,
+          resolved: 0,
+        });
         return;
       }
 
@@ -30,7 +33,6 @@ export default function DashboardScreen() {
       const data = await response.json();
 
       if (data.error) {
-        Alert.alert('Error', data.error);
         return;
       }
 
@@ -47,7 +49,6 @@ export default function DashboardScreen() {
     }
   };
 
-  // 🔥 Auto refresh every 5 seconds
   useEffect(() => {
     fetchStats();
 
@@ -58,29 +59,48 @@ export default function DashboardScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 50 }} />;
-  }
+  const renderSkeleton = () => {
+    return (
+      <View>
+        {[1, 2, 3, 4].map((item) => (
+          <View key={item} style={styles.skeletonCard}>
+            <View style={styles.skeletonLine} />
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>📊 Dashboard</Text>
+      <Text style={styles.subtitle}>Live emergency summary</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.total}>Total: {stats.total}</Text>
-      </View>
+      {loading ? (
+        renderSkeleton()
+      ) : (
+        <>
+          <View style={[styles.card, styles.totalCard]}>
+            <Text style={styles.cardTitle}>Total Emergencies</Text>
+            <Text style={styles.cardValue}>{stats.total}</Text>
+          </View>
 
-      <View style={[styles.card, styles.pending]}>
-        <Text style={styles.text}>Pending: {stats.pending}</Text>
-      </View>
+          <View style={[styles.card, styles.pendingCard]}>
+            <Text style={styles.cardTitle}>Pending</Text>
+            <Text style={styles.cardValue}>{stats.pending}</Text>
+          </View>
 
-      <View style={[styles.card, styles.progress]}>
-        <Text style={styles.text}>In Progress: {stats.in_progress}</Text>
-      </View>
+          <View style={[styles.card, styles.progressCard]}>
+            <Text style={styles.cardTitle}>In Progress</Text>
+            <Text style={styles.cardValue}>{stats.in_progress}</Text>
+          </View>
 
-      <View style={[styles.card, styles.resolved]}>
-        <Text style={styles.text}>Resolved: {stats.resolved}</Text>
-      </View>
+          <View style={[styles.card, styles.resolvedCard]}>
+            <Text style={styles.cardTitle}>Resolved</Text>
+            <Text style={styles.cardValue}>{stats.resolved}</Text>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -89,38 +109,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f4f6f8',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
+    color: '#111',
+  },
+  subtitle: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 6,
     marginBottom: 20,
+    fontSize: 14,
   },
   card: {
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 15,
-    backgroundColor: 'white',
+    marginBottom: 14,
     elevation: 3,
   },
-  total: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  totalCard: {
+    backgroundColor: '#ffffff',
   },
-  text: {
-    fontSize: 18,
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  pending: {
+  pendingCard: {
     backgroundColor: '#fff3cd',
   },
-  progress: {
+  progressCard: {
     backgroundColor: '#d1ecf1',
   },
-  resolved: {
+  resolvedCard: {
     backgroundColor: '#d4edda',
+  },
+  cardTitle: {
+    fontSize: 16,
+    color: '#222',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  cardValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#111',
+  },
+
+  skeletonCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 14,
+    elevation: 2,
+  },
+  skeletonLine: {
+    height: 22,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 10,
   },
 });
