@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,13 +17,10 @@ export default function HistoryScreen({ navigation }) {
 
   const fetchEmergencies = async () => {
     try {
-      setLoading(true);
-
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
         Alert.alert('Error', 'User not logged in.');
-        setLoading(false);
         return;
       }
 
@@ -32,28 +29,36 @@ export default function HistoryScreen({ navigation }) {
 
       if (data.error) {
         Alert.alert('Error', data.error);
-        setLoading(false);
         return;
       }
 
       setEmergencies(data);
     } catch (error) {
       console.log('History Error:', error);
-      Alert.alert('Error', 'Something went wrong while fetching history.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Initial load when screen opens
   useFocusEffect(
     useCallback(() => {
       fetchEmergencies();
     }, [])
   );
 
+  // 🔥 Auto refresh every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchEmergencies();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleUpdatedEmergency = (updatedEmergency) => {
-    setEmergencies((prevEmergencies) =>
-      prevEmergencies.map((item) =>
+    setEmergencies((prev) =>
+      prev.map((item) =>
         item.id === updatedEmergency.id ? updatedEmergency : item
       )
     );
@@ -86,8 +91,6 @@ export default function HistoryScreen({ navigation }) {
     >
       <Text style={styles.type}>Type: {item.type}</Text>
       <Text style={styles.text}>Description: {item.description}</Text>
-      <Text style={styles.text}>Latitude: {item.latitude}</Text>
-      <Text style={styles.text}>Longitude: {item.longitude}</Text>
       <Text style={styles.text}>Location: {item.location_text}</Text>
       <Text style={[styles.status, getStatusStyle(item.status)]}>
         Status: {item.status}
@@ -100,10 +103,6 @@ export default function HistoryScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>📜 My Emergency History</Text>
 
-      <TouchableOpacity style={styles.refreshButton} onPress={fetchEmergencies}>
-        <Text style={styles.refreshButtonText}>Refresh</Text>
-      </TouchableOpacity>
-
       {loading ? (
         <ActivityIndicator size="large" color="#007bff" />
       ) : emergencies.length === 0 ? (
@@ -113,7 +112,6 @@ export default function HistoryScreen({ navigation }) {
           data={emergencies}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
     </View>
@@ -132,17 +130,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     textAlign: 'center',
   },
-  refreshButton: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  refreshButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
   card: {
     backgroundColor: 'white',
     padding: 15,
@@ -153,17 +140,15 @@ const styles = StyleSheet.create({
   type: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
     color: '#007bff',
   },
   text: {
     fontSize: 14,
-    marginBottom: 5,
+    marginTop: 5,
   },
   status: {
-    fontSize: 15,
-    fontWeight: 'bold',
     marginTop: 8,
+    fontWeight: 'bold',
   },
   pendingStatus: {
     color: '#e0a800',
@@ -184,8 +169,6 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: 'center',
-    fontSize: 16,
     marginTop: 50,
-    color: 'gray',
   },
 });

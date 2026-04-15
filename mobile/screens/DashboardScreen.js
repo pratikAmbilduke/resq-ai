@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,14 +17,8 @@ export default function DashboardScreen() {
     resolved: 0,
   });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
   const fetchStats = async () => {
     try {
-      setLoading(true);
-
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
@@ -46,19 +39,24 @@ export default function DashboardScreen() {
       const in_progress = data.filter((e) => e.status === 'in_progress').length;
       const resolved = data.filter((e) => e.status === 'resolved').length;
 
-      setStats({
-        total,
-        pending,
-        in_progress,
-        resolved,
-      });
+      setStats({ total, pending, in_progress, resolved });
     } catch (error) {
       console.log('Dashboard Error:', error);
-      Alert.alert('Error', 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
   };
+
+  // 🔥 Auto refresh every 5 seconds
+  useEffect(() => {
+    fetchStats();
+
+    const interval = setInterval(() => {
+      fetchStats();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 50 }} />;
@@ -68,12 +66,8 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>📊 Dashboard</Text>
 
-      <TouchableOpacity style={styles.refreshButton} onPress={fetchStats}>
-        <Text style={styles.refreshButtonText}>Refresh</Text>
-      </TouchableOpacity>
-
       <View style={styles.card}>
-        <Text style={styles.total}>Total Emergencies: {stats.total}</Text>
+        <Text style={styles.total}>Total: {stats.total}</Text>
       </View>
 
       <View style={[styles.card, styles.pending]}>
@@ -100,19 +94,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
     textAlign: 'center',
-  },
-  refreshButton: {
-    backgroundColor: '#007bff',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  refreshButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    marginBottom: 20,
   },
   card: {
     padding: 20,
@@ -128,8 +111,8 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 18,
-    fontWeight: 'bold',
     textAlign: 'center',
+    fontWeight: 'bold',
   },
   pending: {
     backgroundColor: '#fff3cd',
