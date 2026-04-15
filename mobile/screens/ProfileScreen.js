@@ -72,11 +72,31 @@ export default function ProfileScreen({ onLogout }) {
         return;
       }
 
+      await AsyncStorage.setItem('userName', name);
+
       Alert.alert('Success', 'Profile saved successfully');
     } catch (error) {
       console.log('Save Profile Error:', error);
       Alert.alert('Error', 'Failed to save profile');
     }
+  };
+
+  const confirmLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: handleLogout,
+        },
+      ]
+    );
   };
 
   const handleLogout = async () => {
@@ -136,7 +156,7 @@ export default function ProfileScreen({ onLogout }) {
           <Text style={styles.saveButtonText}>Save Profile</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </View>

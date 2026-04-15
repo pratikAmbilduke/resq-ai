@@ -1,10 +1,36 @@
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen({ navigation }) {
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    loadUserName();
+  }, []);
+
+  const loadUserName = async () => {
+    try {
+      const storedName = await AsyncStorage.getItem('userName');
+      if (storedName) {
+        setUserName(storedName);
+      }
+    } catch (error) {
+      console.log('Load User Name Error:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.appName}>🚑 ResQ AI</Text>
       <Text style={styles.subtitle}>Fast emergency help when every second matters</Text>
+
+      {userName ? (
+        <View style={styles.welcomeCard}>
+          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.userName}>{userName}</Text>
+        </View>
+      ) : null}
 
       <TouchableOpacity
         style={styles.sosButton}
@@ -77,7 +103,24 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 8,
-    marginBottom: 25,
+    marginBottom: 18,
+  },
+  welcomeCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 3,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111',
+    marginTop: 4,
   },
   sosButton: {
     backgroundColor: '#e53935',
