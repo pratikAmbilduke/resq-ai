@@ -1,21 +1,20 @@
-import { useState } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 export default function EmergencyLocationScreen({ route, navigation }) {
-  const [currentStatus, setCurrentStatus] = useState(route.params.emergency.status);
-  const { emergency } = route.params;
+  const [emergencyData, setEmergencyData] = useState(route.params.emergency);
 
   const region = {
-    latitude: emergency.latitude,
-    longitude: emergency.longitude,
+    latitude: emergencyData.latitude,
+    longitude: emergencyData.longitude,
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   };
 
   const updateStatus = async (newStatus) => {
     try {
-      const response = await fetch(`http://localhost:8000/emergency/${emergency.id}/status`, {
+      const response = await fetch(`http://localhost:8000/emergency/${emergencyData.id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -32,13 +31,29 @@ export default function EmergencyLocationScreen({ route, navigation }) {
         return;
       }
 
-      setCurrentStatus(newStatus);
+      const updatedEmergency = {
+        ...emergencyData,
+        status: newStatus,
+      };
+
+      setEmergencyData(updatedEmergency);
+
       Alert.alert('Success', `Status updated to ${newStatus}`);
     } catch (error) {
       console.log('Status Update Error:', error);
       Alert.alert('Error', 'Failed to update emergency status');
     }
   };
+
+  useLayoutEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      if (route.params?.onGoBack) {
+        route.params.onGoBack(emergencyData);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, route.params, emergencyData]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -48,33 +63,33 @@ export default function EmergencyLocationScreen({ route, navigation }) {
         <MapView style={styles.map} region={region}>
           <Marker
             coordinate={{
-              latitude: emergency.latitude,
-              longitude: emergency.longitude,
+              latitude: emergencyData.latitude,
+              longitude: emergencyData.longitude,
             }}
-            title={`Emergency: ${emergency.type}`}
-            description={emergency.location_text}
+            title={`Emergency: ${emergencyData.type}`}
+            description={emergencyData.location_text}
           />
         </MapView>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Type:</Text>
-        <Text style={styles.value}>{emergency.type}</Text>
+        <Text style={styles.value}>{emergencyData.type}</Text>
 
         <Text style={styles.label}>Description:</Text>
-        <Text style={styles.value}>{emergency.description}</Text>
+        <Text style={styles.value}>{emergencyData.description}</Text>
 
         <Text style={styles.label}>Latitude:</Text>
-        <Text style={styles.value}>{emergency.latitude}</Text>
+        <Text style={styles.value}>{emergencyData.latitude}</Text>
 
         <Text style={styles.label}>Longitude:</Text>
-        <Text style={styles.value}>{emergency.longitude}</Text>
+        <Text style={styles.value}>{emergencyData.longitude}</Text>
 
         <Text style={styles.label}>Address:</Text>
-        <Text style={styles.value}>{emergency.location_text}</Text>
+        <Text style={styles.value}>{emergencyData.location_text}</Text>
 
         <Text style={styles.label}>Current Status:</Text>
-        <Text style={styles.statusValue}>{currentStatus}</Text>
+        <Text style={styles.statusValue}>{emergencyData.status}</Text>
       </View>
 
       <View style={styles.buttonGroup}>

@@ -51,8 +51,32 @@ export default function HistoryScreen({ navigation }) {
     }, [])
   );
 
+  const handleUpdatedEmergency = (updatedEmergency) => {
+    setEmergencies((prevEmergencies) =>
+      prevEmergencies.map((item) =>
+        item.id === updatedEmergency.id ? updatedEmergency : item
+      )
+    );
+  };
+
   const openEmergencyLocation = (item) => {
-    navigation.navigate('EmergencyLocation', { emergency: item });
+    navigation.navigate('EmergencyLocation', {
+      emergency: item,
+      onGoBack: handleUpdatedEmergency,
+    });
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'pending':
+        return styles.pendingStatus;
+      case 'in_progress':
+        return styles.inProgressStatus;
+      case 'resolved':
+        return styles.resolvedStatus;
+      default:
+        return styles.defaultStatus;
+    }
   };
 
   const renderItem = ({ item }) => (
@@ -65,7 +89,9 @@ export default function HistoryScreen({ navigation }) {
       <Text style={styles.text}>Latitude: {item.latitude}</Text>
       <Text style={styles.text}>Longitude: {item.longitude}</Text>
       <Text style={styles.text}>Location: {item.location_text}</Text>
-      <Text style={styles.status}>Status: {item.status}</Text>
+      <Text style={[styles.status, getStatusStyle(item.status)]}>
+        Status: {item.status}
+      </Text>
       <Text style={styles.tapHint}>Tap to view on map</Text>
     </TouchableOpacity>
   );
@@ -138,7 +164,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     marginTop: 8,
-    color: 'green',
+  },
+  pendingStatus: {
+    color: '#e0a800',
+  },
+  inProgressStatus: {
+    color: '#17a2b8',
+  },
+  resolvedStatus: {
+    color: '#28a745',
+  },
+  defaultStatus: {
+    color: '#555',
   },
   tapHint: {
     marginTop: 10,
