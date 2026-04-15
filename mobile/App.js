@@ -40,7 +40,7 @@ function MainStack({ onLogout }) {
   return (
     <Stack.Navigator>
       <Stack.Screen name="Home" options={{ title: 'ResQ AI' }}>
-        {(props) => <HomeScreen {...props} />}
+        {(props) => <HomeScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
 
       <Stack.Screen name="Emergency">
