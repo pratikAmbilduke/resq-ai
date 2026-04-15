@@ -11,7 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function HistoryScreen() {
+export default function HistoryScreen({ navigation }) {
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,8 +29,6 @@ export default function HistoryScreen() {
 
       const response = await fetch(`http://localhost:8000/emergencies/${userId}`);
       const data = await response.json();
-
-      console.log('History response:', data);
 
       if (data.error) {
         Alert.alert('Error', data.error);
@@ -53,15 +51,23 @@ export default function HistoryScreen() {
     }, [])
   );
 
+  const openEmergencyLocation = (item) => {
+    navigation.navigate('EmergencyLocation', { emergency: item });
+  };
+
   const renderItem = ({ item }) => (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => openEmergencyLocation(item)}
+    >
       <Text style={styles.type}>Type: {item.type}</Text>
       <Text style={styles.text}>Description: {item.description}</Text>
       <Text style={styles.text}>Latitude: {item.latitude}</Text>
       <Text style={styles.text}>Longitude: {item.longitude}</Text>
       <Text style={styles.text}>Location: {item.location_text}</Text>
       <Text style={styles.status}>Status: {item.status}</Text>
-    </View>
+      <Text style={styles.tapHint}>Tap to view on map</Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -133,6 +139,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 8,
     color: 'green',
+  },
+  tapHint: {
+    marginTop: 10,
+    color: '#dc3545',
+    fontWeight: 'bold',
   },
   empty: {
     textAlign: 'center',

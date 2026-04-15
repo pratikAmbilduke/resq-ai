@@ -11,6 +11,7 @@ import HomeScreen from './screens/HomeScreen';
 import EmergencyScreen from './screens/EmergencyFormScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import EmergencyLocationScreen from './screens/EmergencyLocationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,11 @@ function MainStack({ onLogout }) {
       <Stack.Screen name="Profile">
         {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
+      <Stack.Screen
+        name="EmergencyLocation"
+        component={EmergencyLocationScreen}
+        options={{ title: 'Emergency Map View' }}
+      />
     </Stack.Navigator>
   );
 }
