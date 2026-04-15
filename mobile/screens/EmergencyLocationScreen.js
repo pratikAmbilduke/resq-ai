@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import API_BASE_URL from '../config';
 
 export default function EmergencyLocationScreen({ route }) {
   const [emergencyData, setEmergencyData] = useState(route.params.emergency);
@@ -14,7 +15,7 @@ export default function EmergencyLocationScreen({ route }) {
 
   const updateStatus = async (newStatus) => {
     try {
-      const response = await fetch(`http://localhost:8000/emergency/${emergencyData.id}/status`, {
+      const response = await fetch(`${API_BASE_URL}/emergency/${emergencyData.id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

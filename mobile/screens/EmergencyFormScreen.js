@@ -12,6 +12,7 @@ import {
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker } from 'react-native-maps';
+import API_BASE_URL from '../config';
 
 export default function EmergencyScreen() {
   const [loading, setLoading] = useState(false);
@@ -100,7 +101,7 @@ export default function EmergencyScreen() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/emergency', {
+      const response = await fetch(`${API_BASE_URL}/emergency`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import API_BASE_URL from '../config';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -25,10 +26,14 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/register', {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        }),
       });
 
       const data = await response.json();

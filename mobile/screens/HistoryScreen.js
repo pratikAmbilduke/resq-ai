@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import API_BASE_URL from '../config';
 
 export default function HistoryScreen({ navigation }) {
   const [emergencies, setEmergencies] = useState([]);
@@ -28,7 +29,7 @@ export default function HistoryScreen({ navigation }) {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/emergencies/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
       if (data.error) {
@@ -282,7 +283,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     color: '#111',
   },
-
   searchInput: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -292,7 +292,6 @@ const styles = StyleSheet.create({
     elevation: 2,
     fontSize: 14,
   },
-
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -313,7 +312,6 @@ const styles = StyleSheet.create({
     color: '#111',
     fontWeight: '600',
   },
-
   exportButton: {
     backgroundColor: '#111827',
     paddingVertical: 12,
@@ -327,7 +325,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
-
   card: {
     backgroundColor: '#fff',
     padding: 16,
@@ -373,7 +370,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -397,7 +393,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-
   skeletonCard: {
     backgroundColor: '#fff',
     padding: 16,
