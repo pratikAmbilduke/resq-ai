@@ -13,6 +13,7 @@ import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EmergencyLocationScreen from './screens/EmergencyLocationScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import AdminScreen from './screens/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -64,6 +65,12 @@ function MainStack({ onLogout }) {
         name="Dashboard"
         component={DashboardScreen}
         options={{ title: 'Dashboard' }}
+      />
+
+      <Stack.Screen
+        name="Admin"
+        component={AdminScreen}
+        options={{ title: 'Admin Panel' }}
       />
     </Stack.Navigator>
   );
@@ -127,6 +134,7 @@ export default function App() {
       await AsyncStorage.removeItem('userId');
       await AsyncStorage.removeItem('userName');
       await AsyncStorage.removeItem('userEmail');
+      await AsyncStorage.removeItem('userRole');
       setIsLoggedIn(false);
     } catch (error) {
       console.log('Logout Error:', error);

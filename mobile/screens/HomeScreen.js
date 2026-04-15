@@ -4,19 +4,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen({ navigation }) {
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('user');
 
   useEffect(() => {
-    loadUserName();
+    loadUserData();
   }, []);
 
-  const loadUserName = async () => {
+  const loadUserData = async () => {
     try {
       const storedName = await AsyncStorage.getItem('userName');
-      if (storedName) {
-        setUserName(storedName);
-      }
+      const storedRole = await AsyncStorage.getItem('userRole');
+
+      if (storedName) setUserName(storedName);
+      if (storedRole) setUserRole(storedRole);
     } catch (error) {
-      console.log('Load User Name Error:', error);
+      console.log('Load User Data Error:', error);
     }
   };
 
@@ -29,6 +31,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeText}>Welcome back,</Text>
           <Text style={styles.userName}>{userName}</Text>
+          <Text style={styles.userRole}>Role: {userRole}</Text>
         </View>
       ) : null}
 
@@ -70,15 +73,17 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('Admin')}
-        >
-          <Text style={styles.cardTitle}>🛠️ Admin Panel</Text>
-          <Text style={styles.cardDescription}>
-            View and manage all emergency reports
-          </Text>
-        </TouchableOpacity>
+        {userRole === 'admin' && (
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('Admin')}
+          >
+            <Text style={styles.cardTitle}>🛠️ Admin Panel</Text>
+            <Text style={styles.cardDescription}>
+              View and manage all emergency reports
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.card}
@@ -131,6 +136,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111',
     marginTop: 4,
+  },
+  userRole: {
+    fontSize: 14,
+    color: '#007bff',
+    marginTop: 4,
+    fontWeight: '600',
   },
   sosButton: {
     backgroundColor: '#e53935',

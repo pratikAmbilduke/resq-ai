@@ -36,6 +36,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       await AsyncStorage.setItem('userId', String(data.data.id));
       await AsyncStorage.setItem('userName', data.data.name);
       await AsyncStorage.setItem('userEmail', data.data.email);
+      await AsyncStorage.setItem('userRole', data.data.role || 'user');
 
       Alert.alert('Success', 'Login successful');
 

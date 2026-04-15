@@ -64,10 +64,15 @@ def register(user: UserRegister):
 
         hashed = hash_password(user.password)
 
+        # Simple admin rule:
+        # if email is admin@resqai.com -> admin role
+        role = "admin" if user.email.lower() == "admin@resqai.com" else "user"
+
         new_user = UserModel(
             name=user.name,
             email=user.email,
-            password=hashed
+            password=hashed,
+            role=role
         )
 
         db.add(new_user)
@@ -79,7 +84,8 @@ def register(user: UserRegister):
             "data": {
                 "id": new_user.id,
                 "name": new_user.name,
-                "email": new_user.email
+                "email": new_user.email,
+                "role": new_user.role
             }
         }
 
@@ -109,7 +115,8 @@ def login(user: UserLogin):
             "data": {
                 "id": existing.id,
                 "name": existing.name,
-                "email": existing.email
+                "email": existing.email,
+                "role": existing.role
             }
         }
 
