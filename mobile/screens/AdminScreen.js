@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 
 export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
@@ -102,6 +103,18 @@ export default function AdminScreen() {
     );
   };
 
+  const filteredEmergencies = emergencies.filter((item) => {
+    const matchFilter = filter === 'all' || item.status === filter;
+
+    const matchSearch =
+      item.type.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.location_text.toLowerCase().includes(searchText.toLowerCase()) ||
+      String(item.user_id).includes(searchText);
+
+    return matchFilter && matchSearch;
+  });
+
   const exportToCSV = async () => {
     try {
       if (filteredEmergencies.length === 0) {
@@ -162,17 +175,107 @@ export default function AdminScreen() {
     }
   };
 
-  const filteredEmergencies = emergencies.filter((item) => {
-    const matchFilter = filter === 'all' || item.status === filter;
+  const exportToPDF = async () => {
+    try {
+      if (filteredEmergencies.length === 0) {
+        Alert.alert('No Data', 'There is no admin data to export.');
+        return;
+      }
 
-    const matchSearch =
-      item.type.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.location_text.toLowerCase().includes(searchText.toLowerCase()) ||
-      String(item.user_id).includes(searchText);
+      const rowsHtml = filteredEmergencies
+        .map(
+          (item) => `
+            <tr>
+              <td>${item.id}</td>
+              <td>${item.type}</td>
+              <td>${item.description}</td>
+              <td>${item.status}</td>
+              <td>${item.location_text}</td>
+              <td>${item.user_id}</td>
+            </tr>
+          `
+        )
+        .join('');
 
-    return matchFilter && matchSearch;
-  });
+      const html = `
+        <html>
+          <head>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                padding: 24px;
+                color: #222;
+              }
+              h1 {
+                text-align: center;
+                margin-bottom: 6px;
+              }
+              p {
+                text-align: center;
+                color: #666;
+                margin-top: 0;
+                margin-bottom: 24px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+              }
+              th, td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+                vertical-align: top;
+              }
+              th {
+                background-color: #f3f4f6;
+              }
+              tr:nth-child(even) {
+                background-color: #fafafa;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>ResQ AI Admin Emergency Report</h1>
+            <p>Total Records: ${filteredEmergencies.length}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Location</th>
+                  <th>User ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert('Exported', `PDF file saved at:\n${uri}`);
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Export Admin Emergency Report',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      console.log('Admin PDF Export Error:', error);
+      Alert.alert('Error', 'Failed to export PDF file.');
+    }
+  };
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -280,6 +383,10 @@ export default function AdminScreen() {
 
       <TouchableOpacity style={styles.exportButton} onPress={exportToCSV}>
         <Text style={styles.exportButtonText}>Export CSV</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.exportButton} onPress={exportToPDF}>
+        <Text style={styles.exportButtonText}>Export PDF</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.refreshButton} onPress={fetchAllEmergencies}>
