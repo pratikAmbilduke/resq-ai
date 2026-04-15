@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-export default function EmergencyLocationScreen({ route }) {
+export default function EmergencyLocationScreen({ route, navigation }) {
+  const [currentStatus, setCurrentStatus] = useState(route.params.emergency.status);
   const { emergency } = route.params;
 
   const region = {
@@ -9,6 +11,33 @@ export default function EmergencyLocationScreen({ route }) {
     longitude: emergency.longitude,
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
+  };
+
+  const updateStatus = async (newStatus) => {
+    try {
+      const response = await fetch(`http://localhost:8000/emergency/${emergency.id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        return;
+      }
+
+      setCurrentStatus(newStatus);
+      Alert.alert('Success', `Status updated to ${newStatus}`);
+    } catch (error) {
+      console.log('Status Update Error:', error);
+      Alert.alert('Error', 'Failed to update emergency status');
+    }
   };
 
   return (
@@ -44,8 +73,31 @@ export default function EmergencyLocationScreen({ route }) {
         <Text style={styles.label}>Address:</Text>
         <Text style={styles.value}>{emergency.location_text}</Text>
 
-        <Text style={styles.label}>Status:</Text>
-        <Text style={styles.value}>{emergency.status}</Text>
+        <Text style={styles.label}>Current Status:</Text>
+        <Text style={styles.statusValue}>{currentStatus}</Text>
+      </View>
+
+      <View style={styles.buttonGroup}>
+        <TouchableOpacity
+          style={[styles.statusButton, styles.pendingButton]}
+          onPress={() => updateStatus('pending')}
+        >
+          <Text style={styles.buttonText}>Pending</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statusButton, styles.progressButton]}
+          onPress={() => updateStatus('in_progress')}
+        >
+          <Text style={styles.buttonText}>In Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statusButton, styles.resolvedButton]}
+          onPress={() => updateStatus('resolved')}
+        >
+          <Text style={styles.buttonText}>Resolved</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -89,5 +141,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#555',
     marginTop: 4,
+  },
+  statusValue: {
+    fontSize: 16,
+    color: '#007bff',
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  buttonGroup: {
+    marginTop: 25,
+    gap: 12,
+  },
+  statusButton: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pendingButton: {
+    backgroundColor: '#ffc107',
+  },
+  progressButton: {
+    backgroundColor: '#17a2b8',
+  },
+  resolvedButton: {
+    backgroundColor: '#28a745',
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

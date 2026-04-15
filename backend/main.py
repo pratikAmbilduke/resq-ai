@@ -31,6 +31,10 @@ class Emergency(BaseModel):
     user_id: int
 
 
+class EmergencyStatusUpdate(BaseModel):
+    status: str
+
+
 class Profile(BaseModel):
     name: str
     phone: str
@@ -196,6 +200,41 @@ def get_emergencies_by_user(user_id: int):
 
     except Exception as e:
         print("Fetch Emergencies Error:", e)
+        return {"error": str(e)}
+
+    finally:
+        db.close()
+
+
+@app.put("/emergency/{emergency_id}/status")
+def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
+    db = SessionLocal()
+
+    try:
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+
+        if not emergency:
+            return {"error": "Emergency not found"}
+
+        allowed_statuses = ["pending", "in_progress", "resolved"]
+
+        if payload.status not in allowed_statuses:
+            return {"error": "Invalid status value"}
+
+        emergency.status = payload.status
+        db.commit()
+        db.refresh(emergency)
+
+        return {
+            "message": "Emergency status updated successfully",
+            "data": {
+                "id": emergency.id,
+                "status": emergency.status
+            }
+        }
+
+    except Exception as e:
+        print("Update Status Error:", e)
         return {"error": str(e)}
 
     finally:
