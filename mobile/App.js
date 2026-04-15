@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import * as Notifications from 'expo-notifications';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -17,17 +16,9 @@ import AdminScreen from './screens/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 function AuthStack({ onLoginSuccess }) {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName="Login">
       <Stack.Screen name="Login">
         {(props) => <LoginScreen {...props} onLoginSuccess={onLoginSuccess} />}
       </Stack.Screen>
@@ -38,7 +29,7 @@ function AuthStack({ onLoginSuccess }) {
 
 function MainStack({ onLogout }) {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName="Home">
       <Stack.Screen name="Home" options={{ title: 'ResQ AI' }}>
         {(props) => <HomeScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
@@ -79,54 +70,29 @@ function MainStack({ onLogout }) {
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [navResetKey, setNavResetKey] = useState('');
 
   useEffect(() => {
-    checkLoginStatus();
-    setupLocalNotificationsOnly();
+    initializeApp();
   }, []);
 
-  const checkLoginStatus = async () => {
+  const initializeApp = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
       setIsLoggedIn(!!userId);
+      setNavResetKey(`app-start-${Date.now()}`);
     } catch (error) {
-      console.log('Session Check Error:', error);
+      console.log('App Init Error:', error);
       setIsLoggedIn(false);
+      setNavResetKey(`app-start-${Date.now()}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const setupLocalNotificationsOnly = async () => {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus !== 'granted') {
-        console.log('Notification permission not granted');
-        return;
-      }
-
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('emergency-alerts', {
-          name: 'Emergency Alerts',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-    } catch (error) {
-      console.log('Notification Setup Error:', error);
-    }
-  };
-
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
+    setNavResetKey(`login-${Date.now()}`);
   };
 
   const handleLogout = async () => {
@@ -136,6 +102,7 @@ export default function App() {
       await AsyncStorage.removeItem('userEmail');
       await AsyncStorage.removeItem('userRole');
       setIsLoggedIn(false);
+      setNavResetKey(`logout-${Date.now()}`);
     } catch (error) {
       console.log('Logout Error:', error);
     }
@@ -151,7 +118,7 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer key={`${navResetKey}-${isLoggedIn ? 'logged-in' : 'logged-out'}`}>
       {isLoggedIn ? (
         <MainStack onLogout={handleLogout} />
       ) : (

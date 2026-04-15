@@ -5,13 +5,19 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 export default function HistoryScreen({ navigation }) {
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
   const fetchEmergencies = async () => {
     try {
@@ -54,18 +60,9 @@ export default function HistoryScreen({ navigation }) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUpdatedEmergency = (updatedEmergency) => {
-    setEmergencies((prev) =>
-      prev.map((item) =>
-        item.id === updatedEmergency.id ? updatedEmergency : item
-      )
-    );
-  };
-
   const openEmergencyLocation = (item) => {
     navigation.navigate('EmergencyLocation', {
       emergency: item,
-      onGoBack: handleUpdatedEmergency,
     });
   };
 
@@ -79,6 +76,78 @@ export default function HistoryScreen({ navigation }) {
         return styles.resolvedStatus;
       default:
         return styles.defaultStatus;
+    }
+  };
+
+  const filteredEmergencies = emergencies.filter((item) => {
+    const matchesSearch =
+      item.description.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.type.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.location_text.toLowerCase().includes(searchText.toLowerCase());
+
+    const matchesStatus =
+      selectedStatus === 'all' || item.status === selectedStatus;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const exportToCSV = async () => {
+    try {
+      if (filteredEmergencies.length === 0) {
+        Alert.alert('No Data', 'There is no history data to export.');
+        return;
+      }
+
+      const headers = [
+        'ID',
+        'Type',
+        'Description',
+        'Latitude',
+        'Longitude',
+        'Location',
+        'Status',
+        'User ID',
+      ];
+
+      const rows = filteredEmergencies.map((item) => [
+        item.id,
+        `"${String(item.type).replace(/"/g, '""')}"`,
+        `"${String(item.description).replace(/"/g, '""')}"`,
+        item.latitude,
+        item.longitude,
+        `"${String(item.location_text).replace(/"/g, '""')}"`,
+        `"${String(item.status).replace(/"/g, '""')}"`,
+        item.user_id,
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.join(',')),
+      ].join('\n');
+
+      const fileUri =
+        FileSystem.documentDirectory +
+        `emergency_history_${Date.now()}.csv`;
+
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert('Exported', `CSV file saved at:\n${fileUri}`);
+        return;
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export Emergency History',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      console.log('CSV Export Error:', error);
+      Alert.alert('Error', 'Failed to export CSV file.');
     }
   };
 
@@ -124,17 +193,72 @@ export default function HistoryScreen({ navigation }) {
     );
   };
 
+  const renderNoResultsState = () => {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyEmoji}>🔎</Text>
+        <Text style={styles.emptyTitle}>No Matching Results</Text>
+        <Text style={styles.emptySubtitle}>
+          Try changing your search text or filter selection.
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>📜 My Emergency History</Text>
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by type, description or location"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
+
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'all' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('all')}
+        >
+          <Text style={styles.filterText}>All</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'pending' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('pending')}
+        >
+          <Text style={styles.filterText}>Pending</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'in_progress' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('in_progress')}
+        >
+          <Text style={styles.filterText}>In Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'resolved' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('resolved')}
+        >
+          <Text style={styles.filterText}>Resolved</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity style={styles.exportButton} onPress={exportToCSV}>
+        <Text style={styles.exportButtonText}>Export CSV</Text>
+      </TouchableOpacity>
 
       {loading ? (
         renderSkeleton()
       ) : emergencies.length === 0 ? (
         renderEmptyState()
+      ) : filteredEmergencies.length === 0 ? (
+        renderNoResultsState()
       ) : (
         <FlatList
-          data={emergencies}
+          data={filteredEmergencies}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderEmergencyCard}
           contentContainerStyle={{ paddingBottom: 20 }}
@@ -157,6 +281,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 18,
     color: '#111',
+  },
+
+  searchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+    elevation: 2,
+    fontSize: 14,
+  },
+
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+    justifyContent: 'center',
+  },
+  filterButton: {
+    backgroundColor: '#e5e7eb',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  activeFilter: {
+    backgroundColor: '#007bff',
+  },
+  filterText: {
+    color: '#111',
+    fontWeight: '600',
+  },
+
+  exportButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  exportButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 
   card: {

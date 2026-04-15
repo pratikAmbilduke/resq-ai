@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,6 +15,7 @@ export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
   const [emergencies, setEmergencies] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchAllEmergencies();
@@ -98,10 +100,18 @@ export default function AdminScreen() {
     );
   };
 
-  const filteredEmergencies =
-    filter === 'all'
-      ? emergencies
-      : emergencies.filter((item) => item.status === filter);
+  const filteredEmergencies = emergencies.filter((item) => {
+    const matchesFilter =
+      filter === 'all' || item.status === filter;
+
+    const matchesSearch =
+      item.type.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.location_text.toLowerCase().includes(searchText.toLowerCase()) ||
+      String(item.user_id).includes(searchText);
+
+    return matchesFilter && matchesSearch;
+  });
 
   const getStatusStyle = (status) => {
     switch (status) {
@@ -152,6 +162,16 @@ export default function AdminScreen() {
     </View>
   );
 
+  const renderNoResults = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyEmoji}>🔎</Text>
+      <Text style={styles.emptyTitle}>No Matching Records</Text>
+      <Text style={styles.emptySubtitle}>
+        Try another search term or filter.
+      </Text>
+    </View>
+  );
+
   if (loading) {
     return <ActivityIndicator size="large" style={{ marginTop: 50 }} />;
   }
@@ -159,6 +179,13 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🛠️ Admin Panel</Text>
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by type, description, location, user ID"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
 
       <View style={styles.filterRow}>
         <TouchableOpacity
@@ -199,9 +226,7 @@ export default function AdminScreen() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 20 }}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No emergencies found.</Text>
-        }
+        ListEmptyComponent={renderNoResults}
       />
     </View>
   );
@@ -212,9 +237,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     fontWeight: 'bold',
   },
+
+  searchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+    elevation: 2,
+  },
+
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -235,6 +270,7 @@ const styles = StyleSheet.create({
     color: '#111',
     fontWeight: '600',
   },
+
   refresh: {
     backgroundColor: '#111827',
     padding: 12,
@@ -246,6 +282,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+
   card: {
     backgroundColor: '#fff',
     padding: 16,
@@ -278,6 +315,7 @@ const styles = StyleSheet.create({
   resolved: {
     color: '#28a745',
   },
+
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -302,10 +340,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 30,
+
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+    paddingHorizontal: 20,
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
     color: '#666',
-    fontSize: 16,
+    textAlign: 'center',
   },
 });

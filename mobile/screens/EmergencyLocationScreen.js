@@ -1,8 +1,8 @@
-import { useState, useLayoutEffect } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-export default function EmergencyLocationScreen({ route, navigation }) {
+export default function EmergencyLocationScreen({ route }) {
   const [emergencyData, setEmergencyData] = useState(route.params.emergency);
 
   const region = {
@@ -44,16 +44,6 @@ export default function EmergencyLocationScreen({ route, navigation }) {
       Alert.alert('Error', 'Failed to update emergency status');
     }
   };
-
-  useLayoutEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (route.params?.onGoBack) {
-        route.params.onGoBack(emergencyData);
-      }
-    });
-
-    return unsubscribe;
-  }, [navigation, route.params, emergencyData]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

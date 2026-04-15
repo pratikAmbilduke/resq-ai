@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import MapView, { Marker } from 'react-native-maps';
 
 export default function EmergencyScreen() {
@@ -21,21 +20,6 @@ export default function EmergencyScreen() {
   const [description, setDescription] = useState('');
   const [locationInfo, setLocationInfo] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
-
-  const sendLocalNotification = async (emergencyType) => {
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Emergency Alert Sent 🚨',
-          body: `Your ${emergencyType} emergency has been submitted successfully.`,
-          sound: true,
-        },
-        trigger: null,
-      });
-    } catch (error) {
-      console.log('Notification Error:', error);
-    }
-  };
 
   const fetchCurrentLocation = async () => {
     try {
@@ -138,8 +122,6 @@ export default function EmergencyScreen() {
         return;
       }
 
-      await sendLocalNotification(type);
-
       Alert.alert('Success', 'Emergency sent successfully 🚨');
       setDescription('');
     } catch (error) {
@@ -206,10 +188,7 @@ export default function EmergencyScreen() {
 
       {mapRegion && (
         <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            region={mapRegion}
-          >
+          <MapView style={styles.map} region={mapRegion}>
             <Marker
               coordinate={{
                 latitude: locationInfo.latitude,
