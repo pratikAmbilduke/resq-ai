@@ -36,11 +36,21 @@ export default function HomeScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.card}
+          onPress={() => navigation.navigate('Dashboard')}
+        >
+          <Text style={styles.cardTitle}>📊 Dashboard</Text>
+          <Text style={styles.cardDescription}>
+            View emergency counts by status
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.card}
           onPress={() => navigation.navigate('Profile')}
         >
           <Text style={styles.cardTitle}>👤 Profile</Text>
           <Text style={styles.cardDescription}>
-            Manage your personal details and future emergency contacts
+            Manage your personal details and emergency contacts
           </Text>
         </TouchableOpacity>
       </View>

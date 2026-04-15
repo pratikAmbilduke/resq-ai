@@ -12,6 +12,7 @@ import EmergencyScreen from './screens/EmergencyFormScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EmergencyLocationScreen from './screens/EmergencyLocationScreen';
+import DashboardScreen from './screens/DashboardScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,19 +41,29 @@ function MainStack({ onLogout }) {
       <Stack.Screen name="Home" options={{ title: 'ResQ AI' }}>
         {(props) => <HomeScreen {...props} />}
       </Stack.Screen>
+
       <Stack.Screen name="Emergency">
         {(props) => <EmergencyScreen {...props} />}
       </Stack.Screen>
+
       <Stack.Screen name="History">
         {(props) => <HistoryScreen {...props} />}
       </Stack.Screen>
+
       <Stack.Screen name="Profile">
         {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
       </Stack.Screen>
+
       <Stack.Screen
         name="EmergencyLocation"
         component={EmergencyLocationScreen}
         options={{ title: 'Emergency Map View' }}
+      />
+
+      <Stack.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{ title: 'Dashboard' }}
       />
     </Stack.Navigator>
   );
