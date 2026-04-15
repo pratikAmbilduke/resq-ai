@@ -11,27 +11,35 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import MapView, { Marker } from 'react-native-maps';
 
 export default function EmergencyScreen() {
   const [loading, setLoading] = useState(false);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
   const [type, setType] = useState('medical');
   const [description, setDescription] = useState('');
   const [locationInfo, setLocationInfo] = useState(null);
+  const [mapRegion, setMapRegion] = useState(null);
 
-  const sendEmergency = async () => {
+  const sendLocalNotification = async (emergencyType) => {
     try {
-      if (!description.trim()) {
-        Alert.alert('Validation Error', 'Please enter emergency description.');
-        return;
-      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Emergency Alert Sent 🚨',
+          body: `Your ${emergencyType} emergency has been submitted successfully.`,
+          sound: true,
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.log('Notification Error:', error);
+    }
+  };
 
-      setLoading(true);
-
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
-        return;
-      }
+  const fetchCurrentLocation = async () => {
+    try {
+      setFetchingLocation(true);
 
       const { status } = await Location.requestForegroundPermissionsAsync();
 
@@ -66,11 +74,47 @@ export default function EmergencyScreen() {
           .join(', ');
       }
 
-      setLocationInfo({
+      const newLocationInfo = {
         latitude,
         longitude,
         locationText,
+      };
+
+      setLocationInfo(newLocationInfo);
+
+      setMapRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
       });
+    } catch (error) {
+      console.log('Location Fetch Error:', error);
+      Alert.alert('Error', 'Failed to fetch current location.');
+    } finally {
+      setFetchingLocation(false);
+    }
+  };
+
+  const sendEmergency = async () => {
+    try {
+      if (!description.trim()) {
+        Alert.alert('Validation Error', 'Please enter emergency description.');
+        return;
+      }
+
+      if (!locationInfo) {
+        Alert.alert('Validation Error', 'Please fetch your current location first.');
+        return;
+      }
+
+      setLoading(true);
+
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
 
       const response = await fetch('http://localhost:8000/emergency', {
         method: 'POST',
@@ -80,10 +124,10 @@ export default function EmergencyScreen() {
         body: JSON.stringify({
           type,
           description,
-          latitude,
-          longitude,
-          location_text: locationText,
-          user_id: parseInt(userId),
+          latitude: locationInfo.latitude,
+          longitude: locationInfo.longitude,
+          location_text: locationInfo.locationText,
+          user_id: parseInt(userId, 10),
         }),
       });
 
@@ -93,6 +137,8 @@ export default function EmergencyScreen() {
         Alert.alert('Error', data.error);
         return;
       }
+
+      await sendLocalNotification(type);
 
       Alert.alert('Success', 'Emergency sent successfully 🚨');
       setDescription('');
@@ -149,6 +195,34 @@ export default function EmergencyScreen() {
       />
 
       <TouchableOpacity
+        style={styles.locationButton}
+        onPress={fetchCurrentLocation}
+        disabled={fetchingLocation}
+      >
+        <Text style={styles.locationButtonText}>
+          {fetchingLocation ? 'Fetching Location...' : 'Get Current Location'}
+        </Text>
+      </TouchableOpacity>
+
+      {mapRegion && (
+        <View style={styles.mapContainer}>
+          <MapView
+            style={styles.map}
+            region={mapRegion}
+          >
+            <Marker
+              coordinate={{
+                latitude: locationInfo.latitude,
+                longitude: locationInfo.longitude,
+              }}
+              title="Your Current Location"
+              description={locationInfo.locationText}
+            />
+          </MapView>
+        </View>
+      )}
+
+      <TouchableOpacity
         style={styles.button}
         onPress={sendEmergency}
         disabled={loading}
@@ -158,7 +232,9 @@ export default function EmergencyScreen() {
         </Text>
       </TouchableOpacity>
 
-      {loading && <ActivityIndicator size="large" color="red" style={{ marginTop: 20 }} />}
+      {(loading || fetchingLocation) && (
+        <ActivityIndicator size="large" color="red" style={{ marginTop: 20 }} />
+      )}
 
       {locationInfo && (
         <View style={styles.card}>
@@ -225,6 +301,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1,
     borderColor: '#ddd',
+  },
+  locationButton: {
+    backgroundColor: '#28a745',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  locationButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  mapContainer: {
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+    height: 250,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
   },
   button: {
     backgroundColor: 'red',

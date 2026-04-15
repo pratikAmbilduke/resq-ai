@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ onLogout }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [emergencyContactName, setEmergencyContactName] = useState('');
@@ -23,9 +23,7 @@ export default function ProfileScreen({ navigation }) {
   const fetchProfile = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        return;
-      }
+      if (!userId) return;
 
       const response = await fetch(`http://localhost:8000/profile/${userId}`);
       const data = await response.json();
@@ -63,7 +61,7 @@ export default function ProfileScreen({ navigation }) {
           phone,
           emergency_contact_name: emergencyContactName,
           emergency_contact_phone: emergencyContactPhone,
-          user_id: parseInt(userId),
+          user_id: parseInt(userId, 10),
         }),
       });
 
@@ -76,23 +74,17 @@ export default function ProfileScreen({ navigation }) {
 
       Alert.alert('Success', 'Profile saved successfully');
     } catch (error) {
-      console.log(error);
+      console.log('Save Profile Error:', error);
       Alert.alert('Error', 'Failed to save profile');
     }
   };
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('userId');
-      await AsyncStorage.removeItem('userName');
-      await AsyncStorage.removeItem('userEmail');
-
+      if (onLogout) {
+        await onLogout();
+      }
       Alert.alert('Logged Out', 'You have been logged out successfully');
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
     } catch (error) {
       console.log('Logout Error:', error);
       Alert.alert('Error', 'Failed to logout');

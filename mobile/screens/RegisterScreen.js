@@ -2,9 +2,9 @@ import { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
   Alert,
 } from 'react-native';
 
@@ -15,24 +15,41 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     try {
+      // Validation
+      if (!name || !email || !password) {
+        Alert.alert('Error', 'Please fill all fields');
+        return;
+      }
+
+      if (password.length < 6) {
+        Alert.alert('Error', 'Password must be at least 6 characters');
+        return;
+      }
+
       const response = await fetch('http://localhost:8000/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          password: password,
+        }),
       });
 
       const data = await response.json();
 
       if (data.error) {
-        Alert.alert('Registration Failed', data.error);
+        Alert.alert('Error', data.error);
         return;
       }
 
-      Alert.alert('Success', 'Registration successful');
+      Alert.alert('Success', 'Account created successfully');
+
+      // Go back to login
       navigation.navigate('Login');
     } catch (error) {
-      console.log(error);
-      Alert.alert('Error', 'Failed to register');
+      console.log('Register Error:', error);
+      Alert.alert('Error', 'Something went wrong');
     }
   };
 
@@ -40,35 +57,41 @@ export default function RegisterScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>📝 Register</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter name"
-        value={name}
-        onChangeText={setName}
-      />
+      <View style={styles.card}>
+        <Text style={styles.label}>Full Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your name"
+          value={name}
+          onChangeText={setName}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter email"
-        value={email}
-        onChangeText={setEmail}
-      />
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Enter password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleRegister}>
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.link}>Already have an account? Login</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.link}>Already have an account? Login</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -76,36 +99,47 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#f8f9fa',
   },
   title: {
     fontSize: 30,
     fontWeight: 'bold',
-    marginBottom: 25,
     textAlign: 'center',
+    marginBottom: 25,
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    elevation: 4,
+  },
+  label: {
+    marginTop: 10,
+    fontWeight: '600',
   },
   input: {
-    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 10,
-    padding: 14,
-    marginBottom: 15,
+    padding: 12,
+    marginTop: 5,
+    backgroundColor: '#f9f9f9',
   },
   button: {
-    backgroundColor: '#28a745',
-    padding: 16,
+    backgroundColor: '#007bff',
+    padding: 15,
     borderRadius: 10,
+    marginTop: 20,
     alignItems: 'center',
-    marginBottom: 20,
   },
   buttonText: {
-    color: '#fff',
+    color: 'white',
     fontWeight: 'bold',
   },
   link: {
+    marginTop: 15,
     textAlign: 'center',
     color: '#007bff',
   },

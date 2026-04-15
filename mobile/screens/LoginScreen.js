@@ -9,12 +9,17 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
     try {
+      if (!email || !password) {
+        Alert.alert('Error', 'Please fill all fields');
+        return;
+      }
+
       const response = await fetch('http://localhost:8000/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,7 +38,10 @@ export default function LoginScreen({ navigation }) {
       await AsyncStorage.setItem('userEmail', data.data.email);
 
       Alert.alert('Success', 'Login successful');
-      navigation.replace('Home');
+
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
     } catch (error) {
       console.log('Login Error:', error);
       Alert.alert('Error', 'Failed to login');
@@ -49,6 +57,7 @@ export default function LoginScreen({ navigation }) {
         placeholder="Enter email"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
       />
 
       <TextInput
