@@ -1,30 +1,35 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
+  ActivityIndicator,
   TextInput,
+  TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import API_BASE_URL from '../config';
 
 export default function HistoryScreen({ navigation }) {
   const [emergencies, setEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const fetchEmergencies = async () => {
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
     try {
+      setLoading(true);
+
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
+        Alert.alert('Error', 'User not found. Please login again.');
         setEmergencies([]);
         return;
       }
@@ -32,177 +37,78 @@ export default function HistoryScreen({ navigation }) {
       const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
-      if (data.error) {
+      if (!response.ok) {
+        console.log('History API Error:', data);
         setEmergencies([]);
         return;
       }
 
-      setEmergencies(data);
+      if (Array.isArray(data)) {
+        setEmergencies(data);
+      } else {
+        console.log('History Response Not Array:', data);
+        setEmergencies([]);
+      }
     } catch (error) {
       console.log('History Error:', error);
       setEmergencies([]);
+      Alert.alert('Error', 'Failed to load emergency history');
     } finally {
       setLoading(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      fetchEmergencies();
-    }, [])
-  );
+  const filteredEmergencies = useMemo(() => {
+    const safeEmergencies = Array.isArray(emergencies) ? emergencies : [];
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchEmergencies();
-    }, 5000);
+    return safeEmergencies.filter((item) => {
+      const itemType = item?.type ? String(item.type).toLowerCase() : '';
+      const itemDescription = item?.description ? String(item.description).toLowerCase() : '';
+      const itemLocation = item?.location_text ? String(item.location_text).toLowerCase() : '';
+      const itemStatus = item?.status ? String(item.status).toLowerCase() : '';
 
-    return () => clearInterval(interval);
-  }, []);
+      const searchText = search.trim().toLowerCase();
 
-  const openEmergencyLocation = (item) => {
-    navigation.navigate('EmergencyLocation', {
-      emergency: item,
+      const matchesSearch =
+        !searchText ||
+        itemType.includes(searchText) ||
+        itemDescription.includes(searchText) ||
+        itemLocation.includes(searchText);
+
+      const matchesStatus =
+        selectedStatus === 'all' || itemStatus === selectedStatus;
+
+      return matchesSearch && matchesStatus;
     });
+  }, [emergencies, search, selectedStatus]);
+
+  const getStatusColor = (status) => {
+    const s = String(status || '').toLowerCase();
+
+    if (s === 'pending') return '#d4a017';
+    if (s === 'in progress') return '#007bff';
+    if (s === 'resolved') return '#28a745';
+    return '#666';
   };
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'pending':
-        return styles.pendingStatus;
-      case 'in_progress':
-        return styles.inProgressStatus;
-      case 'resolved':
-        return styles.resolvedStatus;
-      default:
-        return styles.defaultStatus;
-    }
-  };
-
-  const filteredEmergencies = emergencies.filter((item) => {
-    const matchesSearch =
-      item.description.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.type.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.location_text.toLowerCase().includes(searchText.toLowerCase());
-
-    const matchesStatus =
-      selectedStatus === 'all' || item.status === selectedStatus;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const exportToCSV = async () => {
-    try {
-      if (filteredEmergencies.length === 0) {
-        Alert.alert('No Data', 'There is no history data to export.');
-        return;
-      }
-
-      const headers = [
-        'ID',
-        'Type',
-        'Description',
-        'Latitude',
-        'Longitude',
-        'Location',
-        'Status',
-        'User ID',
-      ];
-
-      const rows = filteredEmergencies.map((item) => [
-        item.id,
-        `"${String(item.type).replace(/"/g, '""')}"`,
-        `"${String(item.description).replace(/"/g, '""')}"`,
-        item.latitude,
-        item.longitude,
-        `"${String(item.location_text).replace(/"/g, '""')}"`,
-        `"${String(item.status).replace(/"/g, '""')}"`,
-        item.user_id,
-      ]);
-
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.join(',')),
-      ].join('\n');
-
-      const fileUri =
-        FileSystem.documentDirectory +
-        `emergency_history_${Date.now()}.csv`;
-
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      const canShare = await Sharing.isAvailableAsync();
-
-      if (!canShare) {
-        Alert.alert('Exported', `CSV file saved at:\n${fileUri}`);
-        return;
-      }
-
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Export Emergency History',
-        UTI: 'public.comma-separated-values-text',
-      });
-    } catch (error) {
-      console.log('CSV Export Error:', error);
-      Alert.alert('Error', 'Failed to export CSV file.');
-    }
-  };
-
-  const renderEmergencyCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => openEmergencyLocation(item)}
-    >
-      <Text style={styles.type}>{item.type.toUpperCase()}</Text>
-      <Text style={styles.description}>{item.description}</Text>
-      <Text style={styles.location}>{item.location_text}</Text>
-      <Text style={[styles.status, getStatusStyle(item.status)]}>
-        {item.status.replace('_', ' ').toUpperCase()}
-      </Text>
-      <Text style={styles.tapHint}>Tap to view details and map</Text>
-    </TouchableOpacity>
-  );
-
-  const renderSkeleton = () => {
+  const renderItem = ({ item }) => {
     return (
-      <View>
-        {[1, 2, 3].map((item) => (
-          <View key={item} style={styles.skeletonCard}>
-            <View style={styles.skeletonLineShort} />
-            <View style={styles.skeletonLine} />
-            <View style={styles.skeletonLine} />
-            <View style={styles.skeletonLineMedium} />
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderEmptyState = () => {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyEmoji}>📭</Text>
-        <Text style={styles.emptyTitle}>No Emergency History</Text>
-        <Text style={styles.emptySubtitle}>
-          Your emergency reports will appear here once you submit them.
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() =>
+          navigation.navigate('EmergencyDetails', {
+            emergency: item,
+          })
+        }
+      >
+        <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
+        <Text style={styles.description}>{item?.description || 'No description'}</Text>
+        <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
+        <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
+          {String(item?.status || 'unknown').toUpperCase()}
         </Text>
-      </View>
-    );
-  };
-
-  const renderNoResultsState = () => {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyEmoji}>🔎</Text>
-        <Text style={styles.emptyTitle}>No Matching Results</Text>
-        <Text style={styles.emptySubtitle}>
-          Try changing your search text or filter selection.
-        </Text>
-      </View>
+        <Text style={styles.linkText}>Tap to view details and map</Text>
+      </TouchableOpacity>
     );
   };
 
@@ -213,57 +119,77 @@ export default function HistoryScreen({ navigation }) {
       <TextInput
         style={styles.searchInput}
         placeholder="Search by type, description or location"
-        value={searchText}
-        onChangeText={setSearchText}
+        value={search}
+        onChangeText={setSearch}
       />
 
-      <View style={styles.filterRow}>
+      <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[styles.filterButton, selectedStatus === 'all' && styles.activeFilter]}
           onPress={() => setSelectedStatus('all')}
         >
-          <Text style={styles.filterText}>All</Text>
+          <Text
+            style={[styles.filterText, selectedStatus === 'all' && styles.activeFilterText]}
+          >
+            All
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterButton, selectedStatus === 'pending' && styles.activeFilter]}
           onPress={() => setSelectedStatus('pending')}
         >
-          <Text style={styles.filterText}>Pending</Text>
+          <Text
+            style={[styles.filterText, selectedStatus === 'pending' && styles.activeFilterText]}
+          >
+            Pending
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'in_progress' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('in_progress')}
+          style={[styles.filterButton, selectedStatus === 'in progress' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('in progress')}
         >
-          <Text style={styles.filterText}>In Progress</Text>
+          <Text
+            style={[
+              styles.filterText,
+              selectedStatus === 'in progress' && styles.activeFilterText,
+            ]}
+          >
+            In Progress
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterButton, selectedStatus === 'resolved' && styles.activeFilter]}
           onPress={() => setSelectedStatus('resolved')}
         >
-          <Text style={styles.filterText}>Resolved</Text>
+          <Text
+            style={[
+              styles.filterText,
+              selectedStatus === 'resolved' && styles.activeFilterText,
+            ]}
+          >
+            Resolved
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.exportButton} onPress={exportToCSV}>
-        <Text style={styles.exportButtonText}>Export CSV</Text>
-      </TouchableOpacity>
-
       {loading ? (
-        renderSkeleton()
-      ) : emergencies.length === 0 ? (
-        renderEmptyState()
-      ) : filteredEmergencies.length === 0 ? (
-        renderNoResultsState()
+        <ActivityIndicator size="large" color="#007bff" style={styles.loader} />
       ) : (
         <FlatList
           data={filteredEmergencies}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderEmergencyCard}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
+          keyExtractor={(item, index) => String(item?.id ?? index)}
+          renderItem={renderItem}
+          contentContainerStyle={
+            filteredEmergencies.length === 0 ? styles.emptyContainer : styles.listContainer
+          }
+          refreshing={loading}
+          onRefresh={fetchHistory}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No emergency history found</Text>
+          }
         />
       )}
     </View>
@@ -273,62 +199,60 @@ export default function HistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#f4f6f8',
+    paddingHorizontal: 16,
+    paddingTop: 20,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 18,
-    color: '#111',
+    marginBottom: 20,
+    color: '#222',
   },
   searchInput: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingHorizontal: 15,
     paddingVertical: 12,
-    marginBottom: 12,
-    elevation: 2,
-    fontSize: 14,
+    fontSize: 15,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
-  filterRow: {
+  filterContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 14,
-    justifyContent: 'center',
   },
   filterButton: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#e9ecef',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
   },
   activeFilter: {
     backgroundColor: '#007bff',
   },
   filterText: {
-    color: '#111',
+    color: '#222',
     fontWeight: '600',
   },
-  exportButton: {
-    backgroundColor: '#111827',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 2,
-  },
-  exportButtonText: {
+  activeFilterText: {
     color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+  },
+  loader: {
+    marginTop: 30,
+  },
+  listContainer: {
+    paddingBottom: 20,
   },
   card: {
     backgroundColor: '#fff',
-    padding: 16,
     borderRadius: 16,
+    padding: 16,
     marginBottom: 14,
     elevation: 3,
   },
@@ -339,84 +263,35 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   description: {
-    fontSize: 15,
+    fontSize: 18,
     color: '#222',
-    marginBottom: 8,
+    marginBottom: 6,
+    fontWeight: '500',
   },
   location: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 8,
-  },
-  status: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  pendingStatus: {
-    color: '#e0a800',
-  },
-  inProgressStatus: {
-    color: '#17a2b8',
-  },
-  resolvedStatus: {
-    color: '#28a745',
-  },
-  defaultStatus: {
-    color: '#555',
-  },
-  tapHint: {
-    color: '#dc3545',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 80,
-    paddingHorizontal: 20,
-  },
-  emptyEmoji: {
-    fontSize: 50,
-    marginBottom: 14,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
     fontSize: 15,
     color: '#666',
+    marginBottom: 10,
+  },
+  status: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  linkText: {
+    fontSize: 15,
+    color: '#e63946',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 80,
+  },
+  emptyText: {
     textAlign: 'center',
-    lineHeight: 22,
-  },
-  skeletonCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 14,
-    elevation: 2,
-  },
-  skeletonLine: {
-    height: 14,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  skeletonLineShort: {
-    width: '35%',
-    height: 14,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  skeletonLineMedium: {
-    width: '50%',
-    height: 14,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
+    color: '#666',
+    fontSize: 16,
   },
 });
