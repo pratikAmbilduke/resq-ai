@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
-export default function EmergencyScreen() {
+export default function EmergencyScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const [type, setType] = useState('medical');
@@ -123,10 +123,14 @@ export default function EmergencyScreen() {
         return;
       }
 
-      Alert.alert('Success', 'Emergency sent successfully 🚨');
+      Alert.alert('Success', 'Emergency sent successfully 🚨', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('History'),
+        },
+      ]);
+
       setDescription('');
-      setLocationInfo(null);
-      setMapRegion(null);
     } catch (error) {
       console.log('Emergency Error:', error);
       Alert.alert('Error', 'Something went wrong while sending emergency.');
@@ -189,7 +193,7 @@ export default function EmergencyScreen() {
         </Text>
       </TouchableOpacity>
 
-      {mapRegion && (
+      {mapRegion && locationInfo && (
         <View style={styles.mapContainer}>
           <MapView style={styles.map} region={mapRegion}>
             <Marker
