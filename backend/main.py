@@ -18,38 +18,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- PASSWORD CONTEXT ----------------
+# ---------------- PASSWORD ----------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# ---------------- STARTUP ----------------
 @app.on_event("startup")
 def startup():
-    try:
-        Base.metadata.create_all(bind=engine)
-        print("✅ Database connected successfully")
-    except Exception as e:
-        print("❌ DB ERROR:", e)
-        raise e
+    Base.metadata.create_all(bind=engine)
+    print("✅ Backend Started (NEW VERSION)")
 
 
-# ---------------- DB SESSION ----------------
 def get_db():
-    db = SessionLocal()
-    return db
+    return SessionLocal()
 
 
-# ---------------- PASSWORD FUNCTIONS (FIXED) ----------------
+# 🔥 FIXED PASSWORD (NO 72 BYTE ERROR)
 def hash_password(password: str):
-    sha256_password = hashlib.sha256(password.encode()).hexdigest()
-    return pwd_context.hash(sha256_password)
+    sha = hashlib.sha256(password.encode()).hexdigest()
+    return pwd_context.hash(sha)
 
 
 def verify_password(plain: str, hashed: str):
     try:
-        sha256_password = hashlib.sha256(plain.encode()).hexdigest()
-        return pwd_context.verify(sha256_password, hashed)
-    except Exception:
+        sha = hashlib.sha256(plain.encode()).hexdigest()
+        return pwd_context.verify(sha, hashed)
+    except:
         return False
 
 
@@ -65,35 +58,10 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class EmergencyRequest(BaseModel):
-    type: str
-    description: str
-    latitude: float
-    longitude: float
-    location_text: str
-    user_id: int
-
-
-class StatusUpdateRequest(BaseModel):
-    status: str
-
-
-class AdminRequest(BaseModel):
-    user_id: int
-
-
-class ProfileRequest(BaseModel):
-    name: str
-    phone: str
-    emergency_contact_name: str
-    emergency_contact_phone: str
-    user_id: int
-
-
-# ---------------- HEALTH ----------------
+# ---------------- ROUTES ----------------
 @app.get("/")
 def root():
-    return {"message": "ResQ AI Backend Running 🚀"}
+    return {"message": "NEW BACKEND RUNNING 🚀"}  # 🔥 change to confirm deployment
 
 
 @app.get("/health")
@@ -106,37 +74,24 @@ def health():
 def register(req: RegisterRequest):
     db: Session = get_db()
     try:
-        clean_email = req.email.strip().lower()
-        clean_password = req.password.strip()
+        email = req.email.strip().lower()
 
-        if len(clean_password) < 6:
-            return {"error": "Password must be at least 6 characters"}
-
-        existing = db.query(UserModel).filter(UserModel.email == clean_email).first()
+        existing = db.query(UserModel).filter(UserModel.email == email).first()
         if existing:
-            return {"error": "Email already registered"}
-
-        role = "admin" if clean_email == "admin@resqai.com" else "user"
+            return {"error": "Email already exists"}
 
         user = UserModel(
             name=req.name.strip(),
-            email=clean_email,
-            password=hash_password(clean_password),
-            role=role
+            email=email,
+            password=hash_password(req.password),
+            role="user"
         )
+
         db.add(user)
         db.commit()
         db.refresh(user)
 
-        return {
-            "message": "User registered successfully",
-            "data": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "role": user.role
-            }
-        }
+        return {"message": "Registered successfully"}
 
     except Exception as e:
         print("Register Error:", e)
@@ -159,10 +114,10 @@ def login(req: LoginRequest):
             return {"error": "Email not found"}
 
         if not verify_password(req.password, user.password):
-            return {"error": "Invalid password"}
+            return {"error": "Wrong password"}
 
         return {
-            "message": "Login successful",
+            "message": "Login success",
             "data": {
                 "id": user.id,
                 "name": user.name,
@@ -173,151 +128,6 @@ def login(req: LoginRequest):
 
     except Exception as e:
         print("Login Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- CREATE EMERGENCY ----------------
-@app.post("/emergency")
-def create_emergency(req: EmergencyRequest):
-    db: Session = get_db()
-    try:
-        emergency = EmergencyModel(
-            type=req.type,
-            description=req.description,
-            latitude=req.latitude,
-            longitude=req.longitude,
-            location_text=req.location_text,
-            user_id=req.user_id,
-            status="pending"
-        )
-
-        db.add(emergency)
-        db.commit()
-        db.refresh(emergency)
-
-        return {"message": "Emergency created successfully", "data": emergency.__dict__}
-
-    except Exception as e:
-        print("Emergency Create Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- GET USER EMERGENCIES ----------------
-@app.get("/emergencies/{user_id}")
-def get_user_emergencies(user_id: int):
-    db: Session = get_db()
-    try:
-        emergencies = db.query(EmergencyModel).filter(
-            EmergencyModel.user_id == user_id
-        ).all()
-
-        return [e.__dict__ for e in emergencies]
-
-    except Exception as e:
-        print("Get Emergencies Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- UPDATE STATUS ----------------
-@app.put("/emergency/{emergency_id}/status")
-def update_status(emergency_id: int, req: StatusUpdateRequest):
-    db: Session = get_db()
-    try:
-        emergency = db.query(EmergencyModel).filter(
-            EmergencyModel.id == emergency_id
-        ).first()
-
-        if not emergency:
-            return {"error": "Emergency not found"}
-
-        emergency.status = req.status
-        db.commit()
-        db.refresh(emergency)
-
-        return {"message": "Status updated", "data": {"id": emergency.id, "status": emergency.status}}
-
-    except Exception as e:
-        print("Status Update Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- ADMIN ----------------
-@app.post("/admin/emergencies")
-def get_all_emergencies(req: AdminRequest):
-    db: Session = get_db()
-    try:
-        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
-
-        if not user or user.role != "admin":
-            return {"error": "Access denied"}
-
-        emergencies = db.query(EmergencyModel).all()
-        return [e.__dict__ for e in emergencies]
-
-    except Exception as e:
-        print("Admin Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- PROFILE ----------------
-@app.post("/profile")
-def save_profile(req: ProfileRequest):
-    db: Session = get_db()
-    try:
-        profile = db.query(ProfileModel).filter(
-            ProfileModel.user_id == req.user_id
-        ).first()
-
-        if profile:
-            profile.name = req.name
-            profile.phone = req.phone
-            profile.emergency_contact_name = req.emergency_contact_name
-            profile.emergency_contact_phone = req.emergency_contact_phone
-        else:
-            profile = ProfileModel(**req.dict())
-            db.add(profile)
-
-        db.commit()
-        db.refresh(profile)
-
-        return {"message": "Profile saved", "data": profile.__dict__}
-
-    except Exception as e:
-        print("Profile Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-# ---------------- GET PROFILE ----------------
-@app.get("/profile/{user_id}")
-def get_profile(user_id: int):
-    db: Session = get_db()
-    try:
-        profile = db.query(ProfileModel).filter(
-            ProfileModel.user_id == user_id
-        ).first()
-
-        return profile.__dict__ if profile else {}
-
-    except Exception as e:
-        print("Get Profile Error:", e)
         return {"error": str(e)}
 
     finally:
