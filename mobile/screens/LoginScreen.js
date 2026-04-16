@@ -21,19 +21,34 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         return;
       }
 
+      console.log("👉 API URL:", `${API_BASE_URL}/login`);
+
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password,
+        }),
       });
 
+      // 👇 IMPORTANT: Check if server responded
+      if (!response.ok) {
+        console.log("❌ Server Error Status:", response.status);
+        throw new Error('Server not responding');
+      }
+
       const data = await response.json();
+      console.log("✅ Response:", data);
 
       if (data.error) {
         Alert.alert('Login Failed', data.error);
         return;
       }
 
+      // ✅ Save user data
       await AsyncStorage.setItem('userId', String(data.data.id));
       await AsyncStorage.setItem('userName', data.data.name || '');
       await AsyncStorage.setItem('userEmail', data.data.email || '');
@@ -44,9 +59,16 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       if (onLoginSuccess) {
         onLoginSuccess();
       }
+
     } catch (error) {
-      console.log('Login Error:', error);
-      Alert.alert('Error', 'Cannot connect to server');
+      console.log('❌ Login Error FULL:', error);
+
+      // 👇 Better error message
+      if (error.message === 'Network request failed') {
+        Alert.alert('Error', 'Server not reachable (check API URL)');
+      } else {
+        Alert.alert('Error', 'Cannot connect to server');
+      }
     }
   };
 
@@ -76,7 +98,9 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-        <Text style={styles.link}>Don't have an account? Register</Text>
+        <Text style={styles.link}>
+          Don't have an account? Register
+        </Text>
       </TouchableOpacity>
     </View>
   );

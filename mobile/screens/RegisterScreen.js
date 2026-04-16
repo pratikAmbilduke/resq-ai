@@ -13,6 +13,7 @@ export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     try {
@@ -26,17 +27,40 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
+      if (password.length > 20) {
+        Alert.alert('Error', 'Use a shorter password (max 20 characters)');
+        return;
+      }
+
+      setLoading(true);
+
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
           password,
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.log('Register Parse Error:', text);
+        Alert.alert('Error', 'Server returned invalid response');
+        return;
+      }
+
+      console.log('Register Response:', data);
+
+      if (!response.ok) {
+        Alert.alert('Register Failed', data.error || `HTTP ${response.status}`);
+        return;
+      }
 
       if (data.error) {
         Alert.alert('Register Failed', data.error);
@@ -50,8 +74,10 @@ export default function RegisterScreen({ navigation }) {
         },
       ]);
     } catch (error) {
-      console.log('Register Error:', error);
+      console.log('Register Error FULL:', error);
       Alert.alert('Error', 'Cannot connect to server');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,6 +90,7 @@ export default function RegisterScreen({ navigation }) {
         placeholder="Enter full name"
         value={name}
         onChangeText={setName}
+        maxLength={50}
       />
 
       <TextInput
@@ -73,6 +100,7 @@ export default function RegisterScreen({ navigation }) {
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
+        maxLength={100}
       />
 
       <TextInput
@@ -81,10 +109,17 @@ export default function RegisterScreen({ navigation }) {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        maxLength={20}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Create Account</Text>
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Please wait...' : 'Create Account'}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -121,6 +156,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginBottom: 20,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',
