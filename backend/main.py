@@ -20,7 +20,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    print("✅ FINAL BACKEND RUNNING")
+    print("✅ RENDER BACKEND LIVE")
 
 
 def get_db():
@@ -73,7 +73,7 @@ class ProfileRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "FINAL VERSION LIVE 🚀"}
+    return {"message": "RENDER BACKEND LIVE ✅"}
 
 
 @app.get("/health")
@@ -126,9 +126,9 @@ def register(req: RegisterRequest):
 def login(req: LoginRequest):
     db: Session = get_db()
     try:
-        user = db.query(UserModel).filter(
-            UserModel.email == req.email.strip().lower()
-        ).first()
+        email = req.email.strip().lower()
+
+        user = db.query(UserModel).filter(UserModel.email == email).first()
 
         if not user:
             return {"error": "Email not found"}
@@ -198,9 +198,12 @@ def create_emergency(req: EmergencyRequest):
 def get_user_emergencies(user_id: int):
     db: Session = get_db()
     try:
-        emergencies = db.query(EmergencyModel).filter(
-            EmergencyModel.user_id == user_id
-        ).order_by(EmergencyModel.id.desc()).all()
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(EmergencyModel.user_id == user_id)
+            .order_by(EmergencyModel.id.desc())
+            .all()
+        )
 
         return [
             {
@@ -228,9 +231,7 @@ def get_user_emergencies(user_id: int):
 def update_status(emergency_id: int, req: StatusUpdateRequest):
     db: Session = get_db()
     try:
-        emergency = db.query(EmergencyModel).filter(
-            EmergencyModel.id == emergency_id
-        ).first()
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
         if not emergency:
             return {"error": "Emergency not found"}
@@ -292,9 +293,7 @@ def get_all_emergencies(req: AdminRequest):
 def save_profile(req: ProfileRequest):
     db: Session = get_db()
     try:
-        profile = db.query(ProfileModel).filter(
-            ProfileModel.user_id == req.user_id
-        ).first()
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == req.user_id).first()
 
         if profile:
             profile.name = req.name
@@ -338,9 +337,7 @@ def save_profile(req: ProfileRequest):
 def get_profile(user_id: int):
     db: Session = get_db()
     try:
-        profile = db.query(ProfileModel).filter(
-            ProfileModel.user_id == user_id
-        ).first()
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
 
         if not profile:
             return {}

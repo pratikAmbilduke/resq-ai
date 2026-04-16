@@ -1,58 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
+  StyleSheet,
   Alert,
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import API_BASE_URL from '../config';
 
-export default function ProfileScreen({ onLogout }) {
+export default function ProfileScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const loadProfile = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
+      const userName = await AsyncStorage.getItem('userName');
+
       if (!userId) return;
 
       const response = await fetch(`${API_BASE_URL}/profile/${userId}`);
       const data = await response.json();
 
-      if (data.name) {
-        setName(data.name);
+      if (data && !data.error && Object.keys(data).length > 0) {
+        setName(data.name || '');
         setPhone(data.phone || '');
         setEmergencyContactName(data.emergency_contact_name || '');
         setEmergencyContactPhone(data.emergency_contact_phone || '');
+      } else {
+        setName(userName || '');
+        setPhone('');
+        setEmergencyContactName('');
+        setEmergencyContactPhone('');
       }
     } catch (error) {
-      console.log('Fetch Profile Error:', error);
+      console.log('Load Profile Error:', error);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   const handleSave = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
+        Alert.alert('Error', 'User not found');
         return;
       }
 
-      if (!name.trim() || !phone.trim()) {
-        Alert.alert('Validation Error', 'Please fill required fields');
-        return;
-      }
+      setLoading(true);
 
       const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'POST',
@@ -62,7 +70,7 @@ export default function ProfileScreen({ onLogout }) {
           phone,
           emergency_contact_name: emergencyContactName,
           emergency_contact_phone: emergencyContactPhone,
-          user_id: parseInt(userId, 10),
+          user_id: Number(userId),
         }),
       });
 
@@ -73,83 +81,61 @@ export default function ProfileScreen({ onLogout }) {
         return;
       }
 
-      await AsyncStorage.setItem('userName', name);
+      await AsyncStorage.setItem('userName', name || '');
 
       Alert.alert('Success', 'Profile saved successfully');
+      loadProfile();
     } catch (error) {
       console.log('Save Profile Error:', error);
       Alert.alert('Error', 'Failed to save profile');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const confirmLogout = () => {
-    Alert.alert(
-      'Confirm Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            if (onLogout) {
-              await onLogout();
-            }
-          },
-        },
-      ]
-    );
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>👤 My Profile</Text>
+      <Text style={styles.title}>My Profile</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Enter your name"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Full name"
+        value={name}
+        onChangeText={setName}
+      />
 
-        <Text style={styles.label}>Phone Number</Text>
-        <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="Enter your phone number"
-          keyboardType="phone-pad"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Phone number"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
 
-        <Text style={styles.sectionTitle}>Emergency Contact</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Emergency contact name"
+        value={emergencyContactName}
+        onChangeText={setEmergencyContactName}
+      />
 
-        <Text style={styles.label}>Contact Name</Text>
-        <TextInput
-          style={styles.input}
-          value={emergencyContactName}
-          onChangeText={setEmergencyContactName}
-          placeholder="Enter emergency contact name"
-        />
+      <TextInput
+        style={styles.input}
+        placeholder="Emergency contact phone"
+        value={emergencyContactPhone}
+        onChangeText={setEmergencyContactPhone}
+        keyboardType="phone-pad"
+      />
 
-        <Text style={styles.label}>Contact Phone</Text>
-        <TextInput
-          style={styles.input}
-          value={emergencyContactPhone}
-          onChangeText={setEmergencyContactPhone}
-          placeholder="Enter emergency contact phone"
-          keyboardType="phone-pad"
-        />
-
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Profile</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleSave}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Saving...' : 'Save Profile'}
+        </Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -157,58 +143,36 @@ export default function ProfileScreen({ onLogout }) {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f4f6f8',
     flexGrow: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 25,
     textAlign: 'center',
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: 18,
-    borderRadius: 16,
-    elevation: 3,
-  },
-  label: {
-    marginTop: 10,
-    fontWeight: '600',
+    marginBottom: 22,
   },
   input: {
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 5,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-  },
-  saveButton: {
+  button: {
     backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 25,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    marginTop: 10,
   },
-  saveButtonText: {
-    color: 'white',
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: '#fff',
     fontWeight: 'bold',
-  },
-  logoutButton: {
-    backgroundColor: '#dc3545',
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import API_BASE_URL from '../config';
 
 export default function HistoryScreen({ navigation }) {
@@ -18,10 +19,6 @@ export default function HistoryScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
   const fetchHistory = async () => {
     try {
       setLoading(true);
@@ -29,7 +26,6 @@ export default function HistoryScreen({ navigation }) {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        Alert.alert('Error', 'User not found. Please login again.');
         setEmergencies([]);
         return;
       }
@@ -37,46 +33,45 @@ export default function HistoryScreen({ navigation }) {
       const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
-      if (!response.ok) {
-        console.log('History API Error:', data);
-        setEmergencies([]);
-        return;
-      }
-
       if (Array.isArray(data)) {
         setEmergencies(data);
       } else {
-        console.log('History Response Not Array:', data);
+        console.log('History API response:', data);
         setEmergencies([]);
       }
     } catch (error) {
       console.log('History Error:', error);
       setEmergencies([]);
-      Alert.alert('Error', 'Failed to load emergency history');
+      Alert.alert('Error', 'Failed to load history');
     } finally {
       setLoading(false);
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistory();
+    }, [])
+  );
+
   const filteredEmergencies = useMemo(() => {
     const safeEmergencies = Array.isArray(emergencies) ? emergencies : [];
+    const query = search.trim().toLowerCase();
 
     return safeEmergencies.filter((item) => {
-      const itemType = item?.type ? String(item.type).toLowerCase() : '';
-      const itemDescription = item?.description ? String(item.description).toLowerCase() : '';
-      const itemLocation = item?.location_text ? String(item.location_text).toLowerCase() : '';
-      const itemStatus = item?.status ? String(item.status).toLowerCase() : '';
-
-      const searchText = search.trim().toLowerCase();
+      const type = String(item?.type || '').toLowerCase();
+      const description = String(item?.description || '').toLowerCase();
+      const location = String(item?.location_text || '').toLowerCase();
+      const status = String(item?.status || '').toLowerCase();
 
       const matchesSearch =
-        !searchText ||
-        itemType.includes(searchText) ||
-        itemDescription.includes(searchText) ||
-        itemLocation.includes(searchText);
+        !query ||
+        type.includes(query) ||
+        description.includes(query) ||
+        location.includes(query);
 
       const matchesStatus =
-        selectedStatus === 'all' || itemStatus === selectedStatus;
+        selectedStatus === 'all' || status === selectedStatus;
 
       return matchesSearch && matchesStatus;
     });
@@ -84,33 +79,26 @@ export default function HistoryScreen({ navigation }) {
 
   const getStatusColor = (status) => {
     const s = String(status || '').toLowerCase();
-
     if (s === 'pending') return '#d4a017';
     if (s === 'in progress') return '#007bff';
     if (s === 'resolved') return '#28a745';
     return '#666';
   };
 
-  const renderItem = ({ item }) => {
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() =>
-          navigation.navigate('EmergencyDetails', {
-            emergency: item,
-          })
-        }
-      >
-        <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
-        <Text style={styles.description}>{item?.description || 'No description'}</Text>
-        <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
-        <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
-          {String(item?.status || 'unknown').toUpperCase()}
-        </Text>
-        <Text style={styles.linkText}>Tap to view details and map</Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
+    >
+      <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
+      <Text style={styles.description}>{item?.description || 'No description'}</Text>
+      <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
+      <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
+        {String(item?.status || 'unknown').toUpperCase()}
+      </Text>
+      <Text style={styles.linkText}>Tap to view details and map</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
@@ -128,9 +116,7 @@ export default function HistoryScreen({ navigation }) {
           style={[styles.filterButton, selectedStatus === 'all' && styles.activeFilter]}
           onPress={() => setSelectedStatus('all')}
         >
-          <Text
-            style={[styles.filterText, selectedStatus === 'all' && styles.activeFilterText]}
-          >
+          <Text style={[styles.filterText, selectedStatus === 'all' && styles.activeFilterText]}>
             All
           </Text>
         </TouchableOpacity>
@@ -139,9 +125,7 @@ export default function HistoryScreen({ navigation }) {
           style={[styles.filterButton, selectedStatus === 'pending' && styles.activeFilter]}
           onPress={() => setSelectedStatus('pending')}
         >
-          <Text
-            style={[styles.filterText, selectedStatus === 'pending' && styles.activeFilterText]}
-          >
+          <Text style={[styles.filterText, selectedStatus === 'pending' && styles.activeFilterText]}>
             Pending
           </Text>
         </TouchableOpacity>
@@ -150,12 +134,7 @@ export default function HistoryScreen({ navigation }) {
           style={[styles.filterButton, selectedStatus === 'in progress' && styles.activeFilter]}
           onPress={() => setSelectedStatus('in progress')}
         >
-          <Text
-            style={[
-              styles.filterText,
-              selectedStatus === 'in progress' && styles.activeFilterText,
-            ]}
-          >
+          <Text style={[styles.filterText, selectedStatus === 'in progress' && styles.activeFilterText]}>
             In Progress
           </Text>
         </TouchableOpacity>
@@ -164,29 +143,24 @@ export default function HistoryScreen({ navigation }) {
           style={[styles.filterButton, selectedStatus === 'resolved' && styles.activeFilter]}
           onPress={() => setSelectedStatus('resolved')}
         >
-          <Text
-            style={[
-              styles.filterText,
-              selectedStatus === 'resolved' && styles.activeFilterText,
-            ]}
-          >
+          <Text style={[styles.filterText, selectedStatus === 'resolved' && styles.activeFilterText]}>
             Resolved
           </Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#007bff" style={styles.loader} />
+        <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 30 }} />
       ) : (
         <FlatList
           data={filteredEmergencies}
           keyExtractor={(item, index) => String(item?.id ?? index)}
           renderItem={renderItem}
+          onRefresh={fetchHistory}
+          refreshing={loading}
           contentContainerStyle={
             filteredEmergencies.length === 0 ? styles.emptyContainer : styles.listContainer
           }
-          refreshing={loading}
-          onRefresh={fetchHistory}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No emergency history found</Text>
           }
@@ -242,9 +216,6 @@ const styles = StyleSheet.create({
   },
   activeFilterText: {
     color: '#fff',
-  },
-  loader: {
-    marginTop: 30,
   },
   listContainer: {
     paddingBottom: 20,
