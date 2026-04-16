@@ -2,21 +2,25 @@ import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# ✅ GET DATABASE URL FROM RENDER
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ❌ REMOVE LOCALHOST FALLBACK (IMPORTANT)
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL not found. Please set it in environment variables.")
+    raise Exception("DATABASE_URL not found. Please set it in Render environment variables.")
 
-# ✅ FIX FOR RENDER (SSL REQUIRED)
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+connect_args = {}
+if "render.com" in DATABASE_URL and "sslmode=" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
 
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    connect_args=connect_args
+)
 
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
@@ -52,6 +56,3 @@ class ProfileModel(Base):
     emergency_contact_name = Column(String)
     emergency_contact_phone = Column(String)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-
-
-Base.metadata.create_all(bind=engine)

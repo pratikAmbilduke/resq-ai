@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
 
-from db import SessionLocal, UserModel, EmergencyModel, ProfileModel
+from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
 
 app = FastAPI()
 
@@ -19,6 +19,16 @@ app.add_middleware(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
+@app.on_event("startup")
+def startup():
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database connected successfully")
+    except Exception as e:
+        print("❌ DB ERROR:", e)
+        raise e
+
+
 def get_db():
     db = SessionLocal()
     return db
@@ -30,11 +40,11 @@ def hash_password(password):
 
 def verify_password(plain, hashed):
     try:
-      if hashed.startswith("$2"):
-          return pwd_context.verify(plain, hashed)
-      return plain == hashed
+        if hashed.startswith("$2"):
+            return pwd_context.verify(plain, hashed)
+        return plain == hashed
     except Exception:
-      return False
+        return False
 
 
 class RegisterRequest(BaseModel):
@@ -76,6 +86,11 @@ class ProfileRequest(BaseModel):
 @app.get("/")
 def root():
     return {"message": "ResQ AI Backend Running 🚀"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.post("/register")
