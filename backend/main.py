@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
 import hashlib
 
 from db import SessionLocal, UserModel, Base, engine
@@ -18,25 +17,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- PASSWORD ----------------
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+# ---------------- STARTUP ----------------
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    print("✅ NEW BACKEND RUNNING")
+    print("✅ FINAL BACKEND RUNNING")
 
 def get_db():
     return SessionLocal()
 
-# 🔥 FIXED PASSWORD (NO 72 BYTE ERROR)
-def hash_password(password):
-    sha = hashlib.sha256(password.encode()).hexdigest()
-    return pwd_context.hash(sha)
+# ---------------- PASSWORD (NO LIMIT) ----------------
+def hash_password(password: str):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-def verify_password(plain, hashed):
-    sha = hashlib.sha256(plain.encode()).hexdigest()
-    return pwd_context.verify(sha, hashed)
+def verify_password(plain: str, hashed: str):
+    return hashlib.sha256(plain.encode()).hexdigest() == hashed
 
 # ---------------- MODELS ----------------
 class RegisterRequest(BaseModel):
@@ -51,7 +46,7 @@ class LoginRequest(BaseModel):
 # ---------------- ROUTES ----------------
 @app.get("/")
 def root():
-    return {"message": "VERSION 2 LIVE ✅"}
+    return {"message": "FINAL VERSION LIVE 🚀"}
 
 @app.get("/health")
 def health():
@@ -102,7 +97,15 @@ def login(req: LoginRequest):
         if not verify_password(req.password, user.password):
             return {"error": "Wrong password"}
 
-        return {"message": "Login success"}
+        return {
+            "message": "Login success",
+            "data": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role
+            }
+        }
 
     except Exception as e:
         print("Login Error:", e)
