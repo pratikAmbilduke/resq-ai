@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
 import hashlib
 
-from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
+from db import SessionLocal, UserModel, Base, engine
 
 app = FastAPI()
 
@@ -21,30 +21,22 @@ app.add_middleware(
 # ---------------- PASSWORD ----------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    print("✅ Backend Started (NEW VERSION)")
-
+    print("✅ NEW BACKEND RUNNING")
 
 def get_db():
     return SessionLocal()
 
-
 # 🔥 FIXED PASSWORD (NO 72 BYTE ERROR)
-def hash_password(password: str):
+def hash_password(password):
     sha = hashlib.sha256(password.encode()).hexdigest()
     return pwd_context.hash(sha)
 
-
-def verify_password(plain: str, hashed: str):
-    try:
-        sha = hashlib.sha256(plain.encode()).hexdigest()
-        return pwd_context.verify(sha, hashed)
-    except:
-        return False
-
+def verify_password(plain, hashed):
+    sha = hashlib.sha256(plain.encode()).hexdigest()
+    return pwd_context.verify(sha, hashed)
 
 # ---------------- MODELS ----------------
 class RegisterRequest(BaseModel):
@@ -52,22 +44,18 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
 
-
 class LoginRequest(BaseModel):
     email: str
     password: str
 
-
 # ---------------- ROUTES ----------------
 @app.get("/")
 def root():
-    return {"message": "NEW BACKEND RUNNING 🚀"}  # 🔥 change to confirm deployment
-
+    return {"message": "VERSION 2 LIVE ✅"}
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 # ---------------- REGISTER ----------------
 @app.post("/register")
@@ -89,7 +77,6 @@ def register(req: RegisterRequest):
 
         db.add(user)
         db.commit()
-        db.refresh(user)
 
         return {"message": "Registered successfully"}
 
@@ -99,7 +86,6 @@ def register(req: RegisterRequest):
 
     finally:
         db.close()
-
 
 # ---------------- LOGIN ----------------
 @app.post("/login")
@@ -116,15 +102,7 @@ def login(req: LoginRequest):
         if not verify_password(req.password, user.password):
             return {"error": "Wrong password"}
 
-        return {
-            "message": "Login success",
-            "data": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "role": user.role
-            }
-        }
+        return {"message": "Login success"}
 
     except Exception as e:
         print("Login Error:", e)
