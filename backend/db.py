@@ -1,9 +1,20 @@
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/resq_ai"
+# ✅ GET DATABASE URL FROM RENDER
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(DATABASE_URL)
+# ❌ REMOVE LOCALHOST FALLBACK (IMPORTANT)
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL not found. Please set it in environment variables.")
+
+# ✅ FIX FOR RENDER (SSL REQUIRED)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()

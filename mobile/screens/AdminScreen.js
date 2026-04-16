@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
+import API_BASE_URL from '../config';
 
 export default function AdminScreen() {
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export default function AdminScreen() {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/admin/emergencies', {
+      const response = await fetch(`${API_BASE_URL}/admin/emergencies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: parseInt(userId, 10) }),
@@ -65,14 +66,11 @@ export default function AdminScreen() {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      const response = await fetch(
-        `http://localhost:8000/emergency/${id}/status`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/emergency/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
       const data = await response.json();
 

@@ -5,6 +5,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import API_BASE_URL from '../config';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ export default function DashboardScreen() {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/emergencies/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
       if (data.error) {

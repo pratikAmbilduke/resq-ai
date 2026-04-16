@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import API_BASE_URL from '../config';
 
 export default function ProfileScreen({ onLogout }) {
   const [name, setName] = useState('');
@@ -25,7 +26,7 @@ export default function ProfileScreen({ onLogout }) {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      const response = await fetch(`http://localhost:8000/profile/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/profile/${userId}`);
       const data = await response.json();
 
       if (data.name) {
@@ -53,7 +54,7 @@ export default function ProfileScreen({ onLogout }) {
         return;
       }
 
-      const response = await fetch('http://localhost:8000/profile', {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

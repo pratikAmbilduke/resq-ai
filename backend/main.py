@@ -1,25 +1,54 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
-from db import SessionLocal, EmergencyModel, ProfileModel, UserModel
+
+from db import SessionLocal, UserModel, EmergencyModel, ProfileModel
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-class UserRegister(BaseModel):
+def get_db():
+    db = SessionLocal()
+    return db
+
+
+def hash_password(password):
+    return pwd_context.hash(password)
+
+
+def verify_password(plain, hashed):
+    try:
+      if hashed.startswith("$2"):
+          return pwd_context.verify(plain, hashed)
+      return plain == hashed
+    except Exception:
+      return False
+
+
+class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
 
 
-class UserLogin(BaseModel):
+class LoginRequest(BaseModel):
     email: str
     password: str
 
 
-class Emergency(BaseModel):
+class EmergencyRequest(BaseModel):
     type: str
     description: str
     latitude: float
@@ -28,11 +57,15 @@ class Emergency(BaseModel):
     user_id: int
 
 
-class EmergencyStatusUpdate(BaseModel):
+class StatusUpdateRequest(BaseModel):
     status: str
 
 
-class Profile(BaseModel):
+class AdminRequest(BaseModel):
+    user_id: int
+
+
+class ProfileRequest(BaseModel):
     name: str
     phone: str
     emergency_contact_name: str
@@ -40,52 +73,38 @@ class Profile(BaseModel):
     user_id: int
 
 
-class AdminAccessRequest(BaseModel):
-    user_id: int
-
-
-def hash_password(password: str):
-    return pwd_context.hash(password[:50])
-
-
-def verify_password(plain_password: str, hashed_password: str):
-    return pwd_context.verify(plain_password[:50], hashed_password)
-
-
 @app.get("/")
-def home():
-    return {"message": "Backend running"}
+def root():
+    return {"message": "ResQ AI Backend Running 🚀"}
 
 
 @app.post("/register")
-def register(user: UserRegister):
-    db = SessionLocal()
+def register(req: RegisterRequest):
+    db: Session = get_db()
     try:
-        existing = db.query(UserModel).filter(UserModel.email == user.email).first()
+        existing = db.query(UserModel).filter(UserModel.email == req.email).first()
         if existing:
-            return {"error": "Email already exists"}
+            return {"error": "Email already registered"}
 
-        hashed = hash_password(user.password)
-        role = "admin" if user.email.lower() == "admin@resqai.com" else "user"
+        role = "admin" if req.email.lower() == "admin@resqai.com" else "user"
 
-        new_user = UserModel(
-            name=user.name,
-            email=user.email,
-            password=hashed,
+        user = UserModel(
+            name=req.name,
+            email=req.email,
+            password=hash_password(req.password),
             role=role
         )
-
-        db.add(new_user)
+        db.add(user)
         db.commit()
-        db.refresh(new_user)
+        db.refresh(user)
 
         return {
-            "message": "Registered successfully",
+            "message": "User registered successfully",
             "data": {
-                "id": new_user.id,
-                "name": new_user.name,
-                "email": new_user.email,
-                "role": new_user.role
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role
             }
         }
     except Exception as e:
@@ -96,24 +115,24 @@ def register(user: UserRegister):
 
 
 @app.post("/login")
-def login(user: UserLogin):
-    db = SessionLocal()
+def login(req: LoginRequest):
+    db: Session = get_db()
     try:
-        existing = db.query(UserModel).filter(UserModel.email == user.email).first()
+        user = db.query(UserModel).filter(UserModel.email == req.email).first()
 
-        if not existing:
-            return {"error": "Invalid credentials"}
+        if not user:
+            return {"error": "Email not found"}
 
-        if not verify_password(user.password, existing.password):
-            return {"error": "Invalid credentials"}
+        if not verify_password(req.password, user.password):
+            return {"error": "Invalid password"}
 
         return {
-            "message": "Login success",
+            "message": "Login successful",
             "data": {
-                "id": existing.id,
-                "name": existing.name,
-                "email": existing.email,
-                "role": existing.role
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role
             }
         }
     except Exception as e:
@@ -124,49 +143,47 @@ def login(user: UserLogin):
 
 
 @app.post("/emergency")
-def create_emergency(e: Emergency):
-    db = SessionLocal()
+def create_emergency(req: EmergencyRequest):
+    db: Session = get_db()
     try:
-        new = EmergencyModel(
-            type=e.type,
-            description=e.description,
-            latitude=e.latitude,
-            longitude=e.longitude,
-            location_text=e.location_text,
-            status="pending",
-            user_id=e.user_id
+        emergency = EmergencyModel(
+            type=req.type,
+            description=req.description,
+            latitude=req.latitude,
+            longitude=req.longitude,
+            location_text=req.location_text,
+            user_id=req.user_id,
+            status="pending"
         )
-
-        db.add(new)
+        db.add(emergency)
         db.commit()
-        db.refresh(new)
+        db.refresh(emergency)
 
         return {
-            "message": "Emergency saved",
+            "message": "Emergency created successfully",
             "data": {
-                "id": new.id,
-                "type": new.type,
-                "description": new.description,
-                "latitude": new.latitude,
-                "longitude": new.longitude,
-                "location_text": new.location_text,
-                "status": new.status,
-                "user_id": new.user_id
+                "id": emergency.id,
+                "type": emergency.type,
+                "description": emergency.description,
+                "latitude": emergency.latitude,
+                "longitude": emergency.longitude,
+                "location_text": emergency.location_text,
+                "status": emergency.status,
+                "user_id": emergency.user_id
             }
         }
     except Exception as e:
-        print("Emergency Error:", e)
+        print("Emergency Create Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
 
 
 @app.get("/emergencies/{user_id}")
-def get_emergencies_by_user(user_id: int):
-    db = SessionLocal()
+def get_user_emergencies(user_id: int):
+    db: Session = get_db()
     try:
-        data = db.query(EmergencyModel).filter(EmergencyModel.user_id == user_id).all()
-
+        emergencies = db.query(EmergencyModel).filter(EmergencyModel.user_id == user_id).all()
         return [
             {
                 "id": e.id,
@@ -178,68 +195,30 @@ def get_emergencies_by_user(user_id: int):
                 "status": e.status,
                 "user_id": e.user_id
             }
-            for e in data
+            for e in emergencies
         ]
     except Exception as e:
-        print("Fetch Emergencies Error:", e)
-        return {"error": str(e)}
-    finally:
-        db.close()
-
-
-@app.post("/admin/emergencies")
-def get_all_emergencies(payload: AdminAccessRequest):
-    db = SessionLocal()
-    try:
-        admin_user = db.query(UserModel).filter(UserModel.id == payload.user_id).first()
-
-        if not admin_user:
-            return {"error": "User not found"}
-
-        if admin_user.role != "admin":
-            return {"error": "Access denied. Admin only."}
-
-        data = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
-
-        return [
-            {
-                "id": e.id,
-                "type": e.type,
-                "description": e.description,
-                "latitude": e.latitude,
-                "longitude": e.longitude,
-                "location_text": e.location_text,
-                "status": e.status,
-                "user_id": e.user_id
-            }
-            for e in data
-        ]
-    except Exception as e:
-        print("Admin Fetch Error:", e)
+        print("Get User Emergencies Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
 
 
 @app.put("/emergency/{emergency_id}/status")
-def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
-    db = SessionLocal()
+def update_status(emergency_id: int, req: StatusUpdateRequest):
+    db: Session = get_db()
     try:
         emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
         if not emergency:
             return {"error": "Emergency not found"}
 
-        allowed_statuses = ["pending", "in_progress", "resolved"]
-        if payload.status not in allowed_statuses:
-            return {"error": "Invalid status value"}
-
-        emergency.status = payload.status
+        emergency.status = req.status
         db.commit()
         db.refresh(emergency)
 
         return {
-            "message": "Emergency status updated successfully",
+            "message": "Status updated successfully",
             "data": {
                 "id": emergency.id,
                 "status": emergency.status
@@ -252,46 +231,63 @@ def update_emergency_status(emergency_id: int, payload: EmergencyStatusUpdate):
         db.close()
 
 
-@app.post("/profile")
-def save_profile(p: Profile):
-    db = SessionLocal()
+@app.post("/admin/emergencies")
+def get_all_emergencies(req: AdminRequest):
+    db: Session = get_db()
     try:
-        existing = db.query(ProfileModel).filter(ProfileModel.user_id == p.user_id).first()
+        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
 
-        if existing:
-            existing.name = p.name
-            existing.phone = p.phone
-            existing.emergency_contact_name = p.emergency_contact_name
-            existing.emergency_contact_phone = p.emergency_contact_phone
-            db.commit()
-            db.refresh(existing)
+        if not user or user.role != "admin":
+            return {"error": "Access denied"}
 
-            return {
-                "message": "Profile updated",
-                "data": {
-                    "id": existing.id,
-                    "name": existing.name,
-                    "phone": existing.phone,
-                    "emergency_contact_name": existing.emergency_contact_name,
-                    "emergency_contact_phone": existing.emergency_contact_phone,
-                    "user_id": existing.user_id
-                }
+        emergencies = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
+
+        return [
+            {
+                "id": e.id,
+                "type": e.type,
+                "description": e.description,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "location_text": e.location_text,
+                "status": e.status,
+                "user_id": e.user_id
             }
+            for e in emergencies
+        ]
+    except Exception as e:
+        print("Admin Emergencies Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
 
-        profile = ProfileModel(
-            name=p.name,
-            phone=p.phone,
-            emergency_contact_name=p.emergency_contact_name,
-            emergency_contact_phone=p.emergency_contact_phone,
-            user_id=p.user_id
-        )
 
-        db.add(profile)
+@app.post("/profile")
+def save_profile(req: ProfileRequest):
+    db: Session = get_db()
+    try:
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == req.user_id).first()
+
+        if profile:
+            profile.name = req.name
+            profile.phone = req.phone
+            profile.emergency_contact_name = req.emergency_contact_name
+            profile.emergency_contact_phone = req.emergency_contact_phone
+        else:
+            profile = ProfileModel(
+                name=req.name,
+                phone=req.phone,
+                emergency_contact_name=req.emergency_contact_name,
+                emergency_contact_phone=req.emergency_contact_phone,
+                user_id=req.user_id
+            )
+            db.add(profile)
+
         db.commit()
         db.refresh(profile)
 
         return {
-            "message": "Profile saved",
+            "message": "Profile saved successfully",
             "data": {
                 "id": profile.id,
                 "name": profile.name,
@@ -302,7 +298,7 @@ def save_profile(p: Profile):
             }
         }
     except Exception as e:
-        print("Profile Save Error:", e)
+        print("Save Profile Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
@@ -310,7 +306,7 @@ def save_profile(p: Profile):
 
 @app.get("/profile/{user_id}")
 def get_profile(user_id: int):
-    db = SessionLocal()
+    db: Session = get_db()
     try:
         profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
 
@@ -326,7 +322,7 @@ def get_profile(user_id: int):
             "user_id": profile.user_id
         }
     except Exception as e:
-        print("Profile Fetch Error:", e)
+        print("Get Profile Error:", e)
         return {"error": str(e)}
     finally:
         db.close()

@@ -125,6 +125,8 @@ export default function EmergencyScreen() {
 
       Alert.alert('Success', 'Emergency sent successfully 🚨');
       setDescription('');
+      setLocationInfo(null);
+      setMapRegion(null);
     } catch (error) {
       console.log('Emergency Error:', error);
       Alert.alert('Error', 'Something went wrong while sending emergency.');

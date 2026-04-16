@@ -23,13 +23,8 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await response.json();
@@ -51,7 +46,7 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       }
     } catch (error) {
       console.log('Login Error:', error);
-      Alert.alert('Error', 'Failed to login');
+      Alert.alert('Error', 'Cannot connect to server');
     }
   };
 

@@ -51,7 +51,7 @@ export default function RegisterScreen({ navigation }) {
       ]);
     } catch (error) {
       console.log('Register Error:', error);
-      Alert.alert('Error', 'Failed to register');
+      Alert.alert('Error', 'Cannot connect to server');
     }
   };
 
