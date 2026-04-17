@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,6 +16,7 @@ import API_BASE_URL from '../config';
 export default function HomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('user');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
   const [pendingCount, setPendingCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
@@ -59,6 +61,22 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
+  const loadProfileData = async (userId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile/${userId}`);
+      const data = await response.json();
+
+      if (data && !data.error) {
+        setEmergencyContactPhone(data.emergency_contact_phone || '');
+      } else {
+        setEmergencyContactPhone('');
+      }
+    } catch (error) {
+      console.log('Profile load error:', error);
+      setEmergencyContactPhone('');
+    }
+  };
+
   const loadHomeData = async () => {
     try {
       const storedName = await AsyncStorage.getItem('userName');
@@ -72,8 +90,11 @@ export default function HomeScreen({ navigation, onLogout }) {
         setPendingCount(0);
         setProgressCount(0);
         setResolvedCount(0);
+        setEmergencyContactPhone('');
         return;
       }
+
+      await loadProfileData(userId);
 
       if ((storedRole || 'user') === 'admin') {
         setPendingCount(0);
@@ -155,6 +176,44 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
+  const callPhoneNumber = async (phoneNumber) => {
+    try {
+      if (!phoneNumber) {
+        Alert.alert('Error', 'Phone number not available');
+        return;
+      }
+
+      const url = `tel:${phoneNumber}`;
+      const supported = await Linking.canOpenURL(url);
+
+      if (!supported) {
+        Alert.alert('Error', 'Calling is not supported on this device');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('Call Error:', error);
+      Alert.alert('Error', 'Unable to make call');
+    }
+  };
+
+  const handleCall112 = () => {
+    callPhoneNumber('112');
+  };
+
+  const handleCallEmergencyContact = () => {
+    if (!emergencyContactPhone) {
+      Alert.alert(
+        'No Emergency Contact',
+        'Please save an emergency contact in your Profile first.'
+      );
+      return;
+    }
+
+    callPhoneNumber(emergencyContactPhone);
+  };
+
   if (userRole === 'admin') {
     return (
       <ScrollView contentContainerStyle={styles.container}>
@@ -206,6 +265,19 @@ export default function HomeScreen({ navigation, onLogout }) {
       >
         <Text style={styles.sosText}>SOS</Text>
       </TouchableOpacity>
+
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={styles.call112Button} onPress={handleCall112}>
+          <Text style={styles.actionButtonText}>📞 Call 112</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.contactButton}
+          onPress={handleCallEmergencyContact}
+        >
+          <Text style={styles.actionButtonText}>👤 Emergency Contact</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.statusRow}>
         <View style={[styles.statusCard, styles.pendingCard]}>
@@ -311,12 +383,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   sosText: {
     color: '#fff',
     fontSize: 34,
     fontWeight: 'bold',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    gap: 10,
+  },
+  call112Button: {
+    flex: 1,
+    backgroundColor: '#dc3545',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  contactButton: {
+    flex: 1,
+    backgroundColor: '#198754',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   statusRow: {
     flexDirection: 'row',
