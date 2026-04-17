@@ -21,6 +21,11 @@ export default function HistoryScreen({ navigation }) {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const intervalRef = useRef(null);
+  const emergenciesRef = useRef([]);
+
+  useEffect(() => {
+    emergenciesRef.current = emergencies;
+  }, [emergencies]);
 
   const clearPolling = () => {
     if (intervalRef.current) {
@@ -31,12 +36,12 @@ export default function HistoryScreen({ navigation }) {
 
   const fetchHistory = async () => {
     try {
-      setLoading((prev) => (emergencies.length === 0 ? true : prev));
-
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
         setEmergencies([]);
+        setPreviousEmergencies([]);
+        setLoading(false);
         return;
       }
 
@@ -44,15 +49,15 @@ export default function HistoryScreen({ navigation }) {
       const data = await response.json();
 
       if (Array.isArray(data)) {
-        setPreviousEmergencies(emergencies);
+        setPreviousEmergencies(emergenciesRef.current);
         setEmergencies(data);
       } else {
         console.log('History API response:', data);
+        setPreviousEmergencies(emergenciesRef.current);
         setEmergencies([]);
       }
     } catch (error) {
       console.log('History Error:', error);
-      setEmergencies([]);
       Alert.alert('Error', 'Failed to load history');
     } finally {
       setLoading(false);
@@ -71,7 +76,7 @@ export default function HistoryScreen({ navigation }) {
       return () => {
         clearPolling();
       };
-    }, [emergencies])
+    }, [])
   );
 
   useEffect(() => {
@@ -117,7 +122,11 @@ export default function HistoryScreen({ navigation }) {
   const isStatusChanged = (item) => {
     const oldItem = previousEmergencies.find((e) => e.id === item.id);
     if (!oldItem) return false;
-    return String(oldItem.status || '').toLowerCase() !== String(item.status || '').toLowerCase();
+
+    return (
+      String(oldItem.status || '').toLowerCase() !==
+      String(item.status || '').toLowerCase()
+    );
   };
 
   const renderItem = ({ item }) => {
@@ -215,7 +224,7 @@ export default function HistoryScreen({ navigation }) {
           keyExtractor={(item, index) => String(item?.id ?? index)}
           renderItem={renderItem}
           onRefresh={fetchHistory}
-          refreshing={loading}
+          refreshing={false}
           contentContainerStyle={
             filteredEmergencies.length === 0 ? styles.emptyContainer : styles.listContainer
           }
