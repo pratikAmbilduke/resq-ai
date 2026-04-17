@@ -89,6 +89,14 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/debug-priority")
+def debug_priority():
+    return {
+        "message": "priority route live",
+        "allowed_priorities": ["low", "medium", "high", "critical"]
+    }
+
+
 @app.post("/register")
 def register(req: RegisterRequest):
     db: Session = get_db()
@@ -281,7 +289,6 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
             return {"error": "Emergency not found"}
 
         allowed_statuses = ["pending", "accepted", "in progress", "resolved", "cancelled"]
-
         new_status = req.status.strip().lower()
 
         if new_status not in allowed_statuses:

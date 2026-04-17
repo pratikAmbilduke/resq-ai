@@ -18,7 +18,6 @@ class UserModel(Base):
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     role = Column(String, default="user")
-
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
 
