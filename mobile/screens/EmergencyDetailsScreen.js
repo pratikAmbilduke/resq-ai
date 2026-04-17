@@ -14,10 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
-export default function EmergencyDetailsScreen({ route, navigation }) {
+export default function EmergencyDetailsScreen({ route }) {
   const emergency = route?.params?.emergency;
 
   const [status, setStatus] = useState(emergency?.status || 'pending');
+  const [priority, setPriority] = useState(emergency?.priority || 'medium');
   const [userRole, setUserRole] = useState('user');
   const [loading, setLoading] = useState(false);
   const [acceptedBy, setAcceptedBy] = useState(emergency?.accepted_by || '');
@@ -111,6 +112,15 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
     }
   };
 
+  const getPriorityColor = (value) => {
+    const p = String(value || '').toLowerCase();
+    if (p === 'low') return '#6c757d';
+    if (p === 'medium') return '#0d6efd';
+    if (p === 'high') return '#fd7e14';
+    if (p === 'critical') return '#dc3545';
+    return '#666';
+  };
+
   const updateStatus = async (newStatus) => {
     try {
       setLoading(true);
@@ -149,66 +159,16 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
         setAcceptedBy(data.data.accepted_by || '');
       }
 
+      if (data?.data?.priority) {
+        setPriority(data.data.priority);
+      }
+
       Alert.alert('Success', `Status updated to ${newStatus}`);
     } catch (error) {
       console.log('Update Status Error:', error);
       Alert.alert('Error', 'Failed to update status');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const cancelRequest = async () => {
-    try {
-      Alert.alert(
-        'Cancel Request',
-        'Are you sure you want to cancel this request?',
-        [
-          { text: 'No', style: 'cancel' },
-          {
-            text: 'Yes, Cancel',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                setLoading(true);
-
-                const response = await fetch(
-                  `${API_BASE_URL}/emergency/${emergency.id}/status`,
-                  {
-                    method: 'PUT',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      status: 'cancelled',
-                    }),
-                  }
-                );
-
-                const data = await response.json();
-
-                if (data.error) {
-                  Alert.alert('Error', data.error);
-                  return;
-                }
-
-                setStatus('cancelled');
-                setAcceptedBy('');
-                setProviderLocation(null);
-
-                Alert.alert('Success', 'Request cancelled successfully');
-              } catch (error) {
-                console.log('Cancel request error:', error);
-                Alert.alert('Error', 'Failed to cancel request');
-              } finally {
-                setLoading(false);
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.log('Cancel Alert Error:', error);
     }
   };
 
@@ -290,6 +250,11 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
           {status}
         </Text>
 
+        <Text style={styles.label}>Priority</Text>
+        <Text style={[styles.priorityValue, { color: getPriorityColor(priority) }]}>
+          {String(priority || 'medium').toUpperCase()}
+        </Text>
+
         {acceptedBy ? (
           <>
             <Text style={styles.label}>Accepted By</Text>
@@ -352,16 +317,6 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
         </View>
       )}
 
-      {userRole === 'user' && status === 'pending' && (
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={cancelRequest}
-          disabled={loading}
-        >
-          <Text style={styles.cancelButtonText}>Cancel Request</Text>
-        </TouchableOpacity>
-      )}
-
       {userRole === 'admin' && (
         <View style={styles.actionCard}>
           <Text style={styles.actionTitle}>Update Status</Text>
@@ -408,10 +363,10 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
         </View>
       )}
 
-      {userRole !== 'admin' && status !== 'pending' && (
+      {userRole !== 'admin' && (
         <View style={styles.noteCard}>
           <Text style={styles.noteText}>
-            This request can no longer be cancelled.
+            Only admin can update emergency status.
           </Text>
         </View>
       )}
@@ -478,6 +433,11 @@ const styles = StyleSheet.create({
     color: '#dc3545',
     fontWeight: 'bold',
   },
+  priorityValue: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 4,
+  },
   acceptedByText: {
     color: '#6f42c1',
     fontWeight: 'bold',
@@ -538,18 +498,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#007AFF',
-  },
-  cancelButton: {
-    backgroundColor: '#dc3545',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
   },
   actionCard: {
     backgroundColor: '#fff',

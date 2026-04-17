@@ -61,6 +61,10 @@ class StatusUpdateRequest(BaseModel):
     accepted_by: Optional[str] = None
 
 
+class PriorityUpdateRequest(BaseModel):
+    priority: str
+
+
 class ProfileRequest(BaseModel):
     name: str
     phone: str
@@ -168,7 +172,8 @@ def create_emergency(req: EmergencyRequest):
             location_text=req.location_text,
             user_id=req.user_id,
             status="pending",
-            accepted_by=None
+            accepted_by=None,
+            priority="medium"
         )
 
         db.add(emergency)
@@ -185,6 +190,7 @@ def create_emergency(req: EmergencyRequest):
                 "longitude": emergency.longitude,
                 "location_text": emergency.location_text,
                 "status": emergency.status,
+                "priority": emergency.priority,
                 "user_id": emergency.user_id,
                 "accepted_by": emergency.accepted_by
             }
@@ -217,6 +223,7 @@ def get_user_emergencies(user_id: int):
                 "longitude": e.longitude,
                 "location_text": e.location_text,
                 "status": e.status,
+                "priority": e.priority,
                 "user_id": e.user_id,
                 "accepted_by": e.accepted_by
             }
@@ -250,6 +257,7 @@ def get_all_emergencies(user_id: int):
                 "longitude": e.longitude,
                 "location_text": e.location_text,
                 "status": e.status,
+                "priority": e.priority,
                 "user_id": e.user_id,
                 "accepted_by": e.accepted_by
             }
@@ -298,12 +306,52 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
             "data": {
                 "id": emergency.id,
                 "status": emergency.status,
+                "priority": emergency.priority,
                 "accepted_by": emergency.accepted_by
             }
         }
 
     except Exception as e:
         print("Status Update Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
+@app.put("/admin/emergency/{emergency_id}/priority/{admin_user_id}")
+def update_priority(emergency_id: int, admin_user_id: int, req: PriorityUpdateRequest):
+    db: Session = get_db()
+    try:
+        admin_user = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
+
+        if not admin_user or admin_user.role != "admin":
+            return {"error": "Access denied"}
+
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+
+        if not emergency:
+            return {"error": "Emergency not found"}
+
+        new_priority = req.priority.strip().lower()
+        allowed_priorities = ["low", "medium", "high", "critical"]
+
+        if new_priority not in allowed_priorities:
+            return {"error": "Invalid priority"}
+
+        emergency.priority = new_priority
+        db.commit()
+        db.refresh(emergency)
+
+        return {
+            "message": "Priority updated successfully",
+            "data": {
+                "id": emergency.id,
+                "priority": emergency.priority
+            }
+        }
+
+    except Exception as e:
+        print("Priority Update Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
@@ -498,7 +546,8 @@ def get_all_locations():
                 "longitude": e.longitude,
                 "description": e.description,
                 "location_text": e.location_text,
-                "accepted_by": e.accepted_by
+                "accepted_by": e.accepted_by,
+                "priority": e.priority
             }
             for e in emergencies
         ]

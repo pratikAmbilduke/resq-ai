@@ -95,13 +95,15 @@ export default function HistoryScreen({ navigation }) {
       const location = String(item?.location_text || '').toLowerCase();
       const status = String(item?.status || '').toLowerCase();
       const acceptedBy = String(item?.accepted_by || '').toLowerCase();
+      const priority = String(item?.priority || '').toLowerCase();
 
       const matchesSearch =
         !query ||
         type.includes(query) ||
         description.includes(query) ||
         location.includes(query) ||
-        acceptedBy.includes(query);
+        acceptedBy.includes(query) ||
+        priority.includes(query);
 
       const matchesStatus =
         selectedStatus === 'all' || status === selectedStatus;
@@ -117,6 +119,15 @@ export default function HistoryScreen({ navigation }) {
     if (s === 'in progress') return '#007bff';
     if (s === 'resolved') return '#28a745';
     if (s === 'cancelled') return '#dc3545';
+    return '#666';
+  };
+
+  const getPriorityColor = (priority) => {
+    const p = String(priority || '').toLowerCase();
+    if (p === 'low') return '#6c757d';
+    if (p === 'medium') return '#0d6efd';
+    if (p === 'high') return '#fd7e14';
+    if (p === 'critical') return '#dc3545';
     return '#666';
   };
 
@@ -146,6 +157,10 @@ export default function HistoryScreen({ navigation }) {
           {String(item?.status || 'unknown').toUpperCase()}
         </Text>
 
+        <Text style={[styles.priorityText, { color: getPriorityColor(item?.priority) }]}>
+          PRIORITY: {String(item?.priority || 'medium').toUpperCase()}
+        </Text>
+
         {item?.accepted_by ? (
           <Text style={styles.acceptedBy}>Accepted By: {item.accepted_by}</Text>
         ) : (
@@ -165,7 +180,7 @@ export default function HistoryScreen({ navigation }) {
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by type, description, location or provider"
+        placeholder="Search by type, description, location, provider or priority"
         value={search}
         onChangeText={setSearch}
       />
@@ -327,6 +342,11 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  priorityText: {
+    fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 8,
   },

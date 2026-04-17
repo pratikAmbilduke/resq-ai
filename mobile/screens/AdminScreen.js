@@ -37,6 +37,30 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  const calculateCounts = (data) => {
+    const pending = data.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'pending'
+    ).length;
+
+    const accepted = data.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'accepted'
+    ).length;
+
+    const progress = data.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'in progress'
+    ).length;
+
+    const resolved = data.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'resolved'
+    ).length;
+
+    setPendingCount(pending);
+    setAcceptedCount(accepted);
+    setProgressCount(progress);
+    setResolvedCount(resolved);
+    setTotalRequests(data.length);
+  };
+
   const loadAdminData = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
@@ -48,6 +72,7 @@ export default function AdminScreen({ navigation }) {
       if (!userId) {
         setLoading(false);
         setRequests([]);
+        calculateCounts([]);
         return;
       }
 
@@ -57,38 +82,13 @@ export default function AdminScreen({ navigation }) {
       if (!Array.isArray(data)) {
         console.log('Admin API response:', data);
         setRequests([]);
-        setPendingCount(0);
-        setAcceptedCount(0);
-        setProgressCount(0);
-        setResolvedCount(0);
-        setTotalRequests(0);
+        calculateCounts([]);
         setLoading(false);
         return;
       }
 
       setRequests(data);
-
-      const pending = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'pending'
-      ).length;
-
-      const accepted = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'accepted'
-      ).length;
-
-      const progress = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'in progress'
-      ).length;
-
-      const resolved = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'resolved'
-      ).length;
-
-      setPendingCount(pending);
-      setAcceptedCount(accepted);
-      setProgressCount(progress);
-      setResolvedCount(resolved);
-      setTotalRequests(data.length);
+      calculateCounts(data);
     } catch (error) {
       console.log('Admin load error:', error);
       Alert.alert('Error', 'Failed to load admin dashboard');
@@ -128,6 +128,15 @@ export default function AdminScreen({ navigation }) {
     return '#666';
   };
 
+  const getPriorityColor = (priority) => {
+    const p = String(priority || '').toLowerCase();
+    if (p === 'low') return '#6c757d';
+    if (p === 'medium') return '#0d6efd';
+    if (p === 'high') return '#fd7e14';
+    if (p === 'critical') return '#dc3545';
+    return '#666';
+  };
+
   const filteredRequests = useMemo(() => {
     const query = searchText.trim().toLowerCase();
 
@@ -137,13 +146,15 @@ export default function AdminScreen({ navigation }) {
       const location = String(item?.location_text || '').toLowerCase();
       const status = String(item?.status || '').toLowerCase();
       const acceptedBy = String(item?.accepted_by || '').toLowerCase();
+      const priority = String(item?.priority || '').toLowerCase();
 
       const matchesSearch =
         !query ||
         type.includes(query) ||
         description.includes(query) ||
         location.includes(query) ||
-        acceptedBy.includes(query);
+        acceptedBy.includes(query) ||
+        priority.includes(query);
 
       let matchesFilter = true;
 
@@ -198,6 +209,10 @@ export default function AdminScreen({ navigation }) {
                   return;
                 }
 
+                const updatedRequests = requests.filter((item) => item.id !== emergencyId);
+                setRequests(updatedRequests);
+                calculateCounts(updatedRequests);
+
                 Alert.alert('Success', 'Request deleted successfully');
                 loadAdminData();
               } catch (error) {
@@ -210,6 +225,46 @@ export default function AdminScreen({ navigation }) {
       );
     } catch (error) {
       console.log('Delete alert error:', error);
+    }
+  };
+
+  const handleSetPriority = async (emergencyId, priority) => {
+    try {
+      if (!adminUserId) {
+        Alert.alert('Error', 'Admin user not found');
+        return;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/admin/emergency/${emergencyId}/priority/${adminUserId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ priority }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        return;
+      }
+
+      const updatedRequests = requests.map((item) =>
+        item.id === emergencyId ? { ...item, priority } : item
+      );
+
+      setRequests(updatedRequests);
+      calculateCounts(updatedRequests);
+
+      Alert.alert('Success', `Priority updated to ${priority}`);
+      loadAdminData();
+    } catch (error) {
+      console.log('Priority update error:', error);
+      Alert.alert('Error', 'Failed to update priority');
     }
   };
 
@@ -259,74 +314,27 @@ export default function AdminScreen({ navigation }) {
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by type, description, location, provider"
+        placeholder="Search by type, description, location, provider, priority"
         value={searchText}
         onChangeText={setSearchText}
       />
 
       <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'all' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('all')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'all' && styles.activeFilterText]}>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'pending' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('pending')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'pending' && styles.activeFilterText]}>
-            Pending
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'accepted' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('accepted')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'accepted' && styles.activeFilterText]}>
-            Accepted
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'in progress' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('in progress')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'in progress' && styles.activeFilterText]}>
-            In Progress
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'resolved' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('resolved')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'resolved' && styles.activeFilterText]}>
-            Resolved
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'cancelled' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('cancelled')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'cancelled' && styles.activeFilterText]}>
-            Cancelled
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedFilter === 'my-assigned' && styles.activeFilter]}
-          onPress={() => setSelectedFilter('my-assigned')}
-        >
-          <Text style={[styles.filterText, selectedFilter === 'my-assigned' && styles.activeFilterText]}>
-            My Assigned
-          </Text>
-        </TouchableOpacity>
+        {['all', 'pending', 'accepted', 'in progress', 'resolved', 'cancelled', 'my-assigned'].map((filter) => (
+          <TouchableOpacity
+            key={filter}
+            style={[styles.filterButton, selectedFilter === filter && styles.activeFilter]}
+            onPress={() => setSelectedFilter(filter)}
+          >
+            <Text style={[styles.filterText, selectedFilter === filter && styles.activeFilterText]}>
+              {filter === 'my-assigned'
+                ? 'My Assigned'
+                : filter === 'in progress'
+                ? 'In Progress'
+                : filter.charAt(0).toUpperCase() + filter.slice(1)}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {filteredRequests.length === 0 ? (
@@ -360,6 +368,15 @@ export default function AdminScreen({ navigation }) {
                 {String(item?.status || 'unknown').toUpperCase()}
               </Text>
 
+              <Text
+                style={[
+                  styles.priorityText,
+                  { color: getPriorityColor(item?.priority) },
+                ]}
+              >
+                PRIORITY: {String(item?.priority || 'medium').toUpperCase()}
+              </Text>
+
               {item?.accepted_by ? (
                 <Text style={styles.acceptedBy}>
                   Accepted By: {item.accepted_by}
@@ -370,6 +387,36 @@ export default function AdminScreen({ navigation }) {
 
               <Text style={styles.tapText}>Tap to manage request</Text>
             </TouchableOpacity>
+
+            <View style={styles.priorityRow}>
+              <TouchableOpacity
+                style={[styles.priorityButton, styles.lowButton]}
+                onPress={() => handleSetPriority(item.id, 'low')}
+              >
+                <Text style={styles.priorityButtonText}>Low</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.priorityButton, styles.mediumButton]}
+                onPress={() => handleSetPriority(item.id, 'medium')}
+              >
+                <Text style={styles.priorityButtonText}>Medium</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.priorityButton, styles.highButton]}
+                onPress={() => handleSetPriority(item.id, 'high')}
+              >
+                <Text style={styles.priorityButtonText}>High</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.priorityButton, styles.criticalButton]}
+                onPress={() => handleSetPriority(item.id, 'critical')}
+              >
+                <Text style={styles.priorityButtonText}>Critical</Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.deleteButton}
@@ -395,7 +442,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
   },
-
   totalCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -413,13 +459,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 5,
   },
-
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-
   card: {
     width: '48%',
     borderRadius: 16,
@@ -439,7 +483,6 @@ const styles = StyleSheet.create({
   resolved: {
     backgroundColor: '#c8dfcb',
   },
-
   count: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -448,7 +491,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 5,
   },
-
   button: {
     backgroundColor: '#007bff',
     borderRadius: 16,
@@ -462,13 +504,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 14,
   },
-
   searchInput: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -479,7 +519,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
-
   filterContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -502,7 +541,6 @@ const styles = StyleSheet.create({
   activeFilterText: {
     color: '#fff',
   },
-
   emptyCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -513,7 +551,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
   },
-
   requestCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -541,6 +578,11 @@ const styles = StyleSheet.create({
   requestStatus: {
     fontSize: 15,
     fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  priorityText: {
+    fontSize: 14,
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   acceptedBy: {
@@ -559,6 +601,34 @@ const styles = StyleSheet.create({
     color: '#e63946',
     fontWeight: '600',
     marginBottom: 12,
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  priorityButton: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  lowButton: {
+    backgroundColor: '#6c757d',
+  },
+  mediumButton: {
+    backgroundColor: '#0d6efd',
+  },
+  highButton: {
+    backgroundColor: '#fd7e14',
+  },
+  criticalButton: {
+    backgroundColor: '#dc3545',
+  },
+  priorityButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
   deleteButton: {
     backgroundColor: '#dc3545',

@@ -35,6 +35,7 @@ class EmergencyModel(Base):
     status = Column(String, default="pending")
     user_id = Column(Integer, nullable=False)
     accepted_by = Column(String, nullable=True)
+    priority = Column(String, default="medium")
 
 
 class ProfileModel(Base):
