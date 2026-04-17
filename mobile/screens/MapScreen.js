@@ -10,7 +10,8 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
+import * as Location from 'expo-location';
 import API_BASE_URL from '../config';
 
 export default function MapScreen() {
@@ -18,6 +19,7 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('emergency');
   const [selectedMarker, setSelectedMarker] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
   const mapRef = useRef(null);
 
@@ -98,10 +100,39 @@ export default function MapScreen() {
     }
   };
 
+  const fetchUserCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({});
+      const latitude = Number(currentLocation.coords.latitude);
+      const longitude = Number(currentLocation.coords.longitude);
+
+      if (!Number.isNaN(latitude) && !Number.isNaN(longitude)) {
+        setUserLocation({
+          latitude,
+          longitude,
+        });
+      }
+    } catch (error) {
+      console.log('User current location error:', error);
+    }
+  };
+
   useEffect(() => {
     fetchLocations();
+    fetchUserCurrentLocation();
 
-    const interval = setInterval(fetchLocations, 5000);
+    const interval = setInterval(() => {
+      fetchLocations();
+      fetchUserCurrentLocation();
+    }, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -188,8 +219,15 @@ export default function MapScreen() {
 
   const allVisibleMarkers = [...visibleEmergencyMarkers, ...visibleServiceMarkers];
 
-  const firstLatitude = Number(allVisibleMarkers[0]?.latitude) || 18.5204;
-  const firstLongitude = Number(allVisibleMarkers[0]?.longitude) || 73.8567;
+  const firstLatitude =
+    Number(allVisibleMarkers[0]?.latitude) ||
+    Number(userLocation?.latitude) ||
+    18.5204;
+
+  const firstLongitude =
+    Number(allVisibleMarkers[0]?.longitude) ||
+    Number(userLocation?.longitude) ||
+    73.8567;
 
   const handleSelectMarker = (marker, markerCategory) => {
     setSelectedMarker({
@@ -205,19 +243,42 @@ export default function MapScreen() {
         {
           latitude: lat,
           longitude: lng,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
         },
         500
       );
     }
   };
 
+  const routeCoordinates = useMemo(() => {
+    if (!userLocation || !selectedMarker) return [];
+
+    const startLat = Number(userLocation.latitude);
+    const startLng = Number(userLocation.longitude);
+    const endLat = Number(selectedMarker.latitude);
+    const endLng = Number(selectedMarker.longitude);
+
+    if (
+      Number.isNaN(startLat) ||
+      Number.isNaN(startLng) ||
+      Number.isNaN(endLat) ||
+      Number.isNaN(endLng)
+    ) {
+      return [];
+    }
+
+    return [
+      { latitude: startLat, longitude: startLng },
+      { latitude: endLat, longitude: endLng },
+    ];
+  }, [userLocation, selectedMarker]);
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
 
-  if (!allVisibleMarkers.length) {
+  if (!allVisibleMarkers.length && !userLocation) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No locations available for this filter</Text>
@@ -382,6 +443,26 @@ export default function MapScreen() {
         }}
         onPress={() => setSelectedMarker(null)}
       >
+        {userLocation && (
+          <Marker
+            coordinate={{
+              latitude: Number(userLocation.latitude),
+              longitude: Number(userLocation.longitude),
+            }}
+            title="You"
+            description="Your Current Location"
+            pinColor="black"
+          />
+        )}
+
+        {routeCoordinates.length === 2 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#007bff"
+            strokeWidth={4}
+          />
+        )}
+
         {visibleEmergencyMarkers.map((loc, index) => (
           <Marker
             key={loc.id ? `emergency-${loc.id}` : `emergency-${index}`}
@@ -413,6 +494,7 @@ export default function MapScreen() {
 
       <View style={styles.legendBox}>
         <Text style={styles.legendTitle}>Map Legend</Text>
+        <Text style={styles.legendItem}>⚫ You</Text>
         <Text style={styles.legendItem}>🔴 Emergencies / Other</Text>
         <Text style={styles.legendItem}>🟠 Emergency Pending</Text>
         <Text style={styles.legendItem}>🔵 Emergency In Progress</Text>
