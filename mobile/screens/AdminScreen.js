@@ -14,12 +14,12 @@ import API_BASE_URL from '../config';
 
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState([]);
 
   const [pendingCount, setPendingCount] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
-
   const [totalRequests, setTotalRequests] = useState(0);
 
   const intervalRef = useRef(null);
@@ -37,6 +37,7 @@ export default function AdminScreen({ navigation }) {
 
       if (!userId) {
         setLoading(false);
+        setRequests([]);
         return;
       }
 
@@ -45,24 +46,32 @@ export default function AdminScreen({ navigation }) {
 
       if (!Array.isArray(data)) {
         console.log('Admin API response:', data);
+        setRequests([]);
+        setPendingCount(0);
+        setAcceptedCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        setTotalRequests(0);
         setLoading(false);
         return;
       }
 
+      setRequests(data);
+
       const pending = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'pending'
+        (item) => String(item?.status || '').toLowerCase() === 'pending'
       ).length;
 
       const accepted = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'accepted'
+        (item) => String(item?.status || '').toLowerCase() === 'accepted'
       ).length;
 
       const progress = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'in progress'
+        (item) => String(item?.status || '').toLowerCase() === 'in progress'
       ).length;
 
       const resolved = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'resolved'
+        (item) => String(item?.status || '').toLowerCase() === 'resolved'
       ).length;
 
       setPendingCount(pending);
@@ -99,6 +108,15 @@ export default function AdminScreen({ navigation }) {
     };
   }, []);
 
+  const getStatusColor = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'pending') return '#d4a017';
+    if (s === 'accepted') return '#6f42c1';
+    if (s === 'in progress') return '#007bff';
+    if (s === 'resolved') return '#28a745';
+    return '#666';
+  };
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
@@ -107,13 +125,11 @@ export default function AdminScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>🛠 Admin Dashboard</Text>
 
-      {/* TOTAL */}
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Requests</Text>
         <Text style={styles.totalValue}>{totalRequests}</Text>
       </View>
 
-      {/* STATUS CARDS */}
       <View style={styles.grid}>
         <View style={[styles.card, styles.pending]}>
           <Text style={styles.count}>{pendingCount}</Text>
@@ -136,20 +152,59 @@ export default function AdminScreen({ navigation }) {
         </View>
       </View>
 
-      {/* ACTION BUTTONS */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.navigate('History')}
-      >
-        <Text style={styles.buttonText}>📜 View All Requests</Text>
-      </TouchableOpacity>
-
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate('Map')}
       >
         <Text style={styles.buttonText}>🗺 Open Live Map</Text>
       </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>All Requests</Text>
+
+      {requests.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No requests found</Text>
+        </View>
+      ) : (
+        requests.map((item, index) => (
+          <TouchableOpacity
+            key={String(item?.id ?? index)}
+            style={styles.requestCard}
+            onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
+          >
+            <Text style={styles.requestType}>
+              {String(item?.type || '').toUpperCase()}
+            </Text>
+
+            <Text style={styles.requestDescription}>
+              {item?.description || 'No description'}
+            </Text>
+
+            <Text style={styles.requestLocation}>
+              {item?.location_text || 'No location available'}
+            </Text>
+
+            <Text
+              style={[
+                styles.requestStatus,
+                { color: getStatusColor(item?.status) },
+              ]}
+            >
+              {String(item?.status || 'unknown').toUpperCase()}
+            </Text>
+
+            {item?.accepted_by ? (
+              <Text style={styles.acceptedBy}>
+                Accepted By: {item.accepted_by}
+              </Text>
+            ) : (
+              <Text style={styles.notAssigned}>Accepted By: Not assigned yet</Text>
+            )}
+
+            <Text style={styles.tapText}>Tap to manage request</Text>
+          </TouchableOpacity>
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -197,7 +252,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     alignItems: 'center',
   },
-
   pending: {
     backgroundColor: '#efe4b8',
   },
@@ -224,12 +278,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#007bff',
     borderRadius: 16,
     padding: 18,
-    marginTop: 14,
+    marginTop: 8,
+    marginBottom: 20,
     alignItems: 'center',
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 14,
+  },
+
+  emptyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#666',
+    fontSize: 16,
+  },
+
+  requestCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    elevation: 3,
+  },
+  requestType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007bff',
+    marginBottom: 8,
+  },
+  requestDescription: {
+    fontSize: 17,
+    color: '#222',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  requestLocation: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  requestStatus: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  acceptedBy: {
+    fontSize: 14,
+    color: '#6f42c1',
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  notAssigned: {
+    fontSize: 14,
+    color: '#888',
+    marginBottom: 8,
+  },
+  tapText: {
+    fontSize: 14,
+    color: '#e63946',
+    fontWeight: '600',
   },
 });
