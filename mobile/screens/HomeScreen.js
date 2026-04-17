@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,15 @@ export default function HomeScreen({ navigation, onLogout }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
+
+  const intervalRef = useRef(null);
+
+  const clearPolling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
 
   const loadHomeData = async () => {
     try {
@@ -69,20 +78,34 @@ export default function HomeScreen({ navigation, onLogout }) {
       setResolvedCount(resolved);
     } catch (error) {
       console.log('Home load error:', error);
-      setPendingCount(0);
-      setProgressCount(0);
-      setResolvedCount(0);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
+
+      clearPolling();
+      intervalRef.current = setInterval(() => {
+        loadHomeData();
+      }, 5000);
+
+      return () => {
+        clearPolling();
+      };
     }, [])
   );
 
+  useEffect(() => {
+    return () => {
+      clearPolling();
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
+      clearPolling();
+
       await AsyncStorage.multiRemove([
         'userId',
         'userName',

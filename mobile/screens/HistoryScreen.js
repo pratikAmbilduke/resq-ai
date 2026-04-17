@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,18 @@ export default function HistoryScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
+  const intervalRef = useRef(null);
+
+  const clearPolling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
   const fetchHistory = async () => {
     try {
-      setLoading(true);
+      setLoading((prev) => (emergencies.length === 0 ? true : prev));
 
       const userId = await AsyncStorage.getItem('userId');
 
@@ -51,8 +60,23 @@ export default function HistoryScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchHistory();
+
+      clearPolling();
+      intervalRef.current = setInterval(() => {
+        fetchHistory();
+      }, 5000);
+
+      return () => {
+        clearPolling();
+      };
     }, [])
   );
+
+  useEffect(() => {
+    return () => {
+      clearPolling();
+    };
+  }, []);
 
   const filteredEmergencies = useMemo(() => {
     const safeEmergencies = Array.isArray(emergencies) ? emergencies : [];
