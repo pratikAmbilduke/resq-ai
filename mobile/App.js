@@ -19,6 +19,7 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState('user');
 
   useEffect(() => {
     checkLogin();
@@ -27,16 +28,22 @@ export default function App() {
   const checkLogin = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
+      const role = await AsyncStorage.getItem('userRole');
+
       setIsLoggedIn(!!userId);
+      setUserRole(role || 'user');
     } catch (error) {
       console.log('Check Login Error:', error);
       setIsLoggedIn(false);
+      setUserRole('user');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = async (roleFromLogin) => {
+    const role = roleFromLogin || (await AsyncStorage.getItem('userRole')) || 'user';
+    setUserRole(role);
     setIsLoggedIn(true);
   };
 
@@ -49,6 +56,7 @@ export default function App() {
         'userRole',
       ]);
       setIsLoggedIn(false);
+      setUserRole('user');
     } catch (error) {
       console.log('Logout Error:', error);
     }
@@ -56,7 +64,13 @@ export default function App() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         <ActivityIndicator size="large" color="#007bff" />
       </View>
     );
@@ -72,19 +86,59 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
-            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{ title: 'Register' }}
+            />
+          </>
+        ) : userRole === 'admin' ? (
+          <>
+            <Stack.Screen name="Admin">
+              {(props) => <AdminScreen {...props} onLogout={handleLogout} />}
+            </Stack.Screen>
+
+            <Stack.Screen
+              name="EmergencyDetails"
+              component={EmergencyDetailsScreen}
+              options={{ title: 'Emergency Details' }}
+            />
           </>
         ) : (
           <>
             <Stack.Screen name="Home">
               {(props) => <HomeScreen {...props} onLogout={handleLogout} />}
             </Stack.Screen>
-            <Stack.Screen name="Emergency" component={EmergencyFormScreen} />
-            <Stack.Screen name="History" component={HistoryScreen} />
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="EmergencyDetails" component={EmergencyDetailsScreen} />
-            <Stack.Screen name="Admin" component={AdminScreen} />
+
+            <Stack.Screen
+              name="Emergency"
+              component={EmergencyFormScreen}
+              options={{ title: 'Emergency' }}
+            />
+
+            <Stack.Screen
+              name="History"
+              component={HistoryScreen}
+              options={{ title: 'History' }}
+            />
+
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
+              options={{ title: 'Dashboard' }}
+            />
+
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ title: 'Profile' }}
+            />
+
+            <Stack.Screen
+              name="EmergencyDetails"
+              component={EmergencyDetailsScreen}
+              options={{ title: 'Emergency Details' }}
+            />
           </>
         )}
       </Stack.Navigator>

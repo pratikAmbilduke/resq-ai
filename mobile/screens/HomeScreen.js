@@ -28,6 +28,11 @@ export default function HomeScreen({ navigation, onLogout }) {
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
 
+      if (storedRole === 'admin') {
+        navigation.replace('Admin');
+        return;
+      }
+
       if (!userId) {
         setPendingCount(0);
         setProgressCount(0);
@@ -151,15 +156,6 @@ export default function HomeScreen({ navigation, onLogout }) {
       >
         <Text style={styles.menuText}>👤 Profile</Text>
       </TouchableOpacity>
-
-      {userRole === 'admin' && (
-        <TouchableOpacity
-          style={styles.menuCard}
-          onPress={() => navigation.navigate('Admin')}
-        >
-          <Text style={styles.menuText}>🛠 Admin Panel</Text>
-        </TouchableOpacity>
-      )}
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
