@@ -10,13 +10,14 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
 export default function MapScreen() {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('emergency');
+  const [selectedMarker, setSelectedMarker] = useState(null);
 
   const nearbyServices = [
     {
@@ -190,6 +191,13 @@ export default function MapScreen() {
   const firstLongitude =
     Number(allVisibleMarkers[0]?.longitude) || 73.8567;
 
+  const handleSelectMarker = (marker, markerCategory) => {
+    setSelectedMarker({
+      ...marker,
+      markerCategory,
+    });
+  };
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
@@ -204,6 +212,42 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {selectedMarker && (
+        <View style={styles.topInfoCard}>
+          <View style={styles.topInfoHeader}>
+            <Text style={styles.topInfoTitle}>
+              {selectedMarker.name || 'Selected Location'}
+            </Text>
+            <TouchableOpacity onPress={() => setSelectedMarker(null)}>
+              <Text style={styles.closeText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.topInfoType}>
+            {selectedMarker.markerCategory === 'emergency'
+              ? 'Emergency'
+              : String(selectedMarker.type || 'Service').toUpperCase()}
+          </Text>
+
+          <Text style={styles.topInfoText}>
+            {selectedMarker.description || 'No description'}
+          </Text>
+
+          <Text style={styles.topInfoText}>
+            {selectedMarker.location_text || 'No address'}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.navigateButton}
+            onPress={() =>
+              openNavigation(selectedMarker.latitude, selectedMarker.longitude)
+            }
+          >
+            <Text style={styles.navigateButtonText}>Navigate</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.filterWrapper}>
         <ScrollView
           horizontal
@@ -215,7 +259,10 @@ export default function MapScreen() {
               styles.filterButton,
               selectedType === 'emergency' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('emergency')}
+            onPress={() => {
+              setSelectedType('emergency');
+              setSelectedMarker(null);
+            }}
           >
             <Text
               style={[
@@ -232,7 +279,10 @@ export default function MapScreen() {
               styles.filterButton,
               selectedType === 'all-services' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('all-services')}
+            onPress={() => {
+              setSelectedType('all-services');
+              setSelectedMarker(null);
+            }}
           >
             <Text
               style={[
@@ -249,7 +299,10 @@ export default function MapScreen() {
               styles.filterButton,
               selectedType === 'hospital' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('hospital')}
+            onPress={() => {
+              setSelectedType('hospital');
+              setSelectedMarker(null);
+            }}
           >
             <Text
               style={[
@@ -266,7 +319,10 @@ export default function MapScreen() {
               styles.filterButton,
               selectedType === 'police' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('police')}
+            onPress={() => {
+              setSelectedType('police');
+              setSelectedMarker(null);
+            }}
           >
             <Text
               style={[
@@ -283,7 +339,10 @@ export default function MapScreen() {
               styles.filterButton,
               selectedType === 'ambulance' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('ambulance')}
+            onPress={() => {
+              setSelectedType('ambulance');
+              setSelectedMarker(null);
+            }}
           >
             <Text
               style={[
@@ -305,6 +364,7 @@ export default function MapScreen() {
           latitudeDelta: 0.08,
           longitudeDelta: 0.08,
         }}
+        onPress={() => setSelectedMarker(null)}
       >
         {visibleEmergencyMarkers.map((loc, index) => (
           <Marker
@@ -316,26 +376,8 @@ export default function MapScreen() {
             title={loc.name || 'Emergency'}
             description={loc.location_text || 'Location'}
             pinColor={getEmergencyPinColor(loc.name)}
-          >
-            <Callout tooltip>
-              <View style={styles.calloutCard}>
-                <Text style={styles.calloutTitle}>{loc.name || 'Emergency'}</Text>
-                <Text style={styles.calloutText}>
-                  {loc.description || 'No description'}
-                </Text>
-                <Text style={styles.calloutText}>
-                  {loc.location_text || 'No address'}
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.navigateButton}
-                  onPress={() => openNavigation(loc.latitude, loc.longitude)}
-                >
-                  <Text style={styles.navigateButtonText}>Navigate</Text>
-                </TouchableOpacity>
-              </View>
-            </Callout>
-          </Marker>
+            onPress={() => handleSelectMarker(loc, 'emergency')}
+          />
         ))}
 
         {visibleServiceMarkers.map((service) => (
@@ -348,22 +390,8 @@ export default function MapScreen() {
             title={service.name}
             description={service.location_text}
             pinColor={getServicePinColor(service.type)}
-          >
-            <Callout tooltip>
-              <View style={styles.calloutCard}>
-                <Text style={styles.calloutTitle}>{service.name}</Text>
-                <Text style={styles.calloutText}>{service.description}</Text>
-                <Text style={styles.calloutText}>{service.location_text}</Text>
-
-                <TouchableOpacity
-                  style={styles.navigateButton}
-                  onPress={() => openNavigation(service.latitude, service.longitude)}
-                >
-                  <Text style={styles.navigateButtonText}>Navigate</Text>
-                </TouchableOpacity>
-              </View>
-            </Callout>
-          </Marker>
+            onPress={() => handleSelectMarker(service, 'service')}
+          />
         ))}
       </MapView>
 
@@ -384,6 +412,45 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+
+  topInfoCard: {
+    position: 'absolute',
+    top: 62,
+    left: 12,
+    right: 12,
+    zIndex: 20,
+    backgroundColor: '#ffffffee',
+    borderRadius: 14,
+    padding: 14,
+    elevation: 5,
+  },
+  topInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  topInfoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 10,
+  },
+  closeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#555',
+  },
+  topInfoType: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#007bff',
+  },
+  topInfoText: {
+    marginTop: 6,
+    fontSize: 13,
+    color: '#333',
+  },
 
   filterWrapper: {
     position: 'absolute',
@@ -430,27 +497,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  calloutCard: {
-    width: 240,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  calloutTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  calloutText: {
-    fontSize: 13,
-    color: '#333',
-    marginBottom: 4,
-  },
   navigateButton: {
-    marginTop: 8,
+    marginTop: 10,
     backgroundColor: '#007bff',
     borderRadius: 8,
     paddingVertical: 10,
