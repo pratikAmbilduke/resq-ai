@@ -451,8 +451,14 @@ export default function MapScreen() {
             }}
             title="You"
             description="Your Current Location"
-            pinColor="black"
-          />
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.userMarkerOuter}>
+              <View style={styles.userMarkerMiddle}>
+                <View style={styles.userMarkerInner} />
+              </View>
+            </View>
+          </Marker>
         )}
 
         {routeCoordinates.length === 2 && (
@@ -494,7 +500,7 @@ export default function MapScreen() {
 
       <View style={styles.legendBox}>
         <Text style={styles.legendTitle}>Map Legend</Text>
-        <Text style={styles.legendItem}>⚫ You</Text>
+        <Text style={styles.legendItem}>🔵 You</Text>
         <Text style={styles.legendItem}>🔴 Emergencies / Other</Text>
         <Text style={styles.legendItem}>🟠 Emergency Pending</Text>
         <Text style={styles.legendItem}>🔵 Emergency In Progress</Text>
@@ -605,6 +611,29 @@ const styles = StyleSheet.create({
   navigateButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+
+  userMarkerOuter: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0, 122, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userMarkerMiddle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userMarkerInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#007AFF',
   },
 
   legendBox: {
