@@ -12,6 +12,7 @@ import HistoryScreen from './screens/HistoryScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EmergencyDetailsScreen from './screens/EmergencyDetailsScreen';
+import AdminScreen from './screens/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -55,13 +56,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#007bff" />
       </View>
     );
@@ -77,48 +72,19 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
-
-            <Stack.Screen
-              name="Register"
-              component={RegisterScreen}
-              options={{ title: 'Register' }}
-            />
+            <Stack.Screen name="Register" component={RegisterScreen} />
           </>
         ) : (
           <>
             <Stack.Screen name="Home">
               {(props) => <HomeScreen {...props} onLogout={handleLogout} />}
             </Stack.Screen>
-
-            <Stack.Screen
-              name="Emergency"
-              component={EmergencyFormScreen}
-              options={{ title: 'Emergency' }}
-            />
-
-            <Stack.Screen
-              name="History"
-              component={HistoryScreen}
-              options={{ title: 'History' }}
-            />
-
-            <Stack.Screen
-              name="Dashboard"
-              component={DashboardScreen}
-              options={{ title: 'Dashboard' }}
-            />
-
-            <Stack.Screen
-              name="Profile"
-              component={ProfileScreen}
-              options={{ title: 'Profile' }}
-            />
-
-            <Stack.Screen
-              name="EmergencyDetails"
-              component={EmergencyDetailsScreen}
-              options={{ title: 'Emergency Details' }}
-            />
+            <Stack.Screen name="Emergency" component={EmergencyFormScreen} />
+            <Stack.Screen name="History" component={HistoryScreen} />
+            <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="EmergencyDetails" component={EmergencyDetailsScreen} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
           </>
         )}
       </Stack.Navigator>

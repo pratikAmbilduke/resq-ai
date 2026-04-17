@@ -227,6 +227,39 @@ def get_user_emergencies(user_id: int):
         db.close()
 
 
+@app.get("/admin/emergencies/{user_id}")
+def get_all_emergencies(user_id: int):
+    db: Session = get_db()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+        if not user or user.role != "admin":
+            return {"error": "Access denied"}
+
+        emergencies = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
+
+        return [
+            {
+                "id": e.id,
+                "type": e.type,
+                "description": e.description,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "location_text": e.location_text,
+                "status": e.status,
+                "user_id": e.user_id
+            }
+            for e in emergencies
+        ]
+
+    except Exception as e:
+        print("Admin Error:", e)
+        return {"error": str(e)}
+
+    finally:
+        db.close()
+
+
 @app.put("/emergency/{emergency_id}/status")
 def update_status(emergency_id: int, req: StatusUpdateRequest):
     db: Session = get_db()
@@ -250,39 +283,6 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
 
     except Exception as e:
         print("Status Update Error:", e)
-        return {"error": str(e)}
-
-    finally:
-        db.close()
-
-
-@app.post("/admin/emergencies")
-def get_all_emergencies(req: AdminRequest):
-    db: Session = get_db()
-    try:
-        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
-
-        if not user or user.role != "admin":
-            return {"error": "Access denied"}
-
-        emergencies = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
-
-        return [
-            {
-                "id": e.id,
-                "type": e.type,
-                "description": e.description,
-                "latitude": e.latitude,
-                "longitude": e.longitude,
-                "location_text": e.location_text,
-                "status": e.status,
-                "user_id": e.user_id
-            }
-            for e in emergencies
-        ]
-
-    except Exception as e:
-        print("Admin Error:", e)
         return {"error": str(e)}
 
     finally:
