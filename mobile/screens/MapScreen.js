@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -18,6 +18,8 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('emergency');
   const [selectedMarker, setSelectedMarker] = useState(null);
+
+  const mapRef = useRef(null);
 
   const nearbyServices = [
     {
@@ -186,16 +188,29 @@ export default function MapScreen() {
 
   const allVisibleMarkers = [...visibleEmergencyMarkers, ...visibleServiceMarkers];
 
-  const firstLatitude =
-    Number(allVisibleMarkers[0]?.latitude) || 18.5204;
-  const firstLongitude =
-    Number(allVisibleMarkers[0]?.longitude) || 73.8567;
+  const firstLatitude = Number(allVisibleMarkers[0]?.latitude) || 18.5204;
+  const firstLongitude = Number(allVisibleMarkers[0]?.longitude) || 73.8567;
 
   const handleSelectMarker = (marker, markerCategory) => {
     setSelectedMarker({
       ...marker,
       markerCategory,
     });
+
+    const lat = Number(marker.latitude);
+    const lng = Number(marker.longitude);
+
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        500
+      );
+    }
   };
 
   if (loading) {
@@ -357,6 +372,7 @@ export default function MapScreen() {
       </View>
 
       <MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={{
           latitude: firstLatitude,
