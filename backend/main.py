@@ -386,3 +386,26 @@ def update_location(req: LocationUpdateRequest):
 
     finally:
         db.close()
+
+    
+   
+@app.get("/all-locations")
+def get_all_locations():
+    db: Session = get_db()
+    try:
+        users = db.query(UserModel).all()
+
+        return [
+            {
+                "id": u.id,
+                "name": u.name,
+                "latitude": u.latitude,
+                "longitude": u.longitude
+            }
+            for u in users
+            if u.latitude is not None and u.longitude is not None
+        ]
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        db.close()
