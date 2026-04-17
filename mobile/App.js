@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
-import EmergencyScreen from './screens/EmergencyScreen';
+import EmergencyFormScreen from './screens/EmergencyFormScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -77,17 +77,43 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
-            <Stack.Screen name="Register" component={RegisterScreen} />
+
+            <Stack.Screen
+              name="Register"
+              component={RegisterScreen}
+              options={{ title: 'Register' }}
+            />
           </>
         ) : (
           <>
             <Stack.Screen name="Home">
               {(props) => <HomeScreen {...props} onLogout={handleLogout} />}
             </Stack.Screen>
-            <Stack.Screen name="Emergency" component={EmergencyScreen} />
-            <Stack.Screen name="History" component={HistoryScreen} />
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
+
+            <Stack.Screen
+              name="Emergency"
+              component={EmergencyFormScreen}
+              options={{ title: 'Emergency' }}
+            />
+
+            <Stack.Screen
+              name="History"
+              component={HistoryScreen}
+              options={{ title: 'History' }}
+            />
+
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
+              options={{ title: 'Dashboard' }}
+            />
+
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ title: 'Profile' }}
+            />
+
             <Stack.Screen
               name="EmergencyDetails"
               component={EmergencyDetailsScreen}
