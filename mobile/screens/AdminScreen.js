@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,12 +16,16 @@ import API_BASE_URL from '../config';
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
+  const [adminName, setAdminName] = useState('');
 
   const [pendingCount, setPendingCount] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
   const [totalRequests, setTotalRequests] = useState(0);
+
+  const [searchText, setSearchText] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
   const intervalRef = useRef(null);
 
@@ -34,6 +39,9 @@ export default function AdminScreen({ navigation }) {
   const loadAdminData = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
+      const storedName = await AsyncStorage.getItem('userName');
+
+      setAdminName(storedName || '');
 
       if (!userId) {
         setLoading(false);
@@ -117,6 +125,43 @@ export default function AdminScreen({ navigation }) {
     return '#666';
   };
 
+  const filteredRequests = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+
+    return requests.filter((item) => {
+      const type = String(item?.type || '').toLowerCase();
+      const description = String(item?.description || '').toLowerCase();
+      const location = String(item?.location_text || '').toLowerCase();
+      const status = String(item?.status || '').toLowerCase();
+      const acceptedBy = String(item?.accepted_by || '').toLowerCase();
+
+      const matchesSearch =
+        !query ||
+        type.includes(query) ||
+        description.includes(query) ||
+        location.includes(query) ||
+        acceptedBy.includes(query);
+
+      let matchesFilter = true;
+
+      if (selectedFilter === 'pending') {
+        matchesFilter = status === 'pending';
+      } else if (selectedFilter === 'accepted') {
+        matchesFilter = status === 'accepted';
+      } else if (selectedFilter === 'in progress') {
+        matchesFilter = status === 'in progress';
+      } else if (selectedFilter === 'resolved') {
+        matchesFilter = status === 'resolved';
+      } else if (selectedFilter === 'my-assigned') {
+        matchesFilter =
+          !!adminName &&
+          acceptedBy === String(adminName).trim().toLowerCase();
+      }
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [requests, searchText, selectedFilter, adminName]);
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
@@ -161,12 +206,75 @@ export default function AdminScreen({ navigation }) {
 
       <Text style={styles.sectionTitle}>All Requests</Text>
 
-      {requests.length === 0 ? (
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by type, description, location, provider"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
+
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'all' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('all')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'all' && styles.activeFilterText]}>
+            All
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'pending' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('pending')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'pending' && styles.activeFilterText]}>
+            Pending
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'accepted' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('accepted')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'accepted' && styles.activeFilterText]}>
+            Accepted
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'in progress' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('in progress')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'in progress' && styles.activeFilterText]}>
+            In Progress
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'resolved' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('resolved')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'resolved' && styles.activeFilterText]}>
+            Resolved
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'my-assigned' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('my-assigned')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'my-assigned' && styles.activeFilterText]}>
+            My Assigned
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {filteredRequests.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>No requests found</Text>
         </View>
       ) : (
-        requests.map((item, index) => (
+        filteredRequests.map((item, index) => (
           <TouchableOpacity
             key={String(item?.id ?? index)}
             style={styles.requestCard}
@@ -292,6 +400,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 14,
+  },
+
+  searchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 15,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterButton: {
+    backgroundColor: '#e9ecef',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  activeFilter: {
+    backgroundColor: '#007bff',
+  },
+  filterText: {
+    color: '#222',
+    fontWeight: '600',
+  },
+  activeFilterText: {
+    color: '#fff',
   },
 
   emptyCard: {
