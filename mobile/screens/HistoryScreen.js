@@ -15,6 +15,7 @@ import API_BASE_URL from '../config';
 
 export default function HistoryScreen({ navigation }) {
   const [emergencies, setEmergencies] = useState([]);
+  const [previousEmergencies, setPreviousEmergencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -43,6 +44,7 @@ export default function HistoryScreen({ navigation }) {
       const data = await response.json();
 
       if (Array.isArray(data)) {
+        setPreviousEmergencies(emergencies);
         setEmergencies(data);
       } else {
         console.log('History API response:', data);
@@ -64,12 +66,12 @@ export default function HistoryScreen({ navigation }) {
       clearPolling();
       intervalRef.current = setInterval(() => {
         fetchHistory();
-      }, 5000);
+      }, 4000);
 
       return () => {
         clearPolling();
       };
-    }, [])
+    }, [emergencies])
   );
 
   useEffect(() => {
@@ -112,28 +114,40 @@ export default function HistoryScreen({ navigation }) {
     return '#666';
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
-    >
-      <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
-      <Text style={styles.description}>{item?.description || 'No description'}</Text>
-      <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
+  const isStatusChanged = (item) => {
+    const oldItem = previousEmergencies.find((e) => e.id === item.id);
+    if (!oldItem) return false;
+    return String(oldItem.status || '').toLowerCase() !== String(item.status || '').toLowerCase();
+  };
 
-      <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
-        {String(item?.status || 'unknown').toUpperCase()}
-      </Text>
+  const renderItem = ({ item }) => {
+    const changed = isStatusChanged(item);
 
-      {item?.accepted_by ? (
-        <Text style={styles.acceptedBy}>Accepted By: {item.accepted_by}</Text>
-      ) : (
-        <Text style={styles.acceptedByPending}>Accepted By: Not assigned yet</Text>
-      )}
+    return (
+      <TouchableOpacity
+        style={[styles.card, changed && styles.highlightCard]}
+        onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
+      >
+        <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
+        <Text style={styles.description}>{item?.description || 'No description'}</Text>
+        <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
 
-      <Text style={styles.linkText}>Tap to view details and map</Text>
-    </TouchableOpacity>
-  );
+        <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
+          {String(item?.status || 'unknown').toUpperCase()}
+        </Text>
+
+        {item?.accepted_by ? (
+          <Text style={styles.acceptedBy}>Accepted By: {item.accepted_by}</Text>
+        ) : (
+          <Text style={styles.acceptedByPending}>Accepted By: Not assigned yet</Text>
+        )}
+
+        {changed && <Text style={styles.updatedText}>🔄 Updated</Text>}
+
+        <Text style={styles.linkText}>Tap to view details and map</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -271,6 +285,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     elevation: 3,
   },
+  highlightCard: {
+    borderWidth: 2,
+    borderColor: '#ff9800',
+  },
   type: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -303,6 +321,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
     marginBottom: 10,
+  },
+  updatedText: {
+    color: '#ff9800',
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   linkText: {
     fontSize: 15,
