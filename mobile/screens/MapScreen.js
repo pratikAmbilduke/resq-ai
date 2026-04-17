@@ -16,9 +16,8 @@ import API_BASE_URL from '../config';
 export default function MapScreen() {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState('all');
+  const [selectedType, setSelectedType] = useState('emergency');
 
-  // ✅ Sample nearby services (can upgrade later to real API)
   const nearbyServices = [
     {
       id: 'h1',
@@ -154,17 +153,53 @@ export default function MapScreen() {
   };
 
   const filteredServices = useMemo(() => {
-    if (selectedType === 'all') return nearbyServices;
-    return nearbyServices.filter((item) => item.type === selectedType);
+    if (selectedType === 'all-services') return nearbyServices;
+    if (selectedType === 'hospital') {
+      return nearbyServices.filter((item) => item.type === 'hospital');
+    }
+    if (selectedType === 'police') {
+      return nearbyServices.filter((item) => item.type === 'police');
+    }
+    if (selectedType === 'ambulance') {
+      return nearbyServices.filter((item) => item.type === 'ambulance');
+    }
+    return [];
   }, [selectedType]);
 
+  const visibleEmergencyMarkers = useMemo(() => {
+    if (selectedType === 'emergency') return locations;
+    return [];
+  }, [selectedType, locations]);
+
+  const visibleServiceMarkers = useMemo(() => {
+    if (
+      selectedType === 'all-services' ||
+      selectedType === 'hospital' ||
+      selectedType === 'police' ||
+      selectedType === 'ambulance'
+    ) {
+      return filteredServices;
+    }
+    return [];
+  }, [selectedType, filteredServices]);
+
+  const allVisibleMarkers = [...visibleEmergencyMarkers, ...visibleServiceMarkers];
+
   const firstLatitude =
-    Number(locations[0]?.latitude) || Number(filteredServices[0]?.latitude) || 18.5204;
+    Number(allVisibleMarkers[0]?.latitude) || 18.5204;
   const firstLongitude =
-    Number(locations[0]?.longitude) || Number(filteredServices[0]?.longitude) || 73.8567;
+    Number(allVisibleMarkers[0]?.longitude) || 73.8567;
 
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+  }
+
+  if (!allVisibleMarkers.length) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No locations available for this filter</Text>
+      </View>
+    );
   }
 
   return (
@@ -178,14 +213,31 @@ export default function MapScreen() {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              selectedType === 'all' && styles.activeFilterButton,
+              selectedType === 'emergency' && styles.activeFilterButton,
             ]}
-            onPress={() => setSelectedType('all')}
+            onPress={() => setSelectedType('emergency')}
           >
             <Text
               style={[
                 styles.filterButtonText,
-                selectedType === 'all' && styles.activeFilterButtonText,
+                selectedType === 'emergency' && styles.activeFilterButtonText,
+              ]}
+            >
+              Emergencies
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedType === 'all-services' && styles.activeFilterButton,
+            ]}
+            onPress={() => setSelectedType('all-services')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedType === 'all-services' && styles.activeFilterButtonText,
               ]}
             >
               All Services
@@ -254,8 +306,7 @@ export default function MapScreen() {
           longitudeDelta: 0.08,
         }}
       >
-        {/* Emergency markers */}
-        {locations.map((loc, index) => (
+        {visibleEmergencyMarkers.map((loc, index) => (
           <Marker
             key={loc.id ? `emergency-${loc.id}` : `emergency-${index}`}
             coordinate={{
@@ -287,8 +338,7 @@ export default function MapScreen() {
           </Marker>
         ))}
 
-        {/* Nearby service markers */}
-        {filteredServices.map((service) => (
+        {visibleServiceMarkers.map((service) => (
           <Marker
             key={service.id}
             coordinate={{
@@ -319,6 +369,7 @@ export default function MapScreen() {
 
       <View style={styles.legendBox}>
         <Text style={styles.legendTitle}>Map Legend</Text>
+        <Text style={styles.legendItem}>🔴 Emergencies / Other</Text>
         <Text style={styles.legendItem}>🟠 Emergency Pending</Text>
         <Text style={styles.legendItem}>🔵 Emergency In Progress</Text>
         <Text style={styles.legendItem}>🟢 Emergency Resolved</Text>
@@ -364,6 +415,19 @@ const styles = StyleSheet.create({
   },
   activeFilterButtonText: {
     color: '#fff',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#f4f5f7',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
   },
 
   calloutCard: {
