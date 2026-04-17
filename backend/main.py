@@ -20,7 +20,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    print("✅ RENDER BACKEND LIVE WITH LOCATION TRACKING")
+    print("✅ RENDER BACKEND LIVE")
 
 
 def get_db():
@@ -57,10 +57,6 @@ class EmergencyRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
-
-
-class AdminRequest(BaseModel):
-    user_id: int
 
 
 class ProfileRequest(BaseModel):
@@ -123,7 +119,6 @@ def register(req: RegisterRequest):
     except Exception as e:
         print("Register Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -155,7 +150,6 @@ def login(req: LoginRequest):
     except Exception as e:
         print("Login Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -195,7 +189,6 @@ def create_emergency(req: EmergencyRequest):
     except Exception as e:
         print("Emergency Create Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -228,7 +221,6 @@ def get_user_emergencies(user_id: int):
     except Exception as e:
         print("Get Emergencies Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -261,7 +253,6 @@ def get_all_emergencies(user_id: int):
     except Exception as e:
         print("Admin Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -290,7 +281,6 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
     except Exception as e:
         print("Status Update Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -334,7 +324,6 @@ def save_profile(req: ProfileRequest):
     except Exception as e:
         print("Profile Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -360,7 +349,6 @@ def get_profile(user_id: int):
     except Exception as e:
         print("Get Profile Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
@@ -377,35 +365,53 @@ def update_location(req: LocationUpdateRequest):
         user.latitude = req.latitude
         user.longitude = req.longitude
         db.commit()
+        db.refresh(user)
 
-        return {"message": "Location updated successfully"}
+        return {
+            "message": "Location updated successfully",
+            "data": {
+                "id": user.id,
+                "name": user.name,
+                "latitude": user.latitude,
+                "longitude": user.longitude
+            }
+        }
 
     except Exception as e:
         print("Location Update Error:", e)
         return {"error": str(e)}
-
     finally:
         db.close()
 
-    
-   
+
 @app.get("/all-locations")
 def get_all_locations():
     db: Session = get_db()
     try:
-        users = db.query(UserModel).all()
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(
+                EmergencyModel.latitude.isnot(None),
+                EmergencyModel.longitude.isnot(None)
+            )
+            .order_by(EmergencyModel.id.desc())
+            .all()
+        )
 
         return [
             {
-                "id": u.id,
-                "name": u.name,
-                "latitude": u.latitude,
-                "longitude": u.longitude
+                "id": e.id,
+                "name": f"{e.type} - {e.status}",
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "description": e.description,
+                "location_text": e.location_text
             }
-            for u in users
-            if u.latitude is not None and u.longitude is not None
+            for e in emergencies
         ]
+
     except Exception as e:
+        print("All Locations Error:", e)
         return {"error": str(e)}
     finally:
         db.close()

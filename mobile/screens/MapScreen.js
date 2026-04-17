@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
 export default function MapScreen() {
@@ -12,10 +12,11 @@ export default function MapScreen() {
       const res = await fetch(`${API_BASE_URL}/all-locations`);
       const data = await res.json();
 
+      console.log('Map API response:', data);
+
       if (Array.isArray(data)) {
         setLocations(data);
       } else {
-        console.log('Map API response:', data);
         setLocations([]);
       }
     } catch (error) {
@@ -50,8 +51,8 @@ export default function MapScreen() {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: locations[0].latitude,
-          longitude: locations[0].longitude,
+          latitude: Number(locations[0].latitude),
+          longitude: Number(locations[0].longitude),
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}
@@ -63,9 +64,17 @@ export default function MapScreen() {
               latitude: Number(loc.latitude),
               longitude: Number(loc.longitude),
             }}
-            title={loc.name || 'User'}
-            description="Live Location"
-          />
+            title={loc.name || 'Emergency'}
+            description={loc.location_text || 'Location'}
+          >
+            <Callout>
+              <View style={styles.calloutBox}>
+                <Text style={styles.calloutTitle}>{loc.name || 'Emergency'}</Text>
+                <Text style={styles.calloutText}>{loc.description || 'No description'}</Text>
+                <Text style={styles.calloutText}>{loc.location_text || 'No address'}</Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
       </MapView>
     </View>
@@ -86,5 +95,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#555',
     textAlign: 'center',
+  },
+  calloutBox: {
+    width: 220,
+    padding: 6,
+  },
+  calloutTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  calloutText: {
+    fontSize: 13,
+    color: '#333',
+    marginBottom: 2,
   },
 });
