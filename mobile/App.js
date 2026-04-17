@@ -19,7 +19,6 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState('user');
 
   useEffect(() => {
     checkLogin();
@@ -28,22 +27,16 @@ export default function App() {
   const checkLogin = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      const role = await AsyncStorage.getItem('userRole');
-
       setIsLoggedIn(!!userId);
-      setUserRole(role || 'user');
     } catch (error) {
       console.log('Check Login Error:', error);
       setIsLoggedIn(false);
-      setUserRole('user');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoginSuccess = async (roleFromLogin) => {
-    const role = roleFromLogin || (await AsyncStorage.getItem('userRole')) || 'user';
-    setUserRole(role);
+  const handleLoginSuccess = () => {
     setIsLoggedIn(true);
   };
 
@@ -56,7 +49,6 @@ export default function App() {
         'userRole',
       ]);
       setIsLoggedIn(false);
-      setUserRole('user');
     } catch (error) {
       console.log('Logout Error:', error);
     }
@@ -86,22 +78,11 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
+
             <Stack.Screen
               name="Register"
               component={RegisterScreen}
               options={{ title: 'Register' }}
-            />
-          </>
-        ) : userRole === 'admin' ? (
-          <>
-            <Stack.Screen name="Admin">
-              {(props) => <AdminScreen {...props} onLogout={handleLogout} />}
-            </Stack.Screen>
-
-            <Stack.Screen
-              name="EmergencyDetails"
-              component={EmergencyDetailsScreen}
-              options={{ title: 'Emergency Details' }}
             />
           </>
         ) : (
@@ -138,6 +119,12 @@ export default function App() {
               name="EmergencyDetails"
               component={EmergencyDetailsScreen}
               options={{ title: 'Emergency Details' }}
+            />
+
+            <Stack.Screen
+              name="Admin"
+              component={AdminScreen}
+              options={{ title: 'Admin Panel' }}
             />
           </>
         )}

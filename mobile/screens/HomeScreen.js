@@ -28,12 +28,14 @@ export default function HomeScreen({ navigation, onLogout }) {
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
 
-      if (storedRole === 'admin') {
-        navigation.replace('Admin');
+      if (!userId) {
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
         return;
       }
 
-      if (!userId) {
+      if ((storedRole || 'user') === 'admin') {
         setPendingCount(0);
         setProgressCount(0);
         setResolvedCount(0);
@@ -96,6 +98,36 @@ export default function HomeScreen({ navigation, onLogout }) {
       Alert.alert('Error', 'Failed to logout');
     }
   };
+
+  if (userRole === 'admin') {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.header}>Home</Text>
+
+        <View style={styles.logoSection}>
+          <Text style={styles.logoTitle}>🚑 ResQ AI</Text>
+          <Text style={styles.logoSubtitle}>Emergency Help System</Text>
+        </View>
+
+        <View style={styles.welcomeCard}>
+          <Text style={styles.welcomeText}>Welcome</Text>
+          <Text style={styles.userName}>{userName}</Text>
+          <Text style={styles.roleText}>Role: admin</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.menuCard}
+          onPress={() => navigation.navigate('Admin')}
+        >
+          <Text style={styles.menuText}>🛠 Admin Panel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
