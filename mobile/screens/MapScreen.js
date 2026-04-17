@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+  TouchableOpacity,
+  Linking,
+  Platform,
+  Alert,
+} from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
@@ -44,6 +53,36 @@ export default function MapScreen() {
     return 'red';
   };
 
+  const openNavigation = async (latitude, longitude) => {
+    try {
+      const lat = Number(latitude);
+      const lng = Number(longitude);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        Alert.alert('Error', 'Invalid location');
+        return;
+      }
+
+      let url = '';
+
+      if (Platform.OS === 'android') {
+        url = `google.navigation:q=${lat},${lng}`;
+        const supported = await Linking.canOpenURL(url);
+
+        if (!supported) {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        }
+      } else {
+        url = `http://maps.apple.com/?daddr=${lat},${lng}`;
+      }
+
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('Navigation error:', error);
+      Alert.alert('Error', 'Unable to open navigation');
+    }
+  };
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
@@ -78,8 +117,8 @@ export default function MapScreen() {
             description={loc.location_text || 'Location'}
             pinColor={getPinColor(loc.name)}
           >
-            <Callout>
-              <View style={styles.calloutBox}>
+            <Callout tooltip>
+              <View style={styles.calloutCard}>
                 <Text style={styles.calloutTitle}>{loc.name || 'Emergency'}</Text>
                 <Text style={styles.calloutText}>
                   {loc.description || 'No description'}
@@ -87,6 +126,13 @@ export default function MapScreen() {
                 <Text style={styles.calloutText}>
                   {loc.location_text || 'No address'}
                 </Text>
+
+                <TouchableOpacity
+                  style={styles.navigateButton}
+                  onPress={() => openNavigation(loc.latitude, loc.longitude)}
+                >
+                  <Text style={styles.navigateButtonText}>Navigate</Text>
+                </TouchableOpacity>
               </View>
             </Callout>
           </Marker>
@@ -119,19 +165,35 @@ const styles = StyleSheet.create({
     color: '#555',
     textAlign: 'center',
   },
-  calloutBox: {
-    width: 220,
-    padding: 6,
+  calloutCard: {
+    width: 240,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
   calloutTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   calloutText: {
     fontSize: 13,
     color: '#333',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  navigateButton: {
+    marginTop: 8,
+    backgroundColor: '#007bff',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  navigateButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   legendBox: {
     position: 'absolute',

@@ -8,12 +8,13 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
-export default function EmergencyDetailsScreen({ route, navigation }) {
+export default function EmergencyDetailsScreen({ route }) {
   const emergency = route?.params?.emergency;
 
   const [status, setStatus] = useState(emergency?.status || 'pending');
@@ -37,17 +38,39 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
     try {
       if (
         emergency?.latitude === undefined ||
-        emergency?.longitude === undefined
+        emergency?.longitude === undefined ||
+        emergency?.latitude === null ||
+        emergency?.longitude === null
       ) {
         Alert.alert('Error', 'Location coordinates not available');
         return;
       }
 
-      const url = `https://www.google.com/maps/search/?api=1&query=${emergency.latitude},${emergency.longitude}`;
+      const latitude = Number(emergency.latitude);
+      const longitude = Number(emergency.longitude);
+
+      if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+        Alert.alert('Error', 'Invalid coordinates');
+        return;
+      }
+
+      let url = '';
+
+      if (Platform.OS === 'android') {
+        url = `google.navigation:q=${latitude},${longitude}`;
+        const supported = await Linking.canOpenURL(url);
+
+        if (!supported) {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+        }
+      } else {
+        url = `http://maps.apple.com/?daddr=${latitude},${longitude}`;
+      }
+
       await Linking.openURL(url);
     } catch (error) {
       console.log('Open Maps Error:', error);
-      Alert.alert('Error', 'Unable to open map');
+      Alert.alert('Error', 'Unable to open navigation');
     }
   };
 
@@ -96,7 +119,10 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
   const latitude = Number(emergency.latitude);
   const longitude = Number(emergency.longitude);
   const hasValidCoords =
-    !Number.isNaN(latitude) && !Number.isNaN(longitude);
+    !Number.isNaN(latitude) &&
+    !Number.isNaN(longitude) &&
+    latitude !== 0 &&
+    longitude !== 0;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -156,7 +182,7 @@ export default function EmergencyDetailsScreen({ route, navigation }) {
           </View>
 
           <TouchableOpacity style={styles.mapButton} onPress={openInMaps}>
-            <Text style={styles.mapButtonText}>Open in Google Maps</Text>
+            <Text style={styles.mapButtonText}>Open Navigation</Text>
           </TouchableOpacity>
         </View>
       )}
