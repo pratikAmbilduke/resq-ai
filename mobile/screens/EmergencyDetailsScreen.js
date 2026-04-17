@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import API_BASE_URL from '../config';
 
 export default function EmergencyDetailsScreen({ route }) {
@@ -21,9 +21,21 @@ export default function EmergencyDetailsScreen({ route }) {
   const [userRole, setUserRole] = useState('user');
   const [loading, setLoading] = useState(false);
   const [acceptedBy, setAcceptedBy] = useState(emergency?.accepted_by || '');
+  const [providerLocation, setProviderLocation] = useState(null);
+
+  const intervalRef = useRef(null);
 
   useEffect(() => {
     loadRole();
+    fetchProviderLocation();
+
+    intervalRef.current = setInterval(() => {
+      fetchProviderLocation();
+    }, 5000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, []);
 
   const loadRole = async () => {
@@ -32,6 +44,25 @@ export default function EmergencyDetailsScreen({ route }) {
       setUserRole(role || 'user');
     } catch (error) {
       console.log('Load Role Error:', error);
+    }
+  };
+
+  const fetchProviderLocation = async () => {
+    try {
+      if (!emergency?.id) return;
+
+      const response = await fetch(`${API_BASE_URL}/provider-location/${emergency.id}`);
+      const data = await response.json();
+
+      if (data?.data?.latitude && data?.data?.longitude) {
+        setProviderLocation(data.data);
+
+        if (data?.data?.provider_name) {
+          setAcceptedBy(data.data.provider_name);
+        }
+      }
+    } catch (error) {
+      console.log('Provider location fetch error:', error);
     }
   };
 
@@ -122,6 +153,32 @@ export default function EmergencyDetailsScreen({ route }) {
     }
   };
 
+  const latitude = Number(emergency?.latitude);
+  const longitude = Number(emergency?.longitude);
+
+  const routeCoordinates = useMemo(() => {
+    if (!providerLocation) return [];
+
+    const startLat = Number(providerLocation.latitude);
+    const startLng = Number(providerLocation.longitude);
+    const endLat = Number(latitude);
+    const endLng = Number(longitude);
+
+    if (
+      Number.isNaN(startLat) ||
+      Number.isNaN(startLng) ||
+      Number.isNaN(endLat) ||
+      Number.isNaN(endLng)
+    ) {
+      return [];
+    }
+
+    return [
+      { latitude: startLat, longitude: startLng },
+      { latitude: endLat, longitude: endLng },
+    ];
+  }, [providerLocation, latitude, longitude]);
+
   if (!emergency) {
     return (
       <View style={styles.center}>
@@ -130,8 +187,6 @@ export default function EmergencyDetailsScreen({ route }) {
     );
   }
 
-  const latitude = Number(emergency.latitude);
-  const longitude = Number(emergency.longitude);
   const hasValidCoords =
     !Number.isNaN(latitude) &&
     !Number.isNaN(longitude) &&
@@ -184,7 +239,7 @@ export default function EmergencyDetailsScreen({ route }) {
 
       {hasValidCoords && (
         <View style={styles.mapCard}>
-          <Text style={styles.mapTitle}>Location Map</Text>
+          <Text style={styles.mapTitle}>Tracking Map</Text>
 
           <View style={styles.mapContainer}>
             <MapView
@@ -192,15 +247,41 @@ export default function EmergencyDetailsScreen({ route }) {
               initialRegion={{
                 latitude,
                 longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
+                latitudeDelta: 0.02,
+                longitudeDelta: 0.02,
               }}
             >
               <Marker
                 coordinate={{ latitude, longitude }}
                 title={emergency.type || 'Emergency'}
                 description={emergency.location_text || 'Emergency Location'}
+                pinColor="red"
               />
+
+              {providerLocation?.latitude && providerLocation?.longitude ? (
+                <Marker
+                  coordinate={{
+                    latitude: Number(providerLocation.latitude),
+                    longitude: Number(providerLocation.longitude),
+                  }}
+                  title={providerLocation.provider_name || 'Provider'}
+                  description="Live Provider Location"
+                >
+                  <View style={styles.providerMarkerOuter}>
+                    <View style={styles.providerMarkerMiddle}>
+                      <View style={styles.providerMarkerInner} />
+                    </View>
+                  </View>
+                </Marker>
+              ) : null}
+
+              {routeCoordinates.length === 2 ? (
+                <Polyline
+                  coordinates={routeCoordinates}
+                  strokeColor="#007bff"
+                  strokeWidth={4}
+                />
+              ) : null}
             </MapView>
           </View>
 
@@ -341,7 +422,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   mapContainer: {
-    height: 250,
+    height: 280,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -360,6 +441,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+  },
+  providerMarkerOuter: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0, 122, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  providerMarkerMiddle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  providerMarkerInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#007AFF',
   },
   actionCard: {
     backgroundColor: '#fff',

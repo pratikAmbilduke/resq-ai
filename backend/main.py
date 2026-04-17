@@ -301,6 +301,48 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
         db.close()
 
 
+@app.get("/provider-location/{emergency_id}")
+def get_provider_location(emergency_id: int):
+    db: Session = get_db()
+    try:
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+
+        if not emergency:
+            return {"error": "Emergency not found"}
+
+        if not emergency.accepted_by:
+            return {"message": "No provider assigned yet"}
+
+        provider = db.query(UserModel).filter(UserModel.name == emergency.accepted_by).first()
+
+        if not provider:
+            return {"error": "Assigned provider not found"}
+
+        if provider.latitude is None or provider.longitude is None:
+            return {
+                "message": "Provider location not available yet",
+                "data": {
+                    "provider_name": provider.name,
+                    "latitude": None,
+                    "longitude": None
+                }
+            }
+
+        return {
+            "data": {
+                "provider_name": provider.name,
+                "latitude": provider.latitude,
+                "longitude": provider.longitude
+            }
+        }
+
+    except Exception as e:
+        print("Provider Location Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
 @app.post("/profile")
 def save_profile(req: ProfileRequest):
     db: Session = get_db()
