@@ -87,12 +87,14 @@ export default function HistoryScreen({ navigation }) {
       const description = String(item?.description || '').toLowerCase();
       const location = String(item?.location_text || '').toLowerCase();
       const status = String(item?.status || '').toLowerCase();
+      const acceptedBy = String(item?.accepted_by || '').toLowerCase();
 
       const matchesSearch =
         !query ||
         type.includes(query) ||
         description.includes(query) ||
-        location.includes(query);
+        location.includes(query) ||
+        acceptedBy.includes(query);
 
       const matchesStatus =
         selectedStatus === 'all' || status === selectedStatus;
@@ -104,6 +106,7 @@ export default function HistoryScreen({ navigation }) {
   const getStatusColor = (status) => {
     const s = String(status || '').toLowerCase();
     if (s === 'pending') return '#d4a017';
+    if (s === 'accepted') return '#6f42c1';
     if (s === 'in progress') return '#007bff';
     if (s === 'resolved') return '#28a745';
     return '#666';
@@ -117,9 +120,17 @@ export default function HistoryScreen({ navigation }) {
       <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
       <Text style={styles.description}>{item?.description || 'No description'}</Text>
       <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
+
       <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
         {String(item?.status || 'unknown').toUpperCase()}
       </Text>
+
+      {item?.accepted_by ? (
+        <Text style={styles.acceptedBy}>Accepted By: {item.accepted_by}</Text>
+      ) : (
+        <Text style={styles.acceptedByPending}>Accepted By: Not assigned yet</Text>
+      )}
+
       <Text style={styles.linkText}>Tap to view details and map</Text>
     </TouchableOpacity>
   );
@@ -130,7 +141,7 @@ export default function HistoryScreen({ navigation }) {
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by type, description or location"
+        placeholder="Search by type, description, location or provider"
         value={search}
         onChangeText={setSearch}
       />
@@ -151,6 +162,15 @@ export default function HistoryScreen({ navigation }) {
         >
           <Text style={[styles.filterText, selectedStatus === 'pending' && styles.activeFilterText]}>
             Pending
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'accepted' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('accepted')}
+        >
+          <Text style={[styles.filterText, selectedStatus === 'accepted' && styles.activeFilterText]}>
+            Accepted
           </Text>
         </TouchableOpacity>
 
@@ -271,6 +291,17 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 15,
     fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  acceptedBy: {
+    fontSize: 14,
+    color: '#6f42c1',
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  acceptedByPending: {
+    fontSize: 14,
+    color: '#888',
     marginBottom: 10,
   },
   linkText: {
