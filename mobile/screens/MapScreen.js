@@ -274,6 +274,45 @@ export default function MapScreen() {
     ];
   }, [userLocation, selectedMarker]);
 
+  const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+    const toRadians = (value) => (value * Math.PI) / 180;
+
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadiusKm * c;
+  };
+
+  const selectedDistanceText = useMemo(() => {
+    if (!userLocation || !selectedMarker) return '';
+
+    const startLat = Number(userLocation.latitude);
+    const startLng = Number(userLocation.longitude);
+    const endLat = Number(selectedMarker.latitude);
+    const endLng = Number(selectedMarker.longitude);
+
+    if (
+      Number.isNaN(startLat) ||
+      Number.isNaN(startLng) ||
+      Number.isNaN(endLat) ||
+      Number.isNaN(endLng)
+    ) {
+      return '';
+    }
+
+    const distanceKm = calculateDistanceKm(startLat, startLng, endLat, endLng);
+    return `${distanceKm.toFixed(2)} km away`;
+  }, [userLocation, selectedMarker]);
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
@@ -312,6 +351,10 @@ export default function MapScreen() {
           <Text style={styles.topInfoText}>
             {selectedMarker.location_text || 'No address'}
           </Text>
+
+          {!!selectedDistanceText && (
+            <Text style={styles.distanceText}>📏 {selectedDistanceText}</Text>
+          )}
 
           <TouchableOpacity
             style={styles.navigateButton}
@@ -554,6 +597,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
     color: '#333',
+  },
+  distanceText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#198754',
   },
 
   filterWrapper: {
