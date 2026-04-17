@@ -97,6 +97,27 @@ def debug_priority():
     }
 
 
+@app.get("/debug-priority-value/{emergency_id}")
+def debug_priority_value(emergency_id: int):
+    db: Session = get_db()
+    try:
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+
+        if not emergency:
+            return {"error": "Emergency not found"}
+
+        return {
+            "id": emergency.id,
+            "type": emergency.type,
+            "priority": emergency.priority
+        }
+    except Exception as e:
+        print("Debug Priority Value Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
 @app.post("/register")
 def register(req: RegisterRequest):
     db: Session = get_db()
