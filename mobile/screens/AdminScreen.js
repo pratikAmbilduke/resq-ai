@@ -3,18 +3,24 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import API_BASE_URL from '../config';
 
-export default function AdminScreen({ navigation, onLogout }) {
-  const [requests, setRequests] = useState([]);
+export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
+
+  const [pendingCount, setPendingCount] = useState(0);
+  const [acceptedCount, setAcceptedCount] = useState(0);
+  const [progressCount, setProgressCount] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
+
+  const [totalRequests, setTotalRequests] = useState(0);
 
   const intervalRef = useRef(null);
 
@@ -25,30 +31,48 @@ export default function AdminScreen({ navigation, onLogout }) {
     }
   };
 
-  const fetchAdminRequests = async () => {
+  const loadAdminData = async () => {
     try {
-      setLoading((prev) => (requests.length === 0 ? true : prev));
-
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        setRequests([]);
+        setLoading(false);
         return;
       }
 
       const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
       const data = await response.json();
 
-      if (Array.isArray(data)) {
-        setRequests(data);
-      } else {
+      if (!Array.isArray(data)) {
         console.log('Admin API response:', data);
-        setRequests([]);
+        setLoading(false);
+        return;
       }
+
+      const pending = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'pending'
+      ).length;
+
+      const accepted = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'accepted'
+      ).length;
+
+      const progress = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'in progress'
+      ).length;
+
+      const resolved = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'resolved'
+      ).length;
+
+      setPendingCount(pending);
+      setAcceptedCount(accepted);
+      setProgressCount(progress);
+      setResolvedCount(resolved);
+      setTotalRequests(data.length);
     } catch (error) {
-      console.log('Admin fetch error:', error);
-      setRequests([]);
-      Alert.alert('Error', 'Failed to load admin requests');
+      console.log('Admin load error:', error);
+      Alert.alert('Error', 'Failed to load admin dashboard');
     } finally {
       setLoading(false);
     }
@@ -56,11 +80,11 @@ export default function AdminScreen({ navigation, onLogout }) {
 
   useFocusEffect(
     useCallback(() => {
-      fetchAdminRequests();
+      loadAdminData();
 
       clearPolling();
       intervalRef.current = setInterval(() => {
-        fetchAdminRequests();
+        loadAdminData();
       }, 5000);
 
       return () => {
@@ -75,160 +99,137 @@ export default function AdminScreen({ navigation, onLogout }) {
     };
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      clearPolling();
-
-      await AsyncStorage.multiRemove([
-        'userId',
-        'userName',
-        'userEmail',
-        'userRole',
-      ]);
-
-      if (onLogout) {
-        onLogout();
-      }
-    } catch (error) {
-      console.log('Admin Logout Error:', error);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    const s = String(status || '').toLowerCase();
-    if (s === 'pending') return '#d4a017';
-    if (s === 'in progress') return '#007bff';
-    if (s === 'resolved') return '#28a745';
-    return '#666';
-  };
-
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
-    >
-      <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
-      <Text style={styles.description}>{item?.description || 'No description'}</Text>
-      <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
-      <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
-        {String(item?.status || 'unknown').toUpperCase()}
-      </Text>
-      <Text style={styles.linkText}>Tap to manage request</Text>
-    </TouchableOpacity>
-  );
+  if (loading) {
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Admin Panel</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>🛠 Admin Dashboard</Text>
+
+      {/* TOTAL */}
+      <View style={styles.totalCard}>
+        <Text style={styles.totalLabel}>Total Requests</Text>
+        <Text style={styles.totalValue}>{totalRequests}</Text>
+      </View>
+
+      {/* STATUS CARDS */}
+      <View style={styles.grid}>
+        <View style={[styles.card, styles.pending]}>
+          <Text style={styles.count}>{pendingCount}</Text>
+          <Text style={styles.label}>Pending</Text>
+        </View>
+
+        <View style={[styles.card, styles.accepted]}>
+          <Text style={styles.count}>{acceptedCount}</Text>
+          <Text style={styles.label}>Accepted</Text>
+        </View>
+
+        <View style={[styles.card, styles.progress]}>
+          <Text style={styles.count}>{progressCount}</Text>
+          <Text style={styles.label}>In Progress</Text>
+        </View>
+
+        <View style={[styles.card, styles.resolved]}>
+          <Text style={styles.count}>{resolvedCount}</Text>
+          <Text style={styles.label}>Resolved</Text>
+        </View>
+      </View>
+
+      {/* ACTION BUTTONS */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('History')}
+      >
+        <Text style={styles.buttonText}>📜 View All Requests</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.mapButton}
+        style={styles.button}
         onPress={() => navigation.navigate('Map')}
       >
-        <Text style={styles.mapButtonText}>📍 Live Map</Text>
+        <Text style={styles.buttonText}>🗺 Open Live Map</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </TouchableOpacity>
-
-      {loading ? (
-        <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 30 }} />
-      ) : (
-        <FlatList
-          data={requests}
-          keyExtractor={(item, index) => String(item?.id ?? index)}
-          renderItem={renderItem}
-          onRefresh={fetchAdminRequests}
-          refreshing={loading}
-          contentContainerStyle={requests.length === 0 ? styles.emptyContainer : styles.listContainer}
-          ListEmptyComponent={<Text style={styles.emptyText}>No requests found</Text>}
-        />
-      )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f4f6f8',
-    padding: 16,
+    padding: 20,
+    backgroundColor: '#f4f5f7',
+    flexGrow: 1,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 14,
-    textAlign: 'center',
+    marginBottom: 20,
   },
-  mapButton: {
-    backgroundColor: '#007bff',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  mapButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  logoutButton: {
-    backgroundColor: '#ff0f47',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoutText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  emptyContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  card: {
+
+  totalCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
+    padding: 20,
+    marginBottom: 20,
+    alignItems: 'center',
     elevation: 3,
   },
-  type: {
+  totalLabel: {
+    fontSize: 16,
+    color: '#666',
+  },
+  totalValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  card: {
+    width: '48%',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+
+  pending: {
+    backgroundColor: '#efe4b8',
+  },
+  accepted: {
+    backgroundColor: '#e0ccff',
+  },
+  progress: {
+    backgroundColor: '#bddbe2',
+  },
+  resolved: {
+    backgroundColor: '#c8dfcb',
+  },
+
+  count: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  label: {
+    fontSize: 14,
+    marginTop: 5,
+  },
+
+  button: {
+    backgroundColor: '#007bff',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#007bff',
-    marginBottom: 8,
-  },
-  description: {
-    fontSize: 17,
-    color: '#222',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  location: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-  },
-  status: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#e63946',
-    fontWeight: '600',
   },
 });
