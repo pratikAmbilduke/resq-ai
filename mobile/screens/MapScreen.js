@@ -292,8 +292,8 @@ export default function MapScreen() {
     return earthRadiusKm * c;
   };
 
-  const selectedDistanceText = useMemo(() => {
-    if (!userLocation || !selectedMarker) return '';
+  const selectedDistanceKm = useMemo(() => {
+    if (!userLocation || !selectedMarker) return null;
 
     const startLat = Number(userLocation.latitude);
     const startLng = Number(userLocation.longitude);
@@ -306,12 +306,27 @@ export default function MapScreen() {
       Number.isNaN(endLat) ||
       Number.isNaN(endLng)
     ) {
-      return '';
+      return null;
     }
 
-    const distanceKm = calculateDistanceKm(startLat, startLng, endLat, endLng);
-    return `${distanceKm.toFixed(2)} km away`;
+    return calculateDistanceKm(startLat, startLng, endLat, endLng);
   }, [userLocation, selectedMarker]);
+
+  const selectedDistanceText =
+    selectedDistanceKm !== null ? `${selectedDistanceKm.toFixed(2)} km away` : '';
+
+  const selectedEtaText = useMemo(() => {
+    if (selectedDistanceKm === null) return '';
+
+    const averageSpeedKmPerHour = 30;
+    const etaMinutes = (selectedDistanceKm / averageSpeedKmPerHour) * 60;
+
+    if (etaMinutes < 1) {
+      return 'Less than 1 min';
+    }
+
+    return `${Math.ceil(etaMinutes)} min ETA`;
+  }, [selectedDistanceKm]);
 
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
@@ -354,6 +369,10 @@ export default function MapScreen() {
 
           {!!selectedDistanceText && (
             <Text style={styles.distanceText}>📏 {selectedDistanceText}</Text>
+          )}
+
+          {!!selectedEtaText && (
+            <Text style={styles.etaText}>⏱ {selectedEtaText}</Text>
           )}
 
           <TouchableOpacity
@@ -603,6 +622,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#198754',
+  },
+  etaText: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fd7e14',
   },
 
   filterWrapper: {
