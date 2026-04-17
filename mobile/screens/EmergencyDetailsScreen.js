@@ -150,6 +150,8 @@ export default function EmergencyDetailsScreen({ route }) {
             styles.value,
             status === 'pending'
               ? styles.pending
+              : status === 'accepted'
+              ? styles.accepted
               : status === 'in progress'
               ? styles.progress
               : styles.resolved,
@@ -190,6 +192,14 @@ export default function EmergencyDetailsScreen({ route }) {
       {userRole === 'admin' && (
         <View style={styles.actionCard}>
           <Text style={styles.actionTitle}>Update Status</Text>
+
+          <TouchableOpacity
+            style={[styles.statusButton, styles.acceptedButton]}
+            onPress={() => updateStatus('accepted')}
+            disabled={loading}
+          >
+            <Text style={styles.statusButtonText}>Accept Request</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.statusButton, styles.pendingButton]}
@@ -279,6 +289,10 @@ const styles = StyleSheet.create({
     color: '#c89b00',
     fontWeight: 'bold',
   },
+  accepted: {
+    color: '#6f42c1',
+    fontWeight: 'bold',
+  },
   progress: {
     color: '#007bff',
     fontWeight: 'bold',
@@ -337,6 +351,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
+  },
+  acceptedButton: {
+    backgroundColor: '#6f42c1',
   },
   pendingButton: {
     backgroundColor: '#d4a017',

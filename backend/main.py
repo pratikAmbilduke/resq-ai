@@ -266,6 +266,11 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
         if not emergency:
             return {"error": "Emergency not found"}
 
+        allowed_statuses = ["pending", "accepted", "in progress", "resolved"]
+
+        if req.status not in allowed_statuses:
+            return {"error": "Invalid status"}
+
         emergency.status = req.status
         db.commit()
         db.refresh(emergency)
