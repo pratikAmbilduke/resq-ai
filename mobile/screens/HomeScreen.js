@@ -1,206 +1,273 @@
-import { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  Alert,
-  ScrollView,
   View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import API_BASE_URL from '../config';
 
 export default function HomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('user');
-  const [stats, setStats] = useState({
-    pending: 0,
-    in_progress: 0,
-    resolved: 0,
-  });
 
-  useEffect(() => {
-    loadUserData();
-    fetchStats();
+  const [pendingCount, setPendingCount] = useState(0);
+  const [progressCount, setProgressCount] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
 
-    const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadUserData = async () => {
-    const name = await AsyncStorage.getItem('userName');
-    const role = await AsyncStorage.getItem('userRole');
-
-    if (name) setUserName(name);
-    if (role) setUserRole(role);
-  };
-
-  const fetchStats = async () => {
+  const loadHomeData = async () => {
     try {
+      const storedName = await AsyncStorage.getItem('userName');
+      const storedRole = await AsyncStorage.getItem('userRole');
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) return;
 
-      const response = await fetch(`http://localhost:8000/emergencies/${userId}`);
+      setUserName(storedName || 'User');
+      setUserRole(storedRole || 'user');
+
+      if (!userId) {
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
-      if (data.error) return;
+      if (!Array.isArray(data)) {
+        console.log('Home emergencies response:', data);
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        return;
+      }
 
-      const pending = data.filter((e) => e.status === 'pending').length;
-      const in_progress = data.filter((e) => e.status === 'in_progress').length;
-      const resolved = data.filter((e) => e.status === 'resolved').length;
+      const pending = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'pending'
+      ).length;
 
-      setStats({ pending, in_progress, resolved });
+      const progress = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'in progress'
+      ).length;
+
+      const resolved = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'resolved'
+      ).length;
+
+      setPendingCount(pending);
+      setProgressCount(progress);
+      setResolvedCount(resolved);
     } catch (error) {
-      console.log('Stats Error:', error);
+      console.log('Home load error:', error);
+      setPendingCount(0);
+      setProgressCount(0);
+      setResolvedCount(0);
     }
   };
 
-  const confirmLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          if (onLogout) await onLogout();
-        },
-      },
-    ]);
+  useFocusEffect(
+    useCallback(() => {
+      loadHomeData();
+    }, [])
+  );
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        'userId',
+        'userName',
+        'userEmail',
+        'userRole',
+      ]);
+
+      if (onLogout) {
+        onLogout();
+      }
+    } catch (error) {
+      console.log('Logout Error:', error);
+      Alert.alert('Error', 'Failed to logout');
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>🚑 ResQ AI</Text>
-        <Text style={styles.subtitle}>Emergency Help System</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.header}>Home</Text>
 
-        {/* USER CARD */}
-        <View style={styles.card}>
-          <Text style={styles.small}>Welcome</Text>
-          <Text style={styles.name}>{userName}</Text>
-          <Text style={styles.role}>Role: {userRole}</Text>
+      <View style={styles.logoSection}>
+        <Text style={styles.logoTitle}>🚑 ResQ AI</Text>
+        <Text style={styles.logoSubtitle}>Emergency Help System</Text>
+      </View>
+
+      <View style={styles.welcomeCard}>
+        <Text style={styles.welcomeText}>Welcome</Text>
+        <Text style={styles.userName}>{userName}</Text>
+        <Text style={styles.roleText}>Role: {userRole}</Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.sosButton}
+        onPress={() => navigation.navigate('Emergency')}
+      >
+        <Text style={styles.sosText}>SOS</Text>
+      </TouchableOpacity>
+
+      <View style={styles.statusRow}>
+        <View style={[styles.statusCard, styles.pendingCard]}>
+          <Text style={styles.statusCount}>{pendingCount}</Text>
+          <Text style={styles.statusLabel}>Pending</Text>
         </View>
 
-        {/* SOS BUTTON */}
-        <TouchableOpacity
-          style={styles.sos}
-          onPress={() => navigation.navigate('Emergency')}
-        >
-          <Text style={styles.sosText}>SOS</Text>
-        </TouchableOpacity>
-
-        {/* QUICK STATS */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statBox, { backgroundColor: '#fff3cd' }]}>
-            <Text style={styles.statValue}>{stats.pending}</Text>
-            <Text>Pending</Text>
-          </View>
-
-          <View style={[styles.statBox, { backgroundColor: '#d1ecf1' }]}>
-            <Text style={styles.statValue}>{stats.in_progress}</Text>
-            <Text>Progress</Text>
-          </View>
-
-          <View style={[styles.statBox, { backgroundColor: '#d4edda' }]}>
-            <Text style={styles.statValue}>{stats.resolved}</Text>
-            <Text>Resolved</Text>
-          </View>
+        <View style={[styles.statusCard, styles.progressCard]}>
+          <Text style={styles.statusCount}>{progressCount}</Text>
+          <Text style={styles.statusLabel}>Progress</Text>
         </View>
 
-        {/* ACTION CARDS */}
-        <TouchableOpacity
-          style={styles.action}
-          onPress={() => navigation.navigate('History')}
-        >
-          <Text>📜 History</Text>
-        </TouchableOpacity>
+        <View style={[styles.statusCard, styles.resolvedCard]}>
+          <Text style={styles.statusCount}>{resolvedCount}</Text>
+          <Text style={styles.statusLabel}>Resolved</Text>
+        </View>
+      </View>
 
-        <TouchableOpacity
-          style={styles.action}
-          onPress={() => navigation.navigate('Dashboard')}
-        >
-          <Text>📊 Dashboard</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.menuCard}
+        onPress={() => navigation.navigate('History')}
+      >
+        <Text style={styles.menuText}>📜 History</Text>
+      </TouchableOpacity>
 
-        {userRole === 'admin' && (
-          <TouchableOpacity
-            style={styles.action}
-            onPress={() => navigation.navigate('Admin')}
-          >
-            <Text>🛠 Admin Panel</Text>
-          </TouchableOpacity>
-        )}
+      <TouchableOpacity
+        style={styles.menuCard}
+        onPress={() => navigation.navigate('Dashboard')}
+      >
+        <Text style={styles.menuText}>📊 Dashboard</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.action}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <Text>👤 Profile</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.menuCard}
+        onPress={() => navigation.navigate('Profile')}
+      >
+        <Text style={styles.menuText}>👤 Profile</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logout} onPress={confirmLogout}>
-          <Text style={{ color: '#fff' }}>Logout</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Logout</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
-  content: { padding: 20 },
-
-  title: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
-  subtitle: { textAlign: 'center', marginBottom: 15 },
-
-  card: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
+  container: {
+    padding: 20,
+    backgroundColor: '#f4f5f7',
+    flexGrow: 1,
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: 'bold',
     marginBottom: 20,
   },
-  small: { color: '#666' },
-  name: { fontSize: 20, fontWeight: 'bold' },
-  role: { color: '#007bff' },
-
-  sos: {
-    backgroundColor: 'red',
-    height: 150,
-    width: 150,
-    borderRadius: 75,
-    alignSelf: 'center',
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 22,
+  },
+  logoTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  logoSubtitle: {
+    fontSize: 16,
+    color: '#333',
+    marginTop: 4,
+  },
+  welcomeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  userName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  roleText: {
+    fontSize: 16,
+    color: '#007bff',
+    marginTop: 6,
+  },
+  sosButton: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: '#ff1a1a',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    alignSelf: 'center',
+    marginBottom: 28,
   },
-  sosText: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-
-  statsRow: {
+  sosText: {
+    color: '#fff',
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
+  statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  statBox: {
+  statusCard: {
     flex: 1,
-    padding: 10,
-    margin: 5,
-    borderRadius: 10,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginHorizontal: 4,
     alignItems: 'center',
   },
-  statValue: { fontSize: 20, fontWeight: 'bold' },
-
-  action: {
+  pendingCard: {
+    backgroundColor: '#efe4b8',
+  },
+  progressCard: {
+    backgroundColor: '#bddbe2',
+  },
+  resolvedCard: {
+    backgroundColor: '#c8dfcb',
+  },
+  statusCount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  statusLabel: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  menuCard: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 16,
+    padding: 22,
+    marginBottom: 16,
   },
-
-  logout: {
-    backgroundColor: '#dc3545',
-    padding: 15,
+  menuText: {
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  logoutButton: {
+    backgroundColor: '#ff0f47',
+    borderRadius: 16,
+    padding: 22,
+    marginTop: 18,
     alignItems: 'center',
-    borderRadius: 10,
-    marginTop: 10,
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

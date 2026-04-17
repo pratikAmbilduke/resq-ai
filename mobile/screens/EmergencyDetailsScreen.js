@@ -1,7 +1,89 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Linking,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MapView, { Marker } from 'react-native-maps';
+import API_BASE_URL from '../config';
 
-export default function EmergencyDetailsScreen({ route }) {
+export default function EmergencyDetailsScreen({ route, navigation }) {
   const emergency = route?.params?.emergency;
+
+  const [status, setStatus] = useState(emergency?.status || 'pending');
+  const [userRole, setUserRole] = useState('user');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadRole();
+  }, []);
+
+  const loadRole = async () => {
+    try {
+      const role = await AsyncStorage.getItem('userRole');
+      setUserRole(role || 'user');
+    } catch (error) {
+      console.log('Load Role Error:', error);
+    }
+  };
+
+  const openInMaps = async () => {
+    try {
+      if (
+        emergency?.latitude === undefined ||
+        emergency?.longitude === undefined
+      ) {
+        Alert.alert('Error', 'Location coordinates not available');
+        return;
+      }
+
+      const url = `https://www.google.com/maps/search/?api=1&query=${emergency.latitude},${emergency.longitude}`;
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('Open Maps Error:', error);
+      Alert.alert('Error', 'Unable to open map');
+    }
+  };
+
+  const updateStatus = async (newStatus) => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/emergency/${emergency.id}/status`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: newStatus,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.error) {
+        Alert.alert('Error', data.error);
+        return;
+      }
+
+      setStatus(newStatus);
+      Alert.alert('Success', `Status updated to ${newStatus}`);
+    } catch (error) {
+      console.log('Update Status Error:', error);
+      Alert.alert('Error', 'Failed to update status');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!emergency) {
     return (
@@ -10,6 +92,11 @@ export default function EmergencyDetailsScreen({ route }) {
       </View>
     );
   }
+
+  const latitude = Number(emergency.latitude);
+  const longitude = Number(emergency.longitude);
+  const hasValidCoords =
+    !Number.isNaN(latitude) && !Number.isNaN(longitude);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -32,8 +119,93 @@ export default function EmergencyDetailsScreen({ route }) {
         <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
 
         <Text style={styles.label}>Status</Text>
-        <Text style={styles.value}>{emergency.status || '-'}</Text>
+        <Text
+          style={[
+            styles.value,
+            status === 'pending'
+              ? styles.pending
+              : status === 'in progress'
+              ? styles.progress
+              : styles.resolved,
+          ]}
+        >
+          {status}
+        </Text>
       </View>
+
+      {hasValidCoords && (
+        <View style={styles.mapCard}>
+          <Text style={styles.mapTitle}>Location Map</Text>
+
+          <View style={styles.mapContainer}>
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude,
+                longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
+              <Marker
+                coordinate={{ latitude, longitude }}
+                title={emergency.type || 'Emergency'}
+                description={emergency.location_text || 'Emergency Location'}
+              />
+            </MapView>
+          </View>
+
+          <TouchableOpacity style={styles.mapButton} onPress={openInMaps}>
+            <Text style={styles.mapButtonText}>Open in Google Maps</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {userRole === 'admin' && (
+        <View style={styles.actionCard}>
+          <Text style={styles.actionTitle}>Update Status</Text>
+
+          <TouchableOpacity
+            style={[styles.statusButton, styles.pendingButton]}
+            onPress={() => updateStatus('pending')}
+            disabled={loading}
+          >
+            <Text style={styles.statusButtonText}>Set Pending</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statusButton, styles.progressButton]}
+            onPress={() => updateStatus('in progress')}
+            disabled={loading}
+          >
+            <Text style={styles.statusButtonText}>Set In Progress</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statusButton, styles.resolvedButton]}
+            onPress={() => updateStatus('resolved')}
+            disabled={loading}
+          >
+            <Text style={styles.statusButtonText}>Set Resolved</Text>
+          </TouchableOpacity>
+
+          {loading && (
+            <ActivityIndicator
+              size="large"
+              color="#007bff"
+              style={{ marginTop: 15 }}
+            />
+          )}
+        </View>
+      )}
+
+      {userRole !== 'admin' && (
+        <View style={styles.noteCard}>
+          <Text style={styles.noteText}>
+            Only admin can update emergency status.
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -64,6 +236,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     elevation: 3,
+    marginBottom: 18,
   },
   label: {
     fontSize: 14,
@@ -75,5 +248,93 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#222',
     marginTop: 4,
+  },
+  pending: {
+    color: '#c89b00',
+    fontWeight: 'bold',
+  },
+  progress: {
+    color: '#007bff',
+    fontWeight: 'bold',
+  },
+  resolved: {
+    color: '#28a745',
+    fontWeight: 'bold',
+  },
+  mapCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    elevation: 3,
+    marginBottom: 18,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  mapContainer: {
+    height: 250,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
+  mapButton: {
+    backgroundColor: '#007bff',
+    marginTop: 15,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  mapButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  actionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    elevation: 3,
+    marginBottom: 18,
+  },
+  actionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 14,
+  },
+  statusButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pendingButton: {
+    backgroundColor: '#d4a017',
+  },
+  progressButton: {
+    backgroundColor: '#007bff',
+  },
+  resolvedButton: {
+    backgroundColor: '#28a745',
+  },
+  statusButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  noteCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 3,
+  },
+  noteText: {
+    color: '#666',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
