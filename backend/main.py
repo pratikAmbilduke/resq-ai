@@ -20,7 +20,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
-    print("✅ RENDER BACKEND LIVE")
+    print("✅ RENDER BACKEND LIVE WITH LOCATION TRACKING")
 
 
 def get_db():
@@ -69,6 +69,12 @@ class ProfileRequest(BaseModel):
     emergency_contact_name: str
     emergency_contact_phone: str
     user_id: int
+
+
+class LocationUpdateRequest(BaseModel):
+    user_id: int
+    latitude: float
+    longitude: float
 
 
 @app.get("/")
@@ -353,6 +359,29 @@ def get_profile(user_id: int):
 
     except Exception as e:
         print("Get Profile Error:", e)
+        return {"error": str(e)}
+
+    finally:
+        db.close()
+
+
+@app.post("/update-location")
+def update_location(req: LocationUpdateRequest):
+    db: Session = get_db()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
+
+        if not user:
+            return {"error": "User not found"}
+
+        user.latitude = req.latitude
+        user.longitude = req.longitude
+        db.commit()
+
+        return {"message": "Location updated successfully"}
+
+    except Exception as e:
+        print("Location Update Error:", e)
         return {"error": str(e)}
 
     finally:

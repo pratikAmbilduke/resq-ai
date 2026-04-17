@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Location from 'expo-location'; // 🔥 NEW
 import API_BASE_URL from '../config';
 
 export default function HomeScreen({ navigation, onLogout }) {
@@ -28,6 +29,38 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
+  // ---------------- 🔥 LOCATION FUNCTION ----------------
+  const sendLocation = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        console.log('❌ Location permission denied');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+
+      await fetch(`${API_BASE_URL}/update-location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: parseInt(userId),
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        }),
+      });
+
+      console.log('📍 Location sent');
+    } catch (error) {
+      console.log('Location Error:', error);
+    }
+  };
+
+  // ---------------- DATA ----------------
   const loadHomeData = async () => {
     try {
       const storedName = await AsyncStorage.getItem('userName');
@@ -37,71 +70,44 @@ export default function HomeScreen({ navigation, onLogout }) {
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
 
-      if (!userId) {
-        setPendingCount(0);
-        setProgressCount(0);
-        setResolvedCount(0);
-        return;
-      }
+      if (!userId) return;
 
-      if ((storedRole || 'user') === 'admin') {
-        setPendingCount(0);
-        setProgressCount(0);
-        setResolvedCount(0);
-        return;
-      }
+      if ((storedRole || 'user') === 'admin') return;
 
       const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
-      if (!Array.isArray(data)) {
-        setPendingCount(0);
-        setProgressCount(0);
-        setResolvedCount(0);
-        return;
-      }
+      if (!Array.isArray(data)) return;
 
-      const pending = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'pending'
-      ).length;
-
-      const progress = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'in progress'
-      ).length;
-
-      const resolved = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'resolved'
-      ).length;
-
-      setPendingCount(pending);
-      setProgressCount(progress);
-      setResolvedCount(resolved);
+      setPendingCount(data.filter(e => e.status === 'pending').length);
+      setProgressCount(data.filter(e => e.status === 'in progress').length);
+      setResolvedCount(data.filter(e => e.status === 'resolved').length);
     } catch (error) {
       console.log('Home load error:', error);
     }
   };
 
+  // ---------------- 🔥 REAL TIME + LOCATION ----------------
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
+      sendLocation(); // first call
 
       clearPolling();
       intervalRef.current = setInterval(() => {
         loadHomeData();
+        sendLocation(); // 🔥 every 5 sec
       }, 5000);
 
-      return () => {
-        clearPolling();
-      };
+      return () => clearPolling();
     }, [])
   );
 
   useEffect(() => {
-    return () => {
-      clearPolling();
-    };
+    return () => clearPolling();
   }, []);
 
+  // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
     try {
       clearPolling();
@@ -113,15 +119,14 @@ export default function HomeScreen({ navigation, onLogout }) {
         'userRole',
       ]);
 
-      if (onLogout) {
-        onLogout();
-      }
+      if (onLogout) onLogout();
     } catch (error) {
       console.log('Logout Error:', error);
       Alert.alert('Error', 'Failed to logout');
     }
   };
 
+  // ---------------- ADMIN UI ----------------
   if (userRole === 'admin') {
     return (
       <ScrollView contentContainerStyle={styles.container}>
@@ -152,6 +157,7 @@ export default function HomeScreen({ navigation, onLogout }) {
     );
   }
 
+  // ---------------- USER UI ----------------
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Home</Text>
@@ -219,6 +225,7 @@ export default function HomeScreen({ navigation, onLogout }) {
   );
 }
 
+// ---------------- STYLES ----------------
 const styles = StyleSheet.create({
   container: {
     padding: 20,
