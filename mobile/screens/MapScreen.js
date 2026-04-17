@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Linking,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import API_BASE_URL from '../config';
@@ -15,6 +16,65 @@ import API_BASE_URL from '../config';
 export default function MapScreen() {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedType, setSelectedType] = useState('all');
+
+  // ✅ Sample nearby services (can upgrade later to real API)
+  const nearbyServices = [
+    {
+      id: 'h1',
+      type: 'hospital',
+      name: 'Ruby Hall Clinic',
+      description: 'Nearby Hospital',
+      location_text: 'Pune',
+      latitude: 18.5362,
+      longitude: 73.8767,
+    },
+    {
+      id: 'h2',
+      type: 'hospital',
+      name: 'Sassoon General Hospital',
+      description: 'Nearby Hospital',
+      location_text: 'Pune',
+      latitude: 18.5286,
+      longitude: 73.8743,
+    },
+    {
+      id: 'p1',
+      type: 'police',
+      name: 'Shivajinagar Police Station',
+      description: 'Nearby Police Station',
+      location_text: 'Pune',
+      latitude: 18.5308,
+      longitude: 73.8475,
+    },
+    {
+      id: 'p2',
+      type: 'police',
+      name: 'Deccan Police Station',
+      description: 'Nearby Police Station',
+      location_text: 'Pune',
+      latitude: 18.5141,
+      longitude: 73.8397,
+    },
+    {
+      id: 'a1',
+      type: 'ambulance',
+      name: 'Emergency Ambulance Point 1',
+      description: 'Nearby Ambulance Service',
+      location_text: 'Pune',
+      latitude: 18.5004,
+      longitude: 73.8567,
+    },
+    {
+      id: 'a2',
+      type: 'ambulance',
+      name: 'Emergency Ambulance Point 2',
+      description: 'Nearby Ambulance Service',
+      location_text: 'Pune',
+      latitude: 18.4929,
+      longitude: 73.8198,
+    },
+  ];
 
   const fetchLocations = async () => {
     try {
@@ -43,7 +103,7 @@ export default function MapScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const getPinColor = (name = '') => {
+  const getEmergencyPinColor = (name = '') => {
     const lower = String(name).toLowerCase();
 
     if (lower.includes('pending')) return 'orange';
@@ -51,6 +111,16 @@ export default function MapScreen() {
     if (lower.includes('resolved')) return 'green';
 
     return 'red';
+  };
+
+  const getServicePinColor = (type = '') => {
+    const lower = String(type).toLowerCase();
+
+    if (lower === 'hospital') return 'violet';
+    if (lower === 'police') return 'indigo';
+    if (lower === 'ambulance') return 'green';
+
+    return 'gray';
   };
 
   const openNavigation = async (latitude, longitude) => {
@@ -83,39 +153,118 @@ export default function MapScreen() {
     }
   };
 
+  const filteredServices = useMemo(() => {
+    if (selectedType === 'all') return nearbyServices;
+    return nearbyServices.filter((item) => item.type === selectedType);
+  }, [selectedType]);
+
+  const firstLatitude =
+    Number(locations[0]?.latitude) || Number(filteredServices[0]?.latitude) || 18.5204;
+  const firstLongitude =
+    Number(locations[0]?.longitude) || Number(filteredServices[0]?.longitude) || 73.8567;
+
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
 
-  if (!locations.length) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No live locations available yet</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      <View style={styles.filterWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedType === 'all' && styles.activeFilterButton,
+            ]}
+            onPress={() => setSelectedType('all')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedType === 'all' && styles.activeFilterButtonText,
+              ]}
+            >
+              All Services
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedType === 'hospital' && styles.activeFilterButton,
+            ]}
+            onPress={() => setSelectedType('hospital')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedType === 'hospital' && styles.activeFilterButtonText,
+              ]}
+            >
+              Hospitals
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedType === 'police' && styles.activeFilterButton,
+            ]}
+            onPress={() => setSelectedType('police')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedType === 'police' && styles.activeFilterButtonText,
+              ]}
+            >
+              Police
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              selectedType === 'ambulance' && styles.activeFilterButton,
+            ]}
+            onPress={() => setSelectedType('ambulance')}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                selectedType === 'ambulance' && styles.activeFilterButtonText,
+              ]}
+            >
+              Ambulance
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: Number(locations[0].latitude),
-          longitude: Number(locations[0].longitude),
+          latitude: firstLatitude,
+          longitude: firstLongitude,
           latitudeDelta: 0.08,
           longitudeDelta: 0.08,
         }}
       >
+        {/* Emergency markers */}
         {locations.map((loc, index) => (
           <Marker
-            key={loc.id ? String(loc.id) : String(index)}
+            key={loc.id ? `emergency-${loc.id}` : `emergency-${index}`}
             coordinate={{
               latitude: Number(loc.latitude),
               longitude: Number(loc.longitude),
             }}
             title={loc.name || 'Emergency'}
             description={loc.location_text || 'Location'}
-            pinColor={getPinColor(loc.name)}
+            pinColor={getEmergencyPinColor(loc.name)}
           >
             <Callout tooltip>
               <View style={styles.calloutCard}>
@@ -137,14 +286,45 @@ export default function MapScreen() {
             </Callout>
           </Marker>
         ))}
+
+        {/* Nearby service markers */}
+        {filteredServices.map((service) => (
+          <Marker
+            key={service.id}
+            coordinate={{
+              latitude: Number(service.latitude),
+              longitude: Number(service.longitude),
+            }}
+            title={service.name}
+            description={service.location_text}
+            pinColor={getServicePinColor(service.type)}
+          >
+            <Callout tooltip>
+              <View style={styles.calloutCard}>
+                <Text style={styles.calloutTitle}>{service.name}</Text>
+                <Text style={styles.calloutText}>{service.description}</Text>
+                <Text style={styles.calloutText}>{service.location_text}</Text>
+
+                <TouchableOpacity
+                  style={styles.navigateButton}
+                  onPress={() => openNavigation(service.latitude, service.longitude)}
+                >
+                  <Text style={styles.navigateButtonText}>Navigate</Text>
+                </TouchableOpacity>
+              </View>
+            </Callout>
+          </Marker>
+        ))}
       </MapView>
 
       <View style={styles.legendBox}>
-        <Text style={styles.legendTitle}>Status Colors</Text>
-        <Text style={styles.legendItem}>🟠 Pending</Text>
-        <Text style={styles.legendItem}>🔵 In Progress</Text>
-        <Text style={styles.legendItem}>🟢 Resolved</Text>
-        <Text style={styles.legendItem}>🔴 Other</Text>
+        <Text style={styles.legendTitle}>Map Legend</Text>
+        <Text style={styles.legendItem}>🟠 Emergency Pending</Text>
+        <Text style={styles.legendItem}>🔵 Emergency In Progress</Text>
+        <Text style={styles.legendItem}>🟢 Emergency Resolved</Text>
+        <Text style={styles.legendItem}>🟣 Hospital</Text>
+        <Text style={styles.legendItem}>🟦 Police</Text>
+        <Text style={styles.legendItem}>🟩 Ambulance</Text>
       </View>
     </View>
   );
@@ -153,18 +333,39 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#f4f5f7',
+
+  filterWrapper: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    zIndex: 10,
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#555',
-    textAlign: 'center',
+  filterRow: {
+    paddingRight: 8,
   },
+  filterButton: {
+    backgroundColor: '#ffffffee',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  activeFilterButton: {
+    backgroundColor: '#007bff',
+    borderColor: '#007bff',
+  },
+  filterButtonText: {
+    color: '#333',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  activeFilterButtonText: {
+    color: '#fff',
+  },
+
   calloutCard: {
     width: 240,
     backgroundColor: '#fff',
@@ -195,6 +396,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+
   legendBox: {
     position: 'absolute',
     bottom: 20,
