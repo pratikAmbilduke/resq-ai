@@ -13,6 +13,7 @@ import DashboardScreen from './screens/DashboardScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EmergencyDetailsScreen from './screens/EmergencyDetailsScreen';
 import AdminScreen from './screens/AdminScreen';
+import MapScreen from './screens/MapScreen'; 
 
 const Stack = createNativeStackNavigator();
 
@@ -125,6 +126,12 @@ export default function App() {
               name="Admin"
               component={AdminScreen}
               options={{ title: 'Admin Panel' }}
+            />
+
+            <Stack.Screen
+              name="Map"
+              component={MapScreen}
+              options={{ title: 'Live Map' }}
             />
           </>
         )}

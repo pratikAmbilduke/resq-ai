@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Location from 'expo-location'; // 🔥 NEW
+import * as Location from 'expo-location';
 import API_BASE_URL from '../config';
 
 export default function HomeScreen({ navigation, onLogout }) {
@@ -29,7 +29,6 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
-  // ---------------- 🔥 LOCATION FUNCTION ----------------
   const sendLocation = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
@@ -38,7 +37,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
-        console.log('❌ Location permission denied');
+        console.log('Location permission denied');
         return;
       }
 
@@ -48,7 +47,7 @@ export default function HomeScreen({ navigation, onLogout }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: parseInt(userId),
+          user_id: parseInt(userId, 10),
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         }),
@@ -60,7 +59,6 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
-  // ---------------- DATA ----------------
   const loadHomeData = async () => {
     try {
       const storedName = await AsyncStorage.getItem('userName');
@@ -70,44 +68,73 @@ export default function HomeScreen({ navigation, onLogout }) {
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
 
-      if (!userId) return;
+      if (!userId) {
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        return;
+      }
 
-      if ((storedRole || 'user') === 'admin') return;
+      if ((storedRole || 'user') === 'admin') {
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        return;
+      }
 
       const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
       const data = await response.json();
 
-      if (!Array.isArray(data)) return;
+      if (!Array.isArray(data)) {
+        setPendingCount(0);
+        setProgressCount(0);
+        setResolvedCount(0);
+        return;
+      }
 
-      setPendingCount(data.filter(e => e.status === 'pending').length);
-      setProgressCount(data.filter(e => e.status === 'in progress').length);
-      setResolvedCount(data.filter(e => e.status === 'resolved').length);
+      const pending = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'pending'
+      ).length;
+
+      const progress = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'in progress'
+      ).length;
+
+      const resolved = data.filter(
+        (item) => String(item?.status || '').toLowerCase() === 'resolved'
+      ).length;
+
+      setPendingCount(pending);
+      setProgressCount(progress);
+      setResolvedCount(resolved);
     } catch (error) {
       console.log('Home load error:', error);
     }
   };
 
-  // ---------------- 🔥 REAL TIME + LOCATION ----------------
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
-      sendLocation(); // first call
+      sendLocation();
 
       clearPolling();
       intervalRef.current = setInterval(() => {
         loadHomeData();
-        sendLocation(); // 🔥 every 5 sec
+        sendLocation();
       }, 5000);
 
-      return () => clearPolling();
+      return () => {
+        clearPolling();
+      };
     }, [])
   );
 
   useEffect(() => {
-    return () => clearPolling();
+    return () => {
+      clearPolling();
+    };
   }, []);
 
-  // ---------------- LOGOUT ----------------
   const handleLogout = async () => {
     try {
       clearPolling();
@@ -119,14 +146,15 @@ export default function HomeScreen({ navigation, onLogout }) {
         'userRole',
       ]);
 
-      if (onLogout) onLogout();
+      if (onLogout) {
+        onLogout();
+      }
     } catch (error) {
       console.log('Logout Error:', error);
       Alert.alert('Error', 'Failed to logout');
     }
   };
 
-  // ---------------- ADMIN UI ----------------
   if (userRole === 'admin') {
     return (
       <ScrollView contentContainerStyle={styles.container}>
@@ -157,7 +185,6 @@ export default function HomeScreen({ navigation, onLogout }) {
     );
   }
 
-  // ---------------- USER UI ----------------
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Home</Text>
@@ -218,6 +245,13 @@ export default function HomeScreen({ navigation, onLogout }) {
         <Text style={styles.menuText}>👤 Profile</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={styles.menuCard}
+        onPress={() => navigation.navigate('Map')}
+      >
+        <Text style={styles.menuText}>📍 Live Map</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
@@ -225,7 +259,6 @@ export default function HomeScreen({ navigation, onLogout }) {
   );
 }
 
-// ---------------- STYLES ----------------
 const styles = StyleSheet.create({
   container: {
     padding: 20,
