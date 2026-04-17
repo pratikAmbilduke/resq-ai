@@ -272,15 +272,23 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
         if not emergency:
             return {"error": "Emergency not found"}
 
-        allowed_statuses = ["pending", "accepted", "in progress", "resolved"]
+        allowed_statuses = ["pending", "accepted", "in progress", "resolved", "cancelled"]
 
-        if req.status not in allowed_statuses:
+        new_status = req.status.strip().lower()
+
+        if new_status not in allowed_statuses:
             return {"error": "Invalid status"}
 
-        emergency.status = req.status
+        if new_status == "cancelled" and str(emergency.status).lower() != "pending":
+            return {"error": "Only pending requests can be cancelled"}
 
-        if req.status == "accepted" and req.accepted_by:
-            emergency.accepted_by = req.accepted_by
+        emergency.status = new_status
+
+        if new_status == "accepted":
+            if req.accepted_by:
+                emergency.accepted_by = req.accepted_by.strip()
+        elif new_status in ["pending", "cancelled"]:
+            emergency.accepted_by = None
 
         db.commit()
         db.refresh(emergency)
@@ -296,6 +304,32 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
 
     except Exception as e:
         print("Status Update Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
+@app.delete("/admin/emergency/{emergency_id}/{admin_user_id}")
+def delete_emergency(emergency_id: int, admin_user_id: int):
+    db: Session = get_db()
+    try:
+        admin_user = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
+
+        if not admin_user or admin_user.role != "admin":
+            return {"error": "Access denied"}
+
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+
+        if not emergency:
+            return {"error": "Emergency not found"}
+
+        db.delete(emergency)
+        db.commit()
+
+        return {"message": "Emergency deleted successfully"}
+
+    except Exception as e:
+        print("Delete Emergency Error:", e)
         return {"error": str(e)}
     finally:
         db.close()

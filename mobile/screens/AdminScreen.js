@@ -17,6 +17,7 @@ export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [adminName, setAdminName] = useState('');
+  const [adminUserId, setAdminUserId] = useState('');
 
   const [pendingCount, setPendingCount] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -42,6 +43,7 @@ export default function AdminScreen({ navigation }) {
       const storedName = await AsyncStorage.getItem('userName');
 
       setAdminName(storedName || '');
+      setAdminUserId(userId || '');
 
       if (!userId) {
         setLoading(false);
@@ -122,6 +124,7 @@ export default function AdminScreen({ navigation }) {
     if (s === 'accepted') return '#6f42c1';
     if (s === 'in progress') return '#007bff';
     if (s === 'resolved') return '#28a745';
+    if (s === 'cancelled') return '#dc3545';
     return '#666';
   };
 
@@ -152,6 +155,8 @@ export default function AdminScreen({ navigation }) {
         matchesFilter = status === 'in progress';
       } else if (selectedFilter === 'resolved') {
         matchesFilter = status === 'resolved';
+      } else if (selectedFilter === 'cancelled') {
+        matchesFilter = status === 'cancelled';
       } else if (selectedFilter === 'my-assigned') {
         matchesFilter =
           !!adminName &&
@@ -161,6 +166,52 @@ export default function AdminScreen({ navigation }) {
       return matchesSearch && matchesFilter;
     });
   }, [requests, searchText, selectedFilter, adminName]);
+
+  const handleDeleteRequest = async (emergencyId) => {
+    try {
+      if (!adminUserId) {
+        Alert.alert('Error', 'Admin user not found');
+        return;
+      }
+
+      Alert.alert(
+        'Delete Request',
+        'Are you sure you want to permanently delete this request?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const response = await fetch(
+                  `${API_BASE_URL}/admin/emergency/${emergencyId}/${adminUserId}`,
+                  {
+                    method: 'DELETE',
+                  }
+                );
+
+                const data = await response.json();
+
+                if (data.error) {
+                  Alert.alert('Error', data.error);
+                  return;
+                }
+
+                Alert.alert('Success', 'Request deleted successfully');
+                loadAdminData();
+              } catch (error) {
+                console.log('Delete request error:', error);
+                Alert.alert('Error', 'Failed to delete request');
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.log('Delete alert error:', error);
+    }
+  };
 
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
@@ -260,6 +311,15 @@ export default function AdminScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.filterButton, selectedFilter === 'cancelled' && styles.activeFilter]}
+          onPress={() => setSelectedFilter('cancelled')}
+        >
+          <Text style={[styles.filterText, selectedFilter === 'cancelled' && styles.activeFilterText]}>
+            Cancelled
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.filterButton, selectedFilter === 'my-assigned' && styles.activeFilter]}
           onPress={() => setSelectedFilter('my-assigned')}
         >
@@ -275,42 +335,49 @@ export default function AdminScreen({ navigation }) {
         </View>
       ) : (
         filteredRequests.map((item, index) => (
-          <TouchableOpacity
-            key={String(item?.id ?? index)}
-            style={styles.requestCard}
-            onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
-          >
-            <Text style={styles.requestType}>
-              {String(item?.type || '').toUpperCase()}
-            </Text>
-
-            <Text style={styles.requestDescription}>
-              {item?.description || 'No description'}
-            </Text>
-
-            <Text style={styles.requestLocation}>
-              {item?.location_text || 'No location available'}
-            </Text>
-
-            <Text
-              style={[
-                styles.requestStatus,
-                { color: getStatusColor(item?.status) },
-              ]}
+          <View key={String(item?.id ?? index)} style={styles.requestCard}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
             >
-              {String(item?.status || 'unknown').toUpperCase()}
-            </Text>
-
-            {item?.accepted_by ? (
-              <Text style={styles.acceptedBy}>
-                Accepted By: {item.accepted_by}
+              <Text style={styles.requestType}>
+                {String(item?.type || '').toUpperCase()}
               </Text>
-            ) : (
-              <Text style={styles.notAssigned}>Accepted By: Not assigned yet</Text>
-            )}
 
-            <Text style={styles.tapText}>Tap to manage request</Text>
-          </TouchableOpacity>
+              <Text style={styles.requestDescription}>
+                {item?.description || 'No description'}
+              </Text>
+
+              <Text style={styles.requestLocation}>
+                {item?.location_text || 'No location available'}
+              </Text>
+
+              <Text
+                style={[
+                  styles.requestStatus,
+                  { color: getStatusColor(item?.status) },
+                ]}
+              >
+                {String(item?.status || 'unknown').toUpperCase()}
+              </Text>
+
+              {item?.accepted_by ? (
+                <Text style={styles.acceptedBy}>
+                  Accepted By: {item.accepted_by}
+                </Text>
+              ) : (
+                <Text style={styles.notAssigned}>Accepted By: Not assigned yet</Text>
+              )}
+
+              <Text style={styles.tapText}>Tap to manage request</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDeleteRequest(item.id)}
+            >
+              <Text style={styles.deleteButtonText}>Delete Request</Text>
+            </TouchableOpacity>
+          </View>
         ))
       )}
     </ScrollView>
@@ -491,5 +558,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#e63946',
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
