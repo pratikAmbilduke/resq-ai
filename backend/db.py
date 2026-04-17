@@ -5,7 +5,7 @@ import os
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 Base = declarative_base()
 
@@ -14,12 +14,11 @@ class UserModel(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    email = Column(String, unique=True)
-    password = Column(String)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
     role = Column(String, default="user")
 
-    # ✅ ADD THESE (IMPORTANT)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
 
@@ -28,21 +27,22 @@ class EmergencyModel(Base):
     __tablename__ = "emergencies"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String)
-    description = Column(String)
-    latitude = Column(Float)
-    longitude = Column(Float)
-    location_text = Column(String)
+    type = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    location_text = Column(String, nullable=False)
     status = Column(String, default="pending")
-    user_id = Column(Integer)
+    user_id = Column(Integer, nullable=False)
+    accepted_by = Column(String, nullable=True)
 
 
 class ProfileModel(Base):
     __tablename__ = "profiles"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    phone = Column(String)
-    emergency_contact_name = Column(String)
-    emergency_contact_phone = Column(String)
-    user_id = Column(Integer)
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    emergency_contact_name = Column(String, nullable=False)
+    emergency_contact_phone = Column(String, nullable=False)
+    user_id = Column(Integer, nullable=False)

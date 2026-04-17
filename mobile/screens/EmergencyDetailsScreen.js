@@ -20,6 +20,7 @@ export default function EmergencyDetailsScreen({ route }) {
   const [status, setStatus] = useState(emergency?.status || 'pending');
   const [userRole, setUserRole] = useState('user');
   const [loading, setLoading] = useState(false);
+  const [acceptedBy, setAcceptedBy] = useState(emergency?.accepted_by || '');
 
   useEffect(() => {
     loadRole();
@@ -78,6 +79,13 @@ export default function EmergencyDetailsScreen({ route }) {
     try {
       setLoading(true);
 
+      let acceptedByName = acceptedBy;
+
+      if (newStatus === 'accepted') {
+        const adminName = await AsyncStorage.getItem('userName');
+        acceptedByName = adminName || 'Admin';
+      }
+
       const response = await fetch(
         `${API_BASE_URL}/emergency/${emergency.id}/status`,
         {
@@ -87,6 +95,7 @@ export default function EmergencyDetailsScreen({ route }) {
           },
           body: JSON.stringify({
             status: newStatus,
+            accepted_by: newStatus === 'accepted' ? acceptedByName : acceptedBy,
           }),
         }
       );
@@ -99,6 +108,11 @@ export default function EmergencyDetailsScreen({ route }) {
       }
 
       setStatus(newStatus);
+
+      if (data?.data?.accepted_by) {
+        setAcceptedBy(data.data.accepted_by);
+      }
+
       Alert.alert('Success', `Status updated to ${newStatus}`);
     } catch (error) {
       console.log('Update Status Error:', error);
@@ -159,6 +173,13 @@ export default function EmergencyDetailsScreen({ route }) {
         >
           {status}
         </Text>
+
+        {acceptedBy ? (
+          <>
+            <Text style={styles.label}>Accepted By</Text>
+            <Text style={styles.acceptedByText}>{acceptedBy}</Text>
+          </>
+        ) : null}
       </View>
 
       {hasValidCoords && (
@@ -300,6 +321,12 @@ const styles = StyleSheet.create({
   resolved: {
     color: '#28a745',
     fontWeight: 'bold',
+  },
+  acceptedByText: {
+    color: '#6f42c1',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginTop: 4,
   },
   mapCard: {
     backgroundColor: '#fff',

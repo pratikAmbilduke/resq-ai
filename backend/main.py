@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 import hashlib
+from typing import Optional
 
 from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
 
@@ -57,6 +58,7 @@ class EmergencyRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+    accepted_by: Optional[str] = None
 
 
 class ProfileRequest(BaseModel):
@@ -165,7 +167,8 @@ def create_emergency(req: EmergencyRequest):
             longitude=req.longitude,
             location_text=req.location_text,
             user_id=req.user_id,
-            status="pending"
+            status="pending",
+            accepted_by=None
         )
 
         db.add(emergency)
@@ -182,7 +185,8 @@ def create_emergency(req: EmergencyRequest):
                 "longitude": emergency.longitude,
                 "location_text": emergency.location_text,
                 "status": emergency.status,
-                "user_id": emergency.user_id
+                "user_id": emergency.user_id,
+                "accepted_by": emergency.accepted_by
             }
         }
 
@@ -213,7 +217,8 @@ def get_user_emergencies(user_id: int):
                 "longitude": e.longitude,
                 "location_text": e.location_text,
                 "status": e.status,
-                "user_id": e.user_id
+                "user_id": e.user_id,
+                "accepted_by": e.accepted_by
             }
             for e in emergencies
         ]
@@ -245,7 +250,8 @@ def get_all_emergencies(user_id: int):
                 "longitude": e.longitude,
                 "location_text": e.location_text,
                 "status": e.status,
-                "user_id": e.user_id
+                "user_id": e.user_id,
+                "accepted_by": e.accepted_by
             }
             for e in emergencies
         ]
@@ -272,6 +278,10 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
             return {"error": "Invalid status"}
 
         emergency.status = req.status
+
+        if req.status == "accepted" and req.accepted_by:
+            emergency.accepted_by = req.accepted_by
+
         db.commit()
         db.refresh(emergency)
 
@@ -279,7 +289,8 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
             "message": "Status updated",
             "data": {
                 "id": emergency.id,
-                "status": emergency.status
+                "status": emergency.status,
+                "accepted_by": emergency.accepted_by
             }
         }
 
@@ -410,7 +421,8 @@ def get_all_locations():
                 "latitude": e.latitude,
                 "longitude": e.longitude,
                 "description": e.description,
-                "location_text": e.location_text
+                "location_text": e.location_text,
+                "accepted_by": e.accepted_by
             }
             for e in emergencies
         ]
