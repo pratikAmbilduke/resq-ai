@@ -79,6 +79,7 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
+
             <Stack.Screen
               name="Register"
               component={RegisterScreen}

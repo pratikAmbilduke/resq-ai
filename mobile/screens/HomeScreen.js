@@ -237,6 +237,13 @@ export default function HomeScreen({ navigation, onLogout }) {
           <Text style={styles.menuText}>🛠 Admin Panel</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuCard}
+          onPress={() => navigation.navigate('Map')}
+        >
+          <Text style={styles.menuText}>📍 Live Map</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -315,13 +322,6 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('Profile')}
       >
         <Text style={styles.menuText}>👤 Profile</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.menuCard}
-        onPress={() => navigation.navigate('Map')}
-      >
-        <Text style={styles.menuText}>📍 Live Map</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

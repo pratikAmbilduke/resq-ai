@@ -121,6 +121,13 @@ export default function AdminScreen({ navigation, onLogout }) {
     <View style={styles.container}>
       <Text style={styles.title}>Admin Panel</Text>
 
+      <TouchableOpacity
+        style={styles.mapButton}
+        onPress={() => navigation.navigate('Map')}
+      >
+        <Text style={styles.mapButtonText}>📍 Live Map</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
@@ -153,6 +160,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 14,
     textAlign: 'center',
+  },
+  mapButton: {
+    backgroundColor: '#007bff',
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mapButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   logoutButton: {
     backgroundColor: '#ff0f47',
