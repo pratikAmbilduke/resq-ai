@@ -116,6 +116,7 @@ export default function HistoryScreen({ navigation }) {
     if (s === 'accepted') return '#6f42c1';
     if (s === 'in progress') return '#007bff';
     if (s === 'resolved') return '#28a745';
+    if (s === 'cancelled') return '#dc3545';
     return '#666';
   };
 
@@ -212,6 +213,15 @@ export default function HistoryScreen({ navigation }) {
         >
           <Text style={[styles.filterText, selectedStatus === 'resolved' && styles.activeFilterText]}>
             Resolved
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterButton, selectedStatus === 'cancelled' && styles.activeFilter]}
+          onPress={() => setSelectedStatus('cancelled')}
+        >
+          <Text style={[styles.filterText, selectedStatus === 'cancelled' && styles.activeFilterText]}>
+            Cancelled
           </Text>
         </TouchableOpacity>
       </View>
