@@ -13,7 +13,7 @@ import DashboardScreen from './screens/DashboardScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import EmergencyDetailsScreen from './screens/EmergencyDetailsScreen';
 import AdminScreen from './screens/AdminScreen';
-import MapScreen from './screens/MapScreen'; 
+import MapScreen from './screens/MapScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -79,7 +79,6 @@ export default function App() {
                 <LoginScreen {...props} onLoginSuccess={handleLoginSuccess} />
               )}
             </Stack.Screen>
-
             <Stack.Screen
               name="Register"
               component={RegisterScreen}

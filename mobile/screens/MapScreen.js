@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import MapViewDirections from 'react-native-maps-directions';
 import API_BASE_URL from '../config';
-
-const GOOGLE_MAPS_API_KEY = "YOUR_API_KEY_HERE";
 
 export default function MapScreen() {
   const [locations, setLocations] = useState([]);
@@ -17,9 +14,13 @@ export default function MapScreen() {
 
       if (Array.isArray(data)) {
         setLocations(data);
+      } else {
+        console.log('Map API response:', data);
+        setLocations([]);
       }
     } catch (error) {
       console.log('Map error:', error);
+      setLocations([]);
     } finally {
       setLoading(false);
     }
@@ -29,31 +30,28 @@ export default function MapScreen() {
     fetchLocations();
 
     const interval = setInterval(fetchLocations, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || locations.length < 2) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) {
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
   }
 
-  const origin = {
-    latitude: locations[0].latitude,
-    longitude: locations[0].longitude,
-  };
-
-  const destination = {
-    latitude: locations[1].latitude,
-    longitude: locations[1].longitude,
-  };
+  if (!locations.length) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No live locations available yet</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: origin.latitude,
-          longitude: origin.longitude,
+          latitude: locations[0].latitude,
+          longitude: locations[0].longitude,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}
@@ -62,20 +60,13 @@ export default function MapScreen() {
           <Marker
             key={loc.id}
             coordinate={{
-              latitude: loc.latitude,
-              longitude: loc.longitude,
+              latitude: Number(loc.latitude),
+              longitude: Number(loc.longitude),
             }}
-            title={loc.name}
+            title={loc.name || 'User'}
+            description="Live Location"
           />
         ))}
-
-        <MapViewDirections
-          origin={origin}
-          destination={destination}
-          apikey={GOOGLE_MAPS_API_KEY}
-          strokeWidth={4}
-          strokeColor="blue"
-        />
       </MapView>
     </View>
   );
@@ -84,4 +75,16 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#f4f5f7',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+  },
 });
