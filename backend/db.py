@@ -41,8 +41,9 @@ class ProfileModel(Base):
     __tablename__ = "profiles"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
-    emergency_contact_name = Column(String, nullable=False)
-    emergency_contact_phone = Column(String, nullable=False)
-    user_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, nullable=False, unique=True)
+
+    blood_group = Column(String, nullable=True)
+    emergency_contact_phone = Column(String, nullable=True)
+    medical_notes = Column(String, nullable=True)
+    address = Column(String, nullable=True)

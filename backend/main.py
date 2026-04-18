@@ -65,12 +65,11 @@ class PriorityUpdateRequest(BaseModel):
     priority: str
 
 
-class ProfileRequest(BaseModel):
-    name: str
-    phone: str
-    emergency_contact_name: str
-    emergency_contact_phone: str
-    user_id: int
+class ProfileUpdateRequest(BaseModel):
+    blood_group: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    medical_notes: Optional[str] = None
+    address: Optional[str] = None
 
 
 class LocationUpdateRequest(BaseModel):
@@ -453,49 +452,6 @@ def get_provider_location(emergency_id: int):
         db.close()
 
 
-@app.post("/profile")
-def save_profile(req: ProfileRequest):
-    db: Session = get_db()
-    try:
-        profile = db.query(ProfileModel).filter(ProfileModel.user_id == req.user_id).first()
-
-        if profile:
-            profile.name = req.name
-            profile.phone = req.phone
-            profile.emergency_contact_name = req.emergency_contact_name
-            profile.emergency_contact_phone = req.emergency_contact_phone
-        else:
-            profile = ProfileModel(
-                name=req.name,
-                phone=req.phone,
-                emergency_contact_name=req.emergency_contact_name,
-                emergency_contact_phone=req.emergency_contact_phone,
-                user_id=req.user_id
-            )
-            db.add(profile)
-
-        db.commit()
-        db.refresh(profile)
-
-        return {
-            "message": "Profile saved successfully",
-            "data": {
-                "id": profile.id,
-                "name": profile.name,
-                "phone": profile.phone,
-                "emergency_contact_name": profile.emergency_contact_name,
-                "emergency_contact_phone": profile.emergency_contact_phone,
-                "user_id": profile.user_id
-            }
-        }
-
-    except Exception as e:
-        print("Profile Error:", e)
-        return {"error": str(e)}
-    finally:
-        db.close()
-
-
 @app.get("/profile/{user_id}")
 def get_profile(user_id: int):
     db: Session = get_db()
@@ -507,15 +463,57 @@ def get_profile(user_id: int):
 
         return {
             "id": profile.id,
-            "name": profile.name,
-            "phone": profile.phone,
-            "emergency_contact_name": profile.emergency_contact_name,
+            "user_id": profile.user_id,
+            "blood_group": profile.blood_group,
             "emergency_contact_phone": profile.emergency_contact_phone,
-            "user_id": profile.user_id
+            "medical_notes": profile.medical_notes,
+            "address": profile.address
         }
 
     except Exception as e:
         print("Get Profile Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
+@app.put("/profile/{user_id}")
+def update_profile(user_id: int, req: ProfileUpdateRequest):
+    db: Session = get_db()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+        if not user:
+            return {"error": "User not found"}
+
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
+
+        if not profile:
+            profile = ProfileModel(user_id=user_id)
+            db.add(profile)
+
+        profile.blood_group = req.blood_group
+        profile.emergency_contact_phone = req.emergency_contact_phone
+        profile.medical_notes = req.medical_notes
+        profile.address = req.address
+
+        db.commit()
+        db.refresh(profile)
+
+        return {
+            "message": "Profile updated successfully",
+            "data": {
+                "id": profile.id,
+                "user_id": profile.user_id,
+                "blood_group": profile.blood_group,
+                "emergency_contact_phone": profile.emergency_contact_phone,
+                "medical_notes": profile.medical_notes,
+                "address": profile.address
+            }
+        }
+
+    except Exception as e:
+        print("Profile Update Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
