@@ -137,10 +137,17 @@ export default function AdminScreen({ navigation }) {
     return '#666';
   };
 
+  const priorityOrder = {
+    critical: 4,
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+
   const filteredRequests = useMemo(() => {
     const query = searchText.trim().toLowerCase();
 
-    return requests.filter((item) => {
+    const result = requests.filter((item) => {
       const type = String(item?.type || '').toLowerCase();
       const description = String(item?.description || '').toLowerCase();
       const location = String(item?.location_text || '').toLowerCase();
@@ -175,6 +182,17 @@ export default function AdminScreen({ navigation }) {
       }
 
       return matchesSearch && matchesFilter;
+    });
+
+    return result.sort((a, b) => {
+      const priorityA = priorityOrder[String(a?.priority || 'medium').toLowerCase()] || 0;
+      const priorityB = priorityOrder[String(b?.priority || 'medium').toLowerCase()] || 0;
+
+      if (priorityB !== priorityA) {
+        return priorityB - priorityA;
+      }
+
+      return Number(b?.id || 0) - Number(a?.id || 0);
     });
   }, [requests, searchText, selectedFilter, adminName]);
 
@@ -274,7 +292,7 @@ export default function AdminScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🛠 Admin Dashboard</Text>
+      <Text style={styles.title}>🛠 Admin Panel</Text>
 
       <View style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Requests</Text>
@@ -343,7 +361,13 @@ export default function AdminScreen({ navigation }) {
         </View>
       ) : (
         filteredRequests.map((item, index) => (
-          <View key={String(item?.id ?? index)} style={styles.requestCard}>
+          <View
+            key={String(item?.id ?? index)}
+            style={[
+              styles.requestCard,
+              String(item?.priority || '').toLowerCase() === 'critical' && styles.criticalCard,
+            ]}
+          >
             <TouchableOpacity
               onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
             >
@@ -370,11 +394,11 @@ export default function AdminScreen({ navigation }) {
 
               <Text
                 style={[
-                  styles.priorityText,
-                  { color: getPriorityColor(item?.priority) },
+                  styles.priorityBadge,
+                  { backgroundColor: getPriorityColor(item?.priority) },
                 ]}
               >
-                PRIORITY: {String(item?.priority || 'medium').toUpperCase()}
+                {String(item?.priority || 'medium').toUpperCase()}
               </Text>
 
               {item?.accepted_by ? (
@@ -558,6 +582,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     elevation: 3,
   },
+  criticalCard: {
+    borderWidth: 2,
+    borderColor: '#dc3545',
+  },
   requestType: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -580,8 +608,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 6,
   },
-  priorityText: {
-    fontSize: 14,
+  priorityBadge: {
+    alignSelf: 'flex-start',
+    color: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 8,
   },
