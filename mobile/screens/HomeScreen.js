@@ -286,6 +286,13 @@ export default function HomeScreen({ navigation, onLogout }) {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity
+        style={styles.emergencyCallCard}
+        onPress={() => navigation.navigate('EmergencyCall')}
+      >
+        <Text style={styles.emergencyCallText}>🚨 Emergency Call Options</Text>
+      </TouchableOpacity>
+
       <View style={styles.statusRow}>
         <View style={[styles.statusCard, styles.pendingCard]}>
           <Text style={styles.statusCount}>{pendingCount}</Text>
@@ -393,7 +400,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
     gap: 10,
   },
   call112Button: {
@@ -415,6 +422,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  emergencyCallCard: {
+    backgroundColor: '#6f42c1',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emergencyCallText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   statusRow: {
     flexDirection: 'row',

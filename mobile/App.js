@@ -15,6 +15,9 @@ import EmergencyDetailsScreen from './screens/EmergencyDetailsScreen';
 import AdminScreen from './screens/AdminScreen';
 import MapScreen from './screens/MapScreen';
 
+// ✅ NEW IMPORT
+import EmergencyCallScreen from './screens/EmergencyCallScreen';
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -57,13 +60,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#007bff" />
       </View>
     );
@@ -132,6 +129,13 @@ export default function App() {
               name="Map"
               component={MapScreen}
               options={{ title: 'Live Map' }}
+            />
+
+            {/* ✅ NEW SCREEN */}
+            <Stack.Screen
+              name="EmergencyCall"
+              component={EmergencyCallScreen}
+              options={{ title: 'Emergency Call' }}
             />
           </>
         )}
