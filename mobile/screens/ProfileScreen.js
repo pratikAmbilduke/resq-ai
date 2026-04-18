@@ -1,55 +1,62 @@
-import { useCallback, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import API_BASE_URL from '../config';
 
 export default function ProfileScreen() {
+  const [loading, setLoading] = useState(true);
+
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [email, setEmail] = useState('');
+
+  const [bloodGroup, setBloodGroup] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [medicalNotes, setMedicalNotes] = useState('');
+  const [address, setAddress] = useState('');
 
   const loadProfile = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      const userName = await AsyncStorage.getItem('userName');
+      const storedName = await AsyncStorage.getItem('userName');
+      const storedEmail = await AsyncStorage.getItem('userEmail');
 
-      if (!userId) return;
+      setName(storedName || '');
+      setEmail(storedEmail || '');
 
-      const response = await fetch(`${API_BASE_URL}/profile/${userId}`);
-      const data = await response.json();
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
-      if (data && !data.error && Object.keys(data).length > 0) {
-        setName(data.name || '');
-        setPhone(data.phone || '');
-        setEmergencyContactName(data.emergency_contact_name || '');
+      const res = await fetch(`${API_BASE_URL}/profile/${userId}`);
+      const data = await res.json();
+
+      if (data && !data.error) {
+        setBloodGroup(data.blood_group || '');
         setEmergencyContactPhone(data.emergency_contact_phone || '');
-      } else {
-        setName(userName || '');
-        setPhone('');
-        setEmergencyContactName('');
-        setEmergencyContactPhone('');
+        setMedicalNotes(data.medical_notes || '');
+        setAddress(data.address || '');
       }
     } catch (error) {
-      console.log('Load Profile Error:', error);
+      console.log('Profile load error:', error);
+      Alert.alert('Error', 'Failed to load profile');
+    } finally {
+      setLoading(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadProfile();
-    }, [])
-  );
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -60,82 +67,86 @@ export default function ProfileScreen() {
         return;
       }
 
-      setLoading(true);
-
-      const response = await fetch(`${API_BASE_URL}/profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API_BASE_URL}/profile/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          name,
-          phone,
-          emergency_contact_name: emergencyContactName,
+          blood_group: bloodGroup,
           emergency_contact_phone: emergencyContactPhone,
-          user_id: Number(userId),
+          medical_notes: medicalNotes,
+          address: address,
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
       if (data.error) {
         Alert.alert('Error', data.error);
         return;
       }
 
-      await AsyncStorage.setItem('userName', name || '');
-
-      Alert.alert('Success', 'Profile saved successfully');
-      loadProfile();
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
-      console.log('Save Profile Error:', error);
-      Alert.alert('Error', 'Failed to save profile');
-    } finally {
-      setLoading(false);
+      console.log('Save profile error:', error);
+      Alert.alert('Error', 'Failed to update profile');
     }
   };
 
+  if (loading) {
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>My Profile</Text>
+      <Text style={styles.title}>👤 Profile</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full name"
-        value={name}
-        onChangeText={setName}
-      />
+      <View style={styles.card}>
+        <Text style={styles.label}>Name</Text>
+        <Text style={styles.value}>{name}</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Phone number"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-      />
+        <Text style={styles.label}>Email</Text>
+        <Text style={styles.value}>{email}</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Emergency contact name"
-        value={emergencyContactName}
-        onChangeText={setEmergencyContactName}
-      />
+        <Text style={styles.label}>Blood Group</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. O+"
+          value={bloodGroup}
+          onChangeText={setBloodGroup}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Emergency contact phone"
-        value={emergencyContactPhone}
-        onChangeText={setEmergencyContactPhone}
-        keyboardType="phone-pad"
-      />
+        <Text style={styles.label}>Emergency Contact</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Phone number"
+          keyboardType="phone-pad"
+          value={emergencyContactPhone}
+          onChangeText={setEmergencyContactPhone}
+        />
 
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleSave}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Saving...' : 'Save Profile'}
-        </Text>
-      </TouchableOpacity>
+        <Text style={styles.label}>Medical Notes</Text>
+        <TextInput
+          style={[styles.input, { height: 80 }]}
+          placeholder="Allergies, conditions..."
+          multiline
+          value={medicalNotes}
+          onChangeText={setMedicalNotes}
+        />
+
+        <Text style={styles.label}>Address</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Your address"
+          value={address}
+          onChangeText={setAddress}
+        />
+
+        <TouchableOpacity style={styles.button} onPress={handleSave}>
+          <Text style={styles.buttonText}>Save Profile</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -147,32 +158,43 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 22,
+    marginBottom: 18,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    elevation: 3,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 12,
+    color: '#555',
+  },
+  value: {
+    fontSize: 16,
+    marginTop: 4,
+    color: '#222',
   },
   input: {
-    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 6,
   },
   button: {
     backgroundColor: '#007bff',
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
+    marginTop: 20,
     alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
   },
 });
