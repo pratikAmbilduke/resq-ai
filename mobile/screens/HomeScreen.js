@@ -214,84 +214,120 @@ export default function HomeScreen({ navigation, onLogout }) {
     callPhoneNumber(emergencyContactPhone);
   };
 
+  const firstName = userName ? userName.split(' ')[0] : 'User';
+
   if (userRole === 'admin') {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.header}>Home</Text>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCardAdmin}>
+          <View style={styles.heroTopRow}>
+            <View>
+              <Text style={styles.heroGreeting}>Welcome back</Text>
+              <Text style={styles.heroName}>{firstName}</Text>
+              <Text style={styles.heroRoleAdmin}>Admin Control Panel</Text>
+            </View>
 
-        <View style={styles.logoSection}>
-          <Text style={styles.logoTitle}>🚑 ResQ AI</Text>
-          <Text style={styles.logoSubtitle}>Emergency Help System</Text>
+            <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
+              <Text style={styles.logoutChipText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.heroSubtitle}>
+            Manage requests, track emergencies, and monitor live activity.
+          </Text>
         </View>
 
-        <View style={styles.welcomeCard}>
-          <Text style={styles.welcomeText}>Welcome</Text>
-          <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.roleText}>Role: admin</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <Text style={styles.sectionSubtext}>Everything important in one place</Text>
         </View>
 
         <TouchableOpacity
-          style={styles.menuCard}
+          style={styles.primaryAdminCard}
           onPress={() => navigation.navigate('Admin')}
         >
-          <Text style={styles.menuText}>🛠 Admin Panel</Text>
+          <View>
+            <Text style={styles.primaryAdminTitle}>🛠 Admin Panel</Text>
+            <Text style={styles.primaryAdminSubtitle}>
+              View requests, manage status, set priorities
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.menuCard}
+          style={styles.secondaryAdminCard}
           onPress={() => navigation.navigate('Map')}
         >
-          <Text style={styles.menuText}>📍 Live Map</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
+          <View>
+            <Text style={styles.secondaryAdminTitle}>📍 Live Map</Text>
+            <Text style={styles.secondaryAdminSubtitle}>
+              Track request locations and provider movement
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
       </ScrollView>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Home</Text>
-
-      <View style={styles.logoSection}>
-        <Text style={styles.logoTitle}>🚑 ResQ AI</Text>
-        <Text style={styles.logoSubtitle}>Emergency Help System</Text>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCardUser}>
+        <Text style={styles.heroGreeting}>Hello</Text>
+        <Text style={styles.heroName}>{firstName}</Text>
+        <Text style={styles.heroRoleUser}>Stay prepared. Help is one tap away.</Text>
       </View>
 
-      <View style={styles.welcomeCard}>
-        <Text style={styles.welcomeText}>Welcome</Text>
-        <Text style={styles.userName}>{userName}</Text>
-        <Text style={styles.roleText}>Role: {userRole}</Text>
+      <View style={styles.sosSection}>
+        <Text style={styles.sectionTitle}>Emergency Action</Text>
+        <Text style={styles.sectionSubtext}>Tap instantly if you need urgent help</Text>
+
+        <TouchableOpacity
+          style={styles.sosButton}
+          onPress={() => navigation.navigate('Emergency')}
+          activeOpacity={0.9}
+        >
+          <View style={styles.sosInnerRing}>
+            <Text style={styles.sosText}>SOS</Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.sosButton}
-        onPress={() => navigation.navigate('Emergency')}
-      >
-        <Text style={styles.sosText}>SOS</Text>
-      </TouchableOpacity>
-
-      <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.call112Button} onPress={handleCall112}>
-          <Text style={styles.actionButtonText}>📞 Call 112</Text>
+      <View style={styles.quickActionRow}>
+        <TouchableOpacity style={styles.quickActionRed} onPress={handleCall112}>
+          <Text style={styles.quickActionEmoji}>📞</Text>
+          <Text style={styles.quickActionTitle}>Call 112</Text>
+          <Text style={styles.quickActionSubtitle}>National emergency</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.contactButton}
+          style={styles.quickActionGreen}
           onPress={handleCallEmergencyContact}
         >
-          <Text style={styles.actionButtonText}>👤 Emergency Contact</Text>
+          <Text style={styles.quickActionEmoji}>👤</Text>
+          <Text style={styles.quickActionTitle}>Contact</Text>
+          <Text style={styles.quickActionSubtitle}>Emergency person</Text>
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity
-        style={styles.emergencyCallCard}
+        style={styles.emergencyOptionsCard}
         onPress={() => navigation.navigate('EmergencyCall')}
       >
-        <Text style={styles.emergencyCallText}>🚨 Emergency Call Options</Text>
+        <View>
+          <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
+          <Text style={styles.emergencyOptionsSubtitle}>
+            Ambulance, police, fire, and 112 quick access
+          </Text>
+        </View>
+        <Text style={styles.arrowWhite}>›</Text>
       </TouchableOpacity>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Request Overview</Text>
+        <Text style={styles.sectionSubtext}>Your live emergency status summary</Text>
+      </View>
 
       <View style={styles.statusRow}>
         <View style={[styles.statusCard, styles.pendingCard]}>
@@ -301,7 +337,7 @@ export default function HomeScreen({ navigation, onLogout }) {
 
         <View style={[styles.statusCard, styles.progressCard]}>
           <Text style={styles.statusCount}>{progressCount}</Text>
-          <Text style={styles.statusLabel}>Progress</Text>
+          <Text style={styles.statusLabel}>In Progress</Text>
         </View>
 
         <View style={[styles.statusCard, styles.resolvedCard]}>
@@ -310,25 +346,42 @@ export default function HomeScreen({ navigation, onLogout }) {
         </View>
       </View>
 
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Services</Text>
+        <Text style={styles.sectionSubtext}>Open any section quickly</Text>
+      </View>
+
       <TouchableOpacity
-        style={styles.menuCard}
+        style={styles.serviceCard}
         onPress={() => navigation.navigate('History')}
       >
-        <Text style={styles.menuText}>📜 History</Text>
+        <View>
+          <Text style={styles.serviceTitle}>📜 History</Text>
+          <Text style={styles.serviceSubtitle}>See all previous emergency requests</Text>
+        </View>
+        <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.menuCard}
+        style={styles.serviceCard}
         onPress={() => navigation.navigate('Dashboard')}
       >
-        <Text style={styles.menuText}>📊 Dashboard</Text>
+        <View>
+          <Text style={styles.serviceTitle}>📊 Dashboard</Text>
+          <Text style={styles.serviceSubtitle}>Track overall request updates</Text>
+        </View>
+        <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.menuCard}
+        style={styles.serviceCard}
         onPress={() => navigation.navigate('Profile')}
       >
-        <Text style={styles.menuText}>👤 Profile</Text>
+        <View>
+          <Text style={styles.serviceTitle}>👤 Profile</Text>
+          <Text style={styles.serviceSubtitle}>Manage contact and medical details</Text>
+        </View>
+        <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -340,150 +393,293 @@ export default function HomeScreen({ navigation, onLogout }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f4f5f7',
+    padding: 18,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  logoSection: {
-    alignItems: 'center',
+
+  heroCardUser: {
+    backgroundColor: '#0d6efd',
+    borderRadius: 24,
+    padding: 22,
     marginBottom: 22,
   },
-  logoTitle: {
-    fontSize: 28,
+  heroCardAdmin: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 22,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  heroGreeting: {
+    color: '#dbe7ff',
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  heroName: {
+    color: '#fff',
+    fontSize: 30,
     fontWeight: 'bold',
   },
-  logoSubtitle: {
-    fontSize: 16,
-    color: '#333',
-    marginTop: 4,
+  heroRoleUser: {
+    color: '#e9f1ff',
+    fontSize: 15,
+    marginTop: 8,
   },
-  welcomeCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+  heroRoleAdmin: {
+    color: '#c7d2fe',
+    fontSize: 15,
+    marginTop: 8,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: '#666',
+  heroSubtitle: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 14,
+    lineHeight: 20,
   },
-  userName: {
-    fontSize: 28,
+
+  logoutChip: {
+    backgroundColor: '#ffffff22',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  logoutChipText: {
+    color: '#fff',
     fontWeight: 'bold',
-    marginTop: 4,
+    fontSize: 13,
   },
-  roleText: {
-    fontSize: 16,
-    color: '#007bff',
-    marginTop: 6,
+
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  sectionSubtext: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 3,
+  },
+
+  sosSection: {
+    marginBottom: 22,
+    alignItems: 'center',
   },
   sosButton: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#ff1a1a',
+    marginTop: 16,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: '#ff3b30',
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 24,
+    shadowColor: '#ff3b30',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  sosInnerRing: {
+    width: 164,
+    height: 164,
+    borderRadius: 82,
+    backgroundColor: '#ff5d55',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sosText: {
     color: '#fff',
-    fontSize: 34,
+    fontSize: 40,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
-  actionRow: {
+
+  quickActionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 10,
+    gap: 12,
+    marginBottom: 18,
   },
-  call112Button: {
+  quickActionRed: {
     flex: 1,
-    backgroundColor: '#dc3545',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#f1d2d0',
   },
-  contactButton: {
+  quickActionGreen: {
     flex: 1,
-    backgroundColor: '#198754',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#d4ead9',
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  quickActionEmoji: {
+    fontSize: 24,
+    marginBottom: 10,
   },
-  emergencyCallCard: {
-    backgroundColor: '#6f42c1',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  emergencyCallText: {
-    color: '#fff',
+  quickActionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#111827',
   },
+  quickActionSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+
+  emergencyOptionsCard: {
+    backgroundColor: '#6f42c1',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  emergencyOptionsTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  emergencyOptionsSubtitle: {
+    color: '#efe7ff',
+    fontSize: 12,
+    marginTop: 4,
+    maxWidth: 240,
+  },
+  arrowWhite: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '300',
+  },
+
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 24,
+    gap: 10,
   },
   statusCard: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 20,
     paddingVertical: 18,
-    marginHorizontal: 4,
+    paddingHorizontal: 10,
     alignItems: 'center',
   },
   pendingCard: {
-    backgroundColor: '#efe4b8',
+    backgroundColor: '#fff3cd',
   },
   progressCard: {
-    backgroundColor: '#bddbe2',
+    backgroundColor: '#d9ecff',
   },
   resolvedCard: {
-    backgroundColor: '#c8dfcb',
+    backgroundColor: '#dff5e3',
   },
   statusCount: {
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#111827',
   },
   statusLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    marginTop: 5,
+    color: '#374151',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  serviceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  serviceTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  serviceSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
     marginTop: 4,
   },
-  menuCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 22,
-    marginBottom: 16,
+
+  primaryAdminCard: {
+    backgroundColor: '#0d6efd',
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  menuText: {
+  primaryAdminTitle: {
+    color: '#fff',
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
+  primaryAdminSubtitle: {
+    color: '#e7f0ff',
+    fontSize: 12,
+    marginTop: 5,
+    maxWidth: 250,
+  },
+  secondaryAdminCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  secondaryAdminTitle: {
+    color: '#111827',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  secondaryAdminSubtitle: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 5,
+    maxWidth: 250,
+  },
+
+  arrow: {
+    fontSize: 30,
+    color: '#9ca3af',
+    fontWeight: '300',
+  },
+
   logoutButton: {
-    backgroundColor: '#ff0f47',
-    borderRadius: 16,
-    padding: 22,
-    marginTop: 18,
+    backgroundColor: '#111827',
+    borderRadius: 18,
+    paddingVertical: 18,
+    marginTop: 10,
     alignItems: 'center',
   },
   logoutText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
   },
 });
