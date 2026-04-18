@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,6 +18,7 @@ export default function HomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('user');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [profileImage, setProfileImage] = useState('');
 
   const [pendingCount, setPendingCount] = useState(0);
   const [progressCount, setProgressCount] = useState(0);
@@ -82,9 +84,11 @@ export default function HomeScreen({ navigation, onLogout }) {
       const storedName = await AsyncStorage.getItem('userName');
       const storedRole = await AsyncStorage.getItem('userRole');
       const userId = await AsyncStorage.getItem('userId');
+      const storedProfileImage = await AsyncStorage.getItem('userProfileImage');
 
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
+      setProfileImage(storedProfileImage || '');
 
       if (!userId) {
         setPendingCount(0);
@@ -216,40 +220,61 @@ export default function HomeScreen({ navigation, onLogout }) {
 
   const firstName = userName ? userName.split(' ')[0] : 'User';
 
+  const renderProfileImage = () => {
+    if (profileImage) {
+      return <Image source={{ uri: profileImage }} style={styles.profileImage} />;
+    }
+
+    return (
+      <View style={styles.profilePlaceholder}>
+        <Text style={styles.profilePlaceholderText}>
+          {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
+        </Text>
+      </View>
+    );
+  };
+
   if (userRole === 'admin') {
     return (
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCardAdmin}>
-          <View style={styles.heroTopRow}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.profileHeaderLeft}
+            onPress={() => navigation.navigate('ProfileTab')}
+          >
+            {renderProfileImage()}
             <View>
-              <Text style={styles.heroGreeting}>Welcome back</Text>
-              <Text style={styles.heroName}>{firstName}</Text>
-              <Text style={styles.heroRoleAdmin}>Admin Control Panel</Text>
+              <Text style={styles.headerGreeting}>Welcome back</Text>
+              <Text style={styles.headerName}>{firstName}</Text>
+              <Text style={styles.headerRole}>Admin</Text>
             </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
-              <Text style={styles.logoutChipText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
+            <Text style={styles.logoutChipText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
 
+        <View style={styles.heroCardAdmin}>
+          <Text style={styles.heroTitle}>Control Center</Text>
           <Text style={styles.heroSubtitle}>
-            Manage requests, track emergencies, and monitor live activity.
+            Manage requests, track live movement, and monitor emergency operations.
           </Text>
         </View>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Quick Access</Text>
-          <Text style={styles.sectionSubtext}>Everything important in one place</Text>
+          <Text style={styles.sectionSubtext}>Important admin tools</Text>
         </View>
 
         <TouchableOpacity
           style={styles.primaryAdminCard}
-          onPress={() => navigation.navigate('Admin')}
+          onPress={() => navigation.navigate('RequestsTab')}
         >
           <View>
-            <Text style={styles.primaryAdminTitle}>🛠 Admin Panel</Text>
+            <Text style={styles.primaryAdminTitle}>🛠 Request Management</Text>
             <Text style={styles.primaryAdminSubtitle}>
-              View requests, manage status, set priorities
+              Open dashboard, priorities, and request actions
             </Text>
           </View>
           <Text style={styles.arrow}>›</Text>
@@ -257,12 +282,12 @@ export default function HomeScreen({ navigation, onLogout }) {
 
         <TouchableOpacity
           style={styles.secondaryAdminCard}
-          onPress={() => navigation.navigate('Map')}
+          onPress={() => navigation.navigate('AdminMapTab')}
         >
           <View>
             <Text style={styles.secondaryAdminTitle}>📍 Live Map</Text>
             <Text style={styles.secondaryAdminSubtitle}>
-              Track request locations and provider movement
+              View emergency locations and providers
             </Text>
           </View>
           <Text style={styles.arrow}>›</Text>
@@ -273,15 +298,34 @@ export default function HomeScreen({ navigation, onLogout }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.profileHeaderLeft}
+          onPress={() => navigation.navigate('ProfileTab')}
+        >
+          {renderProfileImage()}
+          <View>
+            <Text style={styles.headerGreeting}>Hello</Text>
+            <Text style={styles.headerName}>{firstName}</Text>
+            <Text style={styles.headerRole}>Stay safe today</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
+          <Text style={styles.logoutChipText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.heroCardUser}>
-        <Text style={styles.heroGreeting}>Hello</Text>
-        <Text style={styles.heroName}>{firstName}</Text>
-        <Text style={styles.heroRoleUser}>Stay prepared. Help is one tap away.</Text>
+        <Text style={styles.heroTitle}>Emergency Support</Text>
+        <Text style={styles.heroSubtitle}>
+          Need urgent help? Send a request instantly and track updates live.
+        </Text>
       </View>
 
       <View style={styles.sosSection}>
         <Text style={styles.sectionTitle}>Emergency Action</Text>
-        <Text style={styles.sectionSubtext}>Tap instantly if you need urgent help</Text>
+        <Text style={styles.sectionSubtext}>Fastest way to request immediate help</Text>
 
         <TouchableOpacity
           style={styles.sosButton}
@@ -318,7 +362,7 @@ export default function HomeScreen({ navigation, onLogout }) {
         <View>
           <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
           <Text style={styles.emergencyOptionsSubtitle}>
-            Ambulance, police, fire, and 112 quick access
+            Ambulance, police, fire and 112 quick access
           </Text>
         </View>
         <Text style={styles.arrowWhite}>›</Text>
@@ -326,7 +370,7 @@ export default function HomeScreen({ navigation, onLogout }) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Request Overview</Text>
-        <Text style={styles.sectionSubtext}>Your live emergency status summary</Text>
+        <Text style={styles.sectionSubtext}>Your current emergency activity</Text>
       </View>
 
       <View style={styles.statusRow}>
@@ -348,12 +392,12 @@ export default function HomeScreen({ navigation, onLogout }) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Services</Text>
-        <Text style={styles.sectionSubtext}>Open any section quickly</Text>
+        <Text style={styles.sectionSubtext}>Quick links to important sections</Text>
       </View>
 
       <TouchableOpacity
         style={styles.serviceCard}
-        onPress={() => navigation.navigate('History')}
+        onPress={() => navigation.navigate('HistoryTab')}
       >
         <View>
           <Text style={styles.serviceTitle}>📜 History</Text>
@@ -364,28 +408,24 @@ export default function HomeScreen({ navigation, onLogout }) {
 
       <TouchableOpacity
         style={styles.serviceCard}
-        onPress={() => navigation.navigate('Dashboard')}
+        onPress={() => navigation.navigate('DashboardTab')}
       >
         <View>
           <Text style={styles.serviceTitle}>📊 Dashboard</Text>
-          <Text style={styles.serviceSubtitle}>Track overall request updates</Text>
+          <Text style={styles.serviceSubtitle}>Track request updates and progress</Text>
         </View>
         <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.serviceCard}
-        onPress={() => navigation.navigate('Profile')}
+        onPress={() => navigation.navigate('ProfileTab')}
       >
         <View>
           <Text style={styles.serviceTitle}>👤 Profile</Text>
-          <Text style={styles.serviceSubtitle}>Manage contact and medical details</Text>
+          <Text style={styles.serviceSubtitle}>Manage medical and contact details</Text>
         </View>
         <Text style={styles.arrow}>›</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -396,6 +436,65 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: '#f3f5f7',
     flexGrow: 1,
+  },
+
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  profileHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  profileImage: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    marginRight: 12,
+  },
+  profilePlaceholder: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    marginRight: 12,
+    backgroundColor: '#0d6efd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profilePlaceholderText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  headerGreeting: {
+    color: '#6b7280',
+    fontSize: 13,
+  },
+  headerName: {
+    color: '#111827',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  headerRole: {
+    color: '#0d6efd',
+    fontSize: 13,
+    marginTop: 3,
+    fontWeight: '600',
+  },
+  logoutChip: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  logoutChipText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
 
   heroCardUser: {
@@ -410,48 +509,16 @@ const styles = StyleSheet.create({
     padding: 22,
     marginBottom: 22,
   },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  heroGreeting: {
-    color: '#dbe7ff',
-    fontSize: 15,
-    marginBottom: 4,
-  },
-  heroName: {
+  heroTitle: {
     color: '#fff',
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: 'bold',
-  },
-  heroRoleUser: {
-    color: '#e9f1ff',
-    fontSize: 15,
-    marginTop: 8,
-  },
-  heroRoleAdmin: {
-    color: '#c7d2fe',
-    fontSize: 15,
-    marginTop: 8,
   },
   heroSubtitle: {
-    color: '#d1d5db',
+    color: '#e7f0ff',
     fontSize: 14,
-    marginTop: 14,
+    marginTop: 8,
     lineHeight: 20,
-  },
-
-  logoutChip: {
-    backgroundColor: '#ffffff22',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 14,
-  },
-  logoutChipText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
   },
 
   sectionHeader: {
@@ -668,18 +735,5 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: '#9ca3af',
     fontWeight: '300',
-  },
-
-  logoutButton: {
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    paddingVertical: 18,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
   },
 });
