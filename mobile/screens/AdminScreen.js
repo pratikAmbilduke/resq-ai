@@ -122,10 +122,10 @@ export default function AdminScreen({ navigation }) {
     const s = String(status || '').toLowerCase();
     if (s === 'pending') return '#d4a017';
     if (s === 'accepted') return '#6f42c1';
-    if (s === 'in progress') return '#007bff';
-    if (s === 'resolved') return '#28a745';
+    if (s === 'in progress') return '#0d6efd';
+    if (s === 'resolved') return '#198754';
     if (s === 'cancelled') return '#dc3545';
-    return '#666';
+    return '#6b7280';
   };
 
   const getPriorityColor = (priority) => {
@@ -134,7 +134,7 @@ export default function AdminScreen({ navigation }) {
     if (p === 'medium') return '#0d6efd';
     if (p === 'high') return '#fd7e14';
     if (p === 'critical') return '#dc3545';
-    return '#666';
+    return '#6b7280';
   };
 
   const priorityOrder = {
@@ -286,78 +286,108 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  const filterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'accepted', label: 'Accepted' },
+    { key: 'in progress', label: 'In Progress' },
+    { key: 'resolved', label: 'Resolved' },
+    { key: 'cancelled', label: 'Cancelled' },
+    { key: 'my-assigned', label: 'My Assigned' },
+  ];
+
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🛠 Admin Panel</Text>
-
-      <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total Requests</Text>
-        <Text style={styles.totalValue}>{totalRequests}</Text>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCard}>
+        <Text style={styles.heroTitle}>Admin Operations</Text>
+        <Text style={styles.heroSubtitle}>
+          Monitor emergencies, manage priorities, and handle requests quickly.
+        </Text>
       </View>
 
-      <View style={styles.grid}>
-        <View style={[styles.card, styles.pending]}>
-          <Text style={styles.count}>{pendingCount}</Text>
-          <Text style={styles.label}>Pending</Text>
+      <View style={styles.summaryGrid}>
+        <View style={[styles.summaryCard, styles.totalSummary]}>
+          <Text style={styles.summaryCount}>{totalRequests}</Text>
+          <Text style={styles.summaryLabel}>Total</Text>
         </View>
 
-        <View style={[styles.card, styles.accepted]}>
-          <Text style={styles.count}>{acceptedCount}</Text>
-          <Text style={styles.label}>Accepted</Text>
+        <View style={[styles.summaryCard, styles.pendingSummary]}>
+          <Text style={styles.summaryCount}>{pendingCount}</Text>
+          <Text style={styles.summaryLabel}>Pending</Text>
         </View>
 
-        <View style={[styles.card, styles.progress]}>
-          <Text style={styles.count}>{progressCount}</Text>
-          <Text style={styles.label}>In Progress</Text>
+        <View style={[styles.summaryCard, styles.acceptedSummary]}>
+          <Text style={styles.summaryCount}>{acceptedCount}</Text>
+          <Text style={styles.summaryLabel}>Accepted</Text>
         </View>
 
-        <View style={[styles.card, styles.resolved]}>
-          <Text style={styles.count}>{resolvedCount}</Text>
-          <Text style={styles.label}>Resolved</Text>
+        <View style={[styles.summaryCard, styles.progressSummary]}>
+          <Text style={styles.summaryCount}>{progressCount}</Text>
+          <Text style={styles.summaryLabel}>Progress</Text>
+        </View>
+
+        <View style={[styles.summaryCard, styles.resolvedSummary]}>
+          <Text style={styles.summaryCount}>{resolvedCount}</Text>
+          <Text style={styles.summaryLabel}>Resolved</Text>
         </View>
       </View>
 
       <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.navigate('Map')}
+        style={styles.mapButton}
+        onPress={() => navigation.navigate('AdminMapTab')}
       >
-        <Text style={styles.buttonText}>🗺 Open Live Map</Text>
+        <Text style={styles.mapButtonText}>📍 Open Live Map</Text>
       </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>All Requests</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Request Management</Text>
+        <Text style={styles.sectionSubtext}>Search, filter, prioritize, and delete requests</Text>
+      </View>
 
       <TextInput
         style={styles.searchInput}
         placeholder="Search by type, description, location, provider, priority"
+        placeholderTextColor="#9ca3af"
         value={searchText}
         onChangeText={setSearchText}
       />
 
-      <View style={styles.filterContainer}>
-        {['all', 'pending', 'accepted', 'in progress', 'resolved', 'cancelled', 'my-assigned'].map((filter) => (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScroll}
+      >
+        {filterOptions.map((filter) => (
           <TouchableOpacity
-            key={filter}
-            style={[styles.filterButton, selectedFilter === filter && styles.activeFilter]}
-            onPress={() => setSelectedFilter(filter)}
+            key={filter.key}
+            style={[
+              styles.filterChip,
+              selectedFilter === filter.key && styles.activeFilterChip,
+            ]}
+            onPress={() => setSelectedFilter(filter.key)}
           >
-            <Text style={[styles.filterText, selectedFilter === filter && styles.activeFilterText]}>
-              {filter === 'my-assigned'
-                ? 'My Assigned'
-                : filter === 'in progress'
-                ? 'In Progress'
-                : filter.charAt(0).toUpperCase() + filter.slice(1)}
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === filter.key && styles.activeFilterChipText,
+              ]}
+            >
+              {filter.label}
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {filteredRequests.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No requests found</Text>
+          <Text style={styles.emptyTitle}>No requests found</Text>
+          <Text style={styles.emptySubtitle}>
+            Try changing filters or search keywords.
+          </Text>
         </View>
       ) : (
         filteredRequests.map((item, index) => (
@@ -369,11 +399,23 @@ export default function AdminScreen({ navigation }) {
             ]}
           >
             <TouchableOpacity
+              activeOpacity={0.9}
               onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
             >
-              <Text style={styles.requestType}>
-                {String(item?.type || '').toUpperCase()}
-              </Text>
+              <View style={styles.cardTopRow}>
+                <Text style={styles.requestType}>
+                  {String(item?.type || '').toUpperCase()}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.priorityBadge,
+                    { backgroundColor: getPriorityColor(item?.priority) },
+                  ]}
+                >
+                  {String(item?.priority || 'medium').toUpperCase()}
+                </Text>
+              </View>
 
               <Text style={styles.requestDescription}>
                 {item?.description || 'No description'}
@@ -383,34 +425,29 @@ export default function AdminScreen({ navigation }) {
                 {item?.location_text || 'No location available'}
               </Text>
 
-              <Text
-                style={[
-                  styles.requestStatus,
-                  { color: getStatusColor(item?.status) },
-                ]}
-              >
-                {String(item?.status || 'unknown').toUpperCase()}
-              </Text>
-
-              <Text
-                style={[
-                  styles.priorityBadge,
-                  { backgroundColor: getPriorityColor(item?.priority) },
-                ]}
-              >
-                {String(item?.priority || 'medium').toUpperCase()}
-              </Text>
-
-              {item?.accepted_by ? (
-                <Text style={styles.acceptedBy}>
-                  Accepted By: {item.accepted_by}
+              <View style={styles.metaRow}>
+                <Text
+                  style={[
+                    styles.statusBadge,
+                    { color: getStatusColor(item?.status), borderColor: getStatusColor(item?.status) },
+                  ]}
+                >
+                  {String(item?.status || 'unknown').toUpperCase()}
                 </Text>
-              ) : (
-                <Text style={styles.notAssigned}>Accepted By: Not assigned yet</Text>
-              )}
 
-              <Text style={styles.tapText}>Tap to manage request</Text>
+                {item?.accepted_by ? (
+                  <Text style={styles.acceptedByText}>
+                    Assigned: {item.accepted_by}
+                  </Text>
+                ) : (
+                  <Text style={styles.notAssignedText}>Not assigned</Text>
+                )}
+              </View>
+
+              <Text style={styles.viewDetailsText}>Tap to view details</Text>
             </TouchableOpacity>
+
+            <Text style={styles.actionSectionTitle}>Set Priority</Text>
 
             <View style={styles.priorityRow}>
               <TouchableOpacity
@@ -457,221 +494,247 @@ export default function AdminScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f4f5f7',
+    padding: 18,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
+    paddingBottom: 100,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
+
+  heroCard: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
     marginBottom: 20,
   },
-  totalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    alignItems: 'center',
-    elevation: 3,
-  },
-  totalLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  totalValue: {
-    fontSize: 32,
+  heroTitle: {
+    color: '#fff',
+    fontSize: 24,
     fontWeight: 'bold',
-    marginTop: 5,
   },
-  grid: {
+  heroSubtitle: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginBottom: 18,
   },
-  card: {
+  summaryCard: {
     width: '48%',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 14,
-    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    marginBottom: 12,
   },
-  pending: {
-    backgroundColor: '#efe4b8',
+  totalSummary: {
+    backgroundColor: '#e8f1ff',
   },
-  accepted: {
-    backgroundColor: '#e0ccff',
+  pendingSummary: {
+    backgroundColor: '#fff3cd',
   },
-  progress: {
-    backgroundColor: '#bddbe2',
+  acceptedSummary: {
+    backgroundColor: '#efe7ff',
   },
-  resolved: {
-    backgroundColor: '#c8dfcb',
+  progressSummary: {
+    backgroundColor: '#d9ecff',
   },
-  count: {
+  resolvedSummary: {
+    backgroundColor: '#dff5e3',
+  },
+  summaryCount: {
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#111827',
   },
-  label: {
-    fontSize: 14,
-    marginTop: 5,
+  summaryLabel: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+    marginTop: 6,
   },
-  button: {
-    backgroundColor: '#007bff',
-    borderRadius: 16,
-    padding: 18,
-    marginTop: 8,
-    marginBottom: 20,
+
+  mapButton: {
+    backgroundColor: '#0d6efd',
+    borderRadius: 18,
+    paddingVertical: 16,
     alignItems: 'center',
+    marginBottom: 20,
   },
-  buttonText: {
+  mapButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+
+  sectionHeader: {
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 14,
+    color: '#111827',
   },
+  sectionSubtext: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+
   searchInput: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 15,
+    color: '#111827',
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
-  filterContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+
+  filterScroll: {
+    paddingBottom: 4,
     marginBottom: 16,
   },
-  filterButton: {
-    backgroundColor: '#e9ecef',
-    paddingVertical: 10,
+  filterChip: {
+    backgroundColor: '#e5e7eb',
     paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 16,
+    marginRight: 10,
   },
-  activeFilter: {
-    backgroundColor: '#007bff',
+  activeFilterChip: {
+    backgroundColor: '#0d6efd',
   },
-  filterText: {
-    color: '#222',
+  filterChipText: {
+    color: '#374151',
     fontWeight: '600',
+    fontSize: 13,
   },
-  activeFilterText: {
+  activeFilterChipText: {
     color: '#fff',
   },
+
   emptyCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 22,
+    padding: 24,
     alignItems: 'center',
   },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
   },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+
   requestCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    elevation: 3,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   criticalCard: {
     borderWidth: 2,
     borderColor: '#dc3545',
   },
+
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   requestType: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#007bff',
-    marginBottom: 8,
-  },
-  requestDescription: {
-    fontSize: 17,
-    color: '#222',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  requestLocation: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-  },
-  requestStatus: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 6,
+    color: '#0d6efd',
   },
   priorityBadge: {
-    alignSelf: 'flex-start',
     color: '#fff',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+
+  requestDescription: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 12,
+  },
+  requestLocation: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+
+  metaRow: {
+    marginTop: 14,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
     fontSize: 12,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  acceptedBy: {
-    fontSize: 14,
+  acceptedByText: {
     color: '#6f42c1',
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  notAssigned: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
-  },
-  tapText: {
-    fontSize: 14,
-    color: '#e63946',
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 12,
   },
+  notAssignedText: {
+    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  viewDetailsText: {
+    marginTop: 12,
+    color: '#0d6efd',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  actionSectionTitle: {
+    marginTop: 18,
+    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+
   priorityRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   priorityButton: {
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
   lowButton: {
     backgroundColor: '#6c757d',
   },
-  mediumButton: {
-    backgroundColor: '#0d6efd',
-  },
-  highButton: {
-    backgroundColor: '#fd7e14',
-  },
-  criticalButton: {
-    backgroundColor: '#dc3545',
-  },
-  priorityButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-});
+  medium
