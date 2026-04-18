@@ -20,16 +20,26 @@ import EmergencyCallScreen from './screens/EmergencyCallScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function TabLabel({ focused, emoji, label }) {
+function PremiumTabIcon({ focused, emoji, label }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
+    <View
+      style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 64,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 16,
+        backgroundColor: focused ? '#eaf2ff' : 'transparent',
+      }}
+    >
       <Text style={{ fontSize: 18 }}>{emoji}</Text>
       <Text
         style={{
           fontSize: 11,
-          marginTop: 2,
-          fontWeight: focused ? 'bold' : '500',
-          color: focused ? '#007bff' : '#666',
+          marginTop: 3,
+          fontWeight: focused ? '700' : '500',
+          color: focused ? '#0d6efd' : '#6b7280',
         }}
       >
         {label}
@@ -44,13 +54,23 @@ function UserTabs({ onLogout }) {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          height: 72,
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: 14,
+          height: 74,
+          borderRadius: 24,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 0,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
           paddingTop: 8,
           paddingBottom: 8,
-          borderTopWidth: 0,
-          elevation: 10,
-          backgroundColor: '#ffffff',
         },
       }}
     >
@@ -58,7 +78,7 @@ function UserTabs({ onLogout }) {
         name="HomeTab"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="🏠" label="Home" />
+            <PremiumTabIcon focused={focused} emoji="🏠" label="Home" />
           ),
         }}
       >
@@ -70,7 +90,7 @@ function UserTabs({ onLogout }) {
         component={HistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="📜" label="History" />
+            <PremiumTabIcon focused={focused} emoji="📜" label="History" />
           ),
         }}
       />
@@ -80,7 +100,7 @@ function UserTabs({ onLogout }) {
         component={DashboardScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="📊" label="Dashboard" />
+            <PremiumTabIcon focused={focused} emoji="📊" label="Dashboard" />
           ),
         }}
       />
@@ -90,7 +110,7 @@ function UserTabs({ onLogout }) {
         component={EmergencyCallScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="🚨" label="Help" />
+            <PremiumTabIcon focused={focused} emoji="🚨" label="Help" />
           ),
         }}
       />
@@ -100,7 +120,7 @@ function UserTabs({ onLogout }) {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="👤" label="Profile" />
+            <PremiumTabIcon focused={focused} emoji="👤" label="Profile" />
           ),
         }}
       />
@@ -114,13 +134,23 @@ function AdminTabs({ onLogout }) {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          height: 72,
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: 14,
+          height: 74,
+          borderRadius: 24,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 0,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
           paddingTop: 8,
           paddingBottom: 8,
-          borderTopWidth: 0,
-          elevation: 10,
-          backgroundColor: '#ffffff',
         },
       }}
     >
@@ -128,7 +158,7 @@ function AdminTabs({ onLogout }) {
         name="AdminHomeTab"
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="🏠" label="Home" />
+            <PremiumTabIcon focused={focused} emoji="🏠" label="Home" />
           ),
         }}
       >
@@ -140,7 +170,7 @@ function AdminTabs({ onLogout }) {
         component={AdminScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="🛠" label="Requests" />
+            <PremiumTabIcon focused={focused} emoji="🛠" label="Requests" />
           ),
         }}
       />
@@ -150,7 +180,7 @@ function AdminTabs({ onLogout }) {
         component={MapScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="📍" label="Map" />
+            <PremiumTabIcon focused={focused} emoji="📍" label="Map" />
           ),
         }}
       />
@@ -160,7 +190,7 @@ function AdminTabs({ onLogout }) {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabLabel focused={focused} emoji="👤" label="Profile" />
+            <PremiumTabIcon focused={focused} emoji="👤" label="Profile" />
           ),
         }}
       />
@@ -171,10 +201,7 @@ function AdminTabs({ onLogout }) {
 function UserMainStack({ onLogout }) {
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="UserTabs"
-        options={{ headerShown: false }}
-      >
+      <Stack.Screen name="UserTabs" options={{ headerShown: false }}>
         {(props) => <UserTabs {...props} onLogout={onLogout} />}
       </Stack.Screen>
 
@@ -208,10 +235,7 @@ function UserMainStack({ onLogout }) {
 function AdminMainStack({ onLogout }) {
   return (
     <Stack.Navigator>
-      <Stack.Screen
-        name="AdminTabs"
-        options={{ headerShown: false }}
-      >
+      <Stack.Screen name="AdminTabs" options={{ headerShown: false }}>
         {(props) => <AdminTabs {...props} onLogout={onLogout} />}
       </Stack.Screen>
 
@@ -332,17 +356,11 @@ export default function App() {
             />
           </>
         ) : userRole === 'admin' ? (
-          <Stack.Screen
-            name="AdminMain"
-            options={{ headerShown: false }}
-          >
+          <Stack.Screen name="AdminMain" options={{ headerShown: false }}>
             {(props) => <AdminMainStack {...props} onLogout={handleLogout} />}
           </Stack.Screen>
         ) : (
-          <Stack.Screen
-            name="UserMain"
-            options={{ headerShown: false }}
-          >
+          <Stack.Screen name="UserMain" options={{ headerShown: false }}>
             {(props) => <UserMainStack {...props} onLogout={handleLogout} />}
           </Stack.Screen>
         )}
