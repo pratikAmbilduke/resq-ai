@@ -12,7 +12,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
+
+import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
+import AppCard from '../components/AppCard';
+import AppChip from '../components/AppChip';
+import SectionHeader from '../components/SectionHeader';
 
 export default function HomeScreen({ navigation, onLogout }) {
   const [userName, setUserName] = useState('');
@@ -41,7 +47,6 @@ export default function HomeScreen({ navigation, onLogout }) {
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
-        console.log('Location permission denied');
         return;
       }
 
@@ -56,8 +61,6 @@ export default function HomeScreen({ navigation, onLogout }) {
           longitude: location.coords.longitude,
         }),
       });
-
-      console.log('Location sent');
     } catch (error) {
       console.log('Location Error:', error);
     }
@@ -85,8 +88,6 @@ export default function HomeScreen({ navigation, onLogout }) {
       const storedRole = await AsyncStorage.getItem('userRole');
       const userId = await AsyncStorage.getItem('userId');
       const storedProfileImage = await AsyncStorage.getItem('userProfileImage');
-
-      console.log('HomeScreen stored role:', storedRole);
 
       setUserName(storedName || 'User');
       setUserRole(storedRole || 'user');
@@ -229,11 +230,14 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
 
     return (
-      <View style={styles.profilePlaceholder}>
+      <LinearGradient
+        colors={GRADIENTS.primary}
+        style={styles.profilePlaceholder}
+      >
         <Text style={styles.profilePlaceholderText}>
           {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
         </Text>
-      </View>
+      </LinearGradient>
     );
   };
 
@@ -262,31 +266,35 @@ export default function HomeScreen({ navigation, onLogout }) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.heroCardAdmin}>
+        <LinearGradient
+          colors={GRADIENTS.dark}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCardAdmin}
+        >
           <Text style={styles.heroTitle}>Control Center</Text>
-          <Text style={styles.heroSubtitle}>
-            Manage requests, track live movement, and monitor emergency
-            operations.
+          <Text style={styles.heroSubtitleAdmin}>
+            Manage requests, priorities, and live operations from one place.
           </Text>
-        </View>
+        </LinearGradient>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Access</Text>
-          <Text style={styles.sectionSubtext}>Important admin tools</Text>
-        </View>
+        <SectionHeader
+          title="Admin Tools"
+          subtitle="Everything important in one place"
+        />
 
         <TouchableOpacity
           style={styles.primaryAdminCard}
           onPress={() => navigation.navigate('RequestsTab')}
           activeOpacity={0.9}
         >
-          <View>
+          <View style={styles.adminCardText}>
             <Text style={styles.primaryAdminTitle}>🛠 Request Management</Text>
             <Text style={styles.primaryAdminSubtitle}>
               Open dashboard, priorities, and request actions
             </Text>
           </View>
-          <Text style={styles.arrow}>›</Text>
+          <Text style={styles.arrowWhite}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -294,7 +302,7 @@ export default function HomeScreen({ navigation, onLogout }) {
           onPress={() => navigation.navigate('AdminMapTab')}
           activeOpacity={0.9}
         >
-          <View>
+          <View style={styles.adminCardText}>
             <Text style={styles.secondaryAdminTitle}>📍 Live Map</Text>
             <Text style={styles.secondaryAdminSubtitle}>
               View emergency locations and providers
@@ -330,49 +338,69 @@ export default function HomeScreen({ navigation, onLogout }) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.heroCardUser}>
+      <LinearGradient
+        colors={GRADIENTS.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCardUser}
+      >
         <Text style={styles.heroTitle}>Emergency Support</Text>
         <Text style={styles.heroSubtitle}>
           Need urgent help? Send a request instantly and track updates live.
         </Text>
-      </View>
+
+        <View style={styles.heroChipsRow}>
+          <AppChip label="Live Tracking" type="info" />
+          <View style={{ width: 8 }} />
+          <AppChip label="Fast Response" type="purple" />
+        </View>
+      </LinearGradient>
 
       <View style={styles.sosSection}>
-        <Text style={styles.sectionTitleCenter}>Emergency Action</Text>
-        <Text style={styles.sectionSubtextCenter}>
-          Fastest way to request immediate help
-        </Text>
+        <SectionHeader
+          title="Emergency Action"
+          subtitle="Fastest way to request immediate help"
+        />
 
         <TouchableOpacity
           style={styles.sosButton}
           onPress={() => navigation.navigate('Emergency')}
           activeOpacity={0.9}
         >
-          <View style={styles.sosInnerRing}>
-            <Text style={styles.sosText}>SOS</Text>
-          </View>
+          <LinearGradient
+            colors={GRADIENTS.sunset}
+            style={styles.sosOuterGradient}
+          >
+            <View style={styles.sosInnerRing}>
+              <Text style={styles.sosText}>SOS</Text>
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
       <View style={styles.quickActionRow}>
         <TouchableOpacity
-          style={styles.quickActionRed}
+          style={styles.quickActionWrap}
           onPress={handleCall112}
           activeOpacity={0.9}
         >
-          <Text style={styles.quickActionEmoji}>📞</Text>
-          <Text style={styles.quickActionTitle}>Call 112</Text>
-          <Text style={styles.quickActionSubtitle}>National emergency</Text>
+          <AppCard variant="pink" style={styles.quickActionCard}>
+            <Text style={styles.quickActionEmoji}>📞</Text>
+            <Text style={styles.quickActionTitle}>Call 112</Text>
+            <Text style={styles.quickActionSubtitle}>National emergency</Text>
+          </AppCard>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.quickActionGreen}
+          style={styles.quickActionWrap}
           onPress={handleCallEmergencyContact}
           activeOpacity={0.9}
         >
-          <Text style={styles.quickActionEmoji}>👤</Text>
-          <Text style={styles.quickActionTitle}>Contact</Text>
-          <Text style={styles.quickActionSubtitle}>Emergency person</Text>
+          <AppCard variant="green" style={styles.quickActionCard}>
+            <Text style={styles.quickActionEmoji}>👤</Text>
+            <Text style={styles.quickActionTitle}>Contact</Text>
+            <Text style={styles.quickActionSubtitle}>Emergency person</Text>
+          </AppCard>
         </TouchableOpacity>
       </View>
 
@@ -381,84 +409,95 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('EmergencyCall')}
         activeOpacity={0.9}
       >
-        <View style={styles.emergencyOptionsTextWrap}>
-          <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
-          <Text style={styles.emergencyOptionsSubtitle}>
-            Ambulance, police, fire and 112 quick access
-          </Text>
-        </View>
-        <Text style={styles.arrowWhite}>›</Text>
+        <LinearGradient
+          colors={GRADIENTS.pinkPurple}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.emergencyGradient}
+        >
+          <View style={styles.emergencyOptionsTextWrap}>
+            <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
+            <Text style={styles.emergencyOptionsSubtitle}>
+              Ambulance, police, fire and 112 quick access
+            </Text>
+          </View>
+          <Text style={styles.arrowWhite}>›</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Request Overview</Text>
-        <Text style={styles.sectionSubtext}>Your current emergency activity</Text>
-      </View>
+      <SectionHeader
+        title="Request Overview"
+        subtitle="Your current emergency activity"
+      />
 
       <View style={styles.statusRow}>
-        <View style={[styles.statusCard, styles.pendingCard]}>
+        <AppCard variant="orange" style={styles.statusCard}>
           <Text style={styles.statusCount}>{pendingCount}</Text>
           <Text style={styles.statusLabel}>Pending</Text>
-        </View>
+        </AppCard>
 
-        <View style={[styles.statusCard, styles.progressCard]}>
+        <AppCard variant="blue" style={styles.statusCard}>
           <Text style={styles.statusCount}>{progressCount}</Text>
           <Text style={styles.statusLabel}>In Progress</Text>
-        </View>
+        </AppCard>
 
-        <View style={[styles.statusCard, styles.resolvedCard]}>
+        <AppCard variant="green" style={styles.statusCard}>
           <Text style={styles.statusCount}>{resolvedCount}</Text>
           <Text style={styles.statusLabel}>Resolved</Text>
-        </View>
+        </AppCard>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Services</Text>
-        <Text style={styles.sectionSubtext}>
-          Quick links to important sections
-        </Text>
-      </View>
+      <SectionHeader
+        title="Services"
+        subtitle="Quick links to important sections"
+      />
 
       <TouchableOpacity
-        style={styles.serviceCard}
+        style={styles.serviceWrap}
         onPress={() => navigation.navigate('HistoryTab')}
         activeOpacity={0.9}
       >
-        <View style={styles.serviceTextWrap}>
-          <Text style={styles.serviceTitle}>📜 History</Text>
-          <Text style={styles.serviceSubtitle}>
-            See all previous emergency requests
-          </Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
+        <AppCard style={styles.serviceCard}>
+          <View style={styles.serviceTextWrap}>
+            <Text style={styles.serviceTitle}>📜 History</Text>
+            <Text style={styles.serviceSubtitle}>
+              See all previous emergency requests
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
+        </AppCard>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.serviceCard}
+        style={styles.serviceWrap}
         onPress={() => navigation.navigate('DashboardTab')}
         activeOpacity={0.9}
       >
-        <View style={styles.serviceTextWrap}>
-          <Text style={styles.serviceTitle}>📊 Dashboard</Text>
-          <Text style={styles.serviceSubtitle}>
-            Track request updates and progress
-          </Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
+        <AppCard style={styles.serviceCard}>
+          <View style={styles.serviceTextWrap}>
+            <Text style={styles.serviceTitle}>📊 Dashboard</Text>
+            <Text style={styles.serviceSubtitle}>
+              Track request updates and progress
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
+        </AppCard>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.serviceCard}
+        style={styles.serviceWrap}
         onPress={() => navigation.navigate('ProfileTab')}
         activeOpacity={0.9}
       >
-        <View style={styles.serviceTextWrap}>
-          <Text style={styles.serviceTitle}>👤 Profile</Text>
-          <Text style={styles.serviceSubtitle}>
-            Manage medical and contact details
-          </Text>
-        </View>
-        <Text style={styles.arrow}>›</Text>
+        <AppCard style={styles.serviceCard}>
+          <View style={styles.serviceTextWrap}>
+            <Text style={styles.serviceTitle}>👤 Profile</Text>
+            <Text style={styles.serviceSubtitle}>
+              Manage medical and contact details
+            </Text>
+          </View>
+          <Text style={styles.arrow}>›</Text>
+        </AppCard>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -467,17 +506,17 @@ export default function HomeScreen({ navigation, onLogout }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
     paddingBottom: 140,
-    backgroundColor: '#f3f5f7',
+    backgroundColor: COLORS.background,
   },
 
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 22,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
   profileHeaderLeft: {
     flexDirection: 'row',
@@ -496,124 +535,102 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     marginRight: 12,
-    backgroundColor: '#0d6efd',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profilePlaceholderText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 22,
     fontWeight: 'bold',
   },
   headerGreeting: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: 13,
   },
   headerName: {
-    color: '#111827',
+    color: COLORS.textPrimary,
     fontSize: 22,
     fontWeight: 'bold',
     marginTop: 2,
   },
   headerRole: {
-    color: '#0d6efd',
+    color: COLORS.primary,
     fontSize: 13,
     marginTop: 3,
     fontWeight: '600',
   },
   logoutChip: {
-    backgroundColor: '#111827',
+    backgroundColor: COLORS.textPrimary,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderRadius: 16,
     alignSelf: 'flex-start',
+    ...SHADOW.soft,
   },
   logoutChipText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontWeight: 'bold',
     fontSize: 13,
   },
 
   heroCardUser: {
-    backgroundColor: '#0d6efd',
-    borderRadius: 28,
+    borderRadius: RADIUS.xl,
     padding: 24,
     marginBottom: 28,
   },
   heroCardAdmin: {
-    backgroundColor: '#111827',
-    borderRadius: 28,
+    borderRadius: RADIUS.xl,
     padding: 24,
     marginBottom: 28,
   },
   heroTitle: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 24,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#e7f0ff',
-    fontSize: 15,
-    marginTop: 10,
-    lineHeight: 22,
+    color: '#EEF2FF',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 21,
   },
-
-  sectionHeader: {
-    marginBottom: 14,
+  heroSubtitleAdmin: {
+    color: '#D1D5DB',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 21,
   },
-  sectionTitle: {
-    fontSize: 21,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  sectionSubtext: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 4,
-  },
-
-  sectionTitleCenter: {
-    fontSize: 21,
-    fontWeight: 'bold',
-    color: '#111827',
-    textAlign: 'center',
-  },
-  sectionSubtextCenter: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'center',
+  heroChipsRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+    alignItems: 'center',
   },
 
   sosSection: {
-    marginBottom: 30,
+    marginBottom: 28,
     alignItems: 'center',
   },
   sosButton: {
-    marginTop: 22,
-    marginBottom: 8,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#ff3b30',
+    marginTop: 8,
+  },
+  sosOuterGradient: {
+    width: 196,
+    height: 196,
+    borderRadius: 98,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#ff3b30',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    elevation: 10,
+    ...SHADOW.card,
   },
   sosInnerRing: {
-    width: 156,
-    height: 156,
-    borderRadius: 78,
-    backgroundColor: '#ff5d55',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sosText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 40,
     fontWeight: 'bold',
     letterSpacing: 1,
@@ -624,122 +641,89 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 22,
   },
-  quickActionRed: {
+  quickActionWrap: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#f1d2d0',
-    minHeight: 132,
-    justifyContent: 'center',
   },
-  quickActionGreen: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#d4ead9',
+  quickActionCard: {
     minHeight: 132,
     justifyContent: 'center',
   },
   quickActionEmoji: {
     fontSize: 24,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   quickActionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   quickActionSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
-    marginTop: 6,
+    color: COLORS.textSecondary,
+    marginTop: 4,
     lineHeight: 18,
   },
 
   emergencyOptionsCard: {
-    backgroundColor: '#6f42c1',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 30,
+    marginBottom: 28,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    ...SHADOW.card,
+  },
+  emergencyGradient: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 18,
   },
   emergencyOptionsTextWrap: {
     flex: 1,
     paddingRight: 10,
   },
   emergencyOptionsTitle: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 17,
     fontWeight: 'bold',
   },
   emergencyOptionsSubtitle: {
-    color: '#efe7ff',
+    color: '#F5EFFF',
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 4,
     lineHeight: 18,
-  },
-  arrowWhite: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: '300',
   },
 
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
     gap: 10,
+    marginBottom: 28,
   },
   statusCard: {
     flex: 1,
-    borderRadius: 22,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
     alignItems: 'center',
+    minHeight: 106,
     justifyContent: 'center',
-    minHeight: 104,
-  },
-  pendingCard: {
-    backgroundColor: '#fff3cd',
-  },
-  progressCard: {
-    backgroundColor: '#d9ecff',
-  },
-  resolvedCard: {
-    backgroundColor: '#dff5e3',
   },
   statusCount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   statusLabel: {
     fontSize: 13,
-    marginTop: 6,
+    marginTop: 5,
     color: '#374151',
     fontWeight: '600',
     textAlign: 'center',
   },
 
+  serviceWrap: {
+    marginBottom: 14,
+  },
   serviceCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   serviceTextWrap: {
     flex: 1,
@@ -748,61 +732,72 @@ const styles = StyleSheet.create({
   serviceTitle: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   serviceSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
-    marginTop: 5,
+    color: COLORS.textSecondary,
+    marginTop: 4,
     lineHeight: 18,
   },
 
   primaryAdminCard: {
-    backgroundColor: '#0d6efd',
-    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.xl,
     padding: 20,
     marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...SHADOW.card,
   },
   primaryAdminTitle: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 18,
     fontWeight: 'bold',
   },
   primaryAdminSubtitle: {
-    color: '#e7f0ff',
+    color: '#E7F0FF',
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 5,
     maxWidth: 250,
     lineHeight: 18,
   },
   secondaryAdminCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
     padding: 20,
     marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...SHADOW.card,
   },
   secondaryAdminTitle: {
-    color: '#111827',
+    color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: 'bold',
   },
   secondaryAdminSubtitle: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 5,
     maxWidth: 250,
     lineHeight: 18,
   },
+  adminCardText: {
+    flex: 1,
+    paddingRight: 10,
+  },
 
+  arrowWhite: {
+    color: COLORS.textLight,
+    fontSize: 30,
+    fontWeight: '300',
+  },
   arrow: {
     fontSize: 30,
-    color: '#9ca3af',
+    color: '#9CA3AF',
     fontWeight: '300',
   },
 });
