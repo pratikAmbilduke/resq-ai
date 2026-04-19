@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
   Text,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
   ScrollView,
   ActivityIndicator,
+  Alert,
+  View,
+  TouchableOpacity,
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import API_BASE_URL from '../config';
+
+// ✅ Design system
+import { COLORS, SPACING, RADIUS } from '../theme';
+import AppCard from '../components/AppCard';
+import AppInput from '../components/AppInput';
+import AppButton from '../components/AppButton';
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
@@ -68,7 +73,10 @@ export default function ProfileScreen() {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please allow gallery access to upload profile image.');
+        Alert.alert(
+          'Permission Required',
+          'Please allow gallery access to upload profile image.'
+        );
         return;
       }
 
@@ -102,9 +110,7 @@ export default function ProfileScreen() {
 
       const res = await fetch(`${API_BASE_URL}/profile/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           blood_group: bloodGroup,
           emergency_contact_phone: emergencyContactPhone,
@@ -128,19 +134,25 @@ export default function ProfileScreen() {
   };
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
+    return (
+      <ActivityIndicator
+        style={{ flex: 1 }}
+        size="large"
+        color={COLORS.primary}
+      />
+    );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>My Profile</Text>
-        <Text style={styles.heroSubtitle}>
-          Manage your safety information, emergency contact, and medical details.
+      <View style={styles.headerCard}>
+        <Text style={styles.title}>My Profile</Text>
+        <Text style={styles.subtitle}>
+          Manage your personal and emergency information
         </Text>
       </View>
 
-      <View style={styles.profileCard}>
+      <AppCard style={styles.profileTopCard}>
         <TouchableOpacity style={styles.imageWrapper} onPress={pickImage} activeOpacity={0.9}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
@@ -158,96 +170,86 @@ export default function ProfileScreen() {
           <Text style={styles.emailText}>{email || 'No email available'}</Text>
           <Text style={styles.changePhotoText}>Tap image to change photo</Text>
         </View>
-      </View>
+      </AppCard>
 
-      <View style={styles.formCard}>
+      <AppCard>
         <Text style={styles.sectionTitle}>Safety Information</Text>
 
+        <Text style={styles.label}>Name</Text>
+        <AppInput value={name} editable={false} />
+
+        <Text style={styles.label}>Email</Text>
+        <AppInput value={email} editable={false} />
+
         <Text style={styles.label}>Blood Group</Text>
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="e.g. O+"
-          placeholderTextColor="#9ca3af"
           value={bloodGroup}
           onChangeText={setBloodGroup}
         />
 
         <Text style={styles.label}>Emergency Contact</Text>
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Phone number"
-          placeholderTextColor="#9ca3af"
-          keyboardType="phone-pad"
           value={emergencyContactPhone}
           onChangeText={setEmergencyContactPhone}
+          keyboardType="phone-pad"
         />
 
         <Text style={styles.label}>Medical Notes</Text>
-        <TextInput
-          style={[styles.input, styles.multiInput]}
-          placeholder="Allergies, medical conditions, important notes"
-          placeholderTextColor="#9ca3af"
-          multiline
+        <AppInput
+          placeholder="Allergies, conditions..."
           value={medicalNotes}
           onChangeText={setMedicalNotes}
+          multiline
+          style={styles.multiline}
         />
 
         <Text style={styles.label}>Address</Text>
-        <TextInput
-          style={[styles.input, styles.multiInput]}
+        <AppInput
           placeholder="Your address"
-          placeholderTextColor="#9ca3af"
-          multiline
           value={address}
           onChangeText={setAddress}
         />
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Profile</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={{ marginTop: 18 }}>
+          <AppButton
+            title="Save Profile"
+            onPress={handleSave}
+            color={COLORS.success}
+          />
+        </View>
+      </AppCard>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
-    backgroundColor: '#f3f5f7',
+    padding: SPACING.md,
+    backgroundColor: COLORS.background,
     flexGrow: 1,
     paddingBottom: 100,
   },
 
-  heroCard: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 18,
+  headerCard: {
+    marginBottom: SPACING.md,
   },
-  heroTitle: {
-    color: '#fff',
+  title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: COLORS.textPrimary,
   },
-  heroSubtitle: {
-    color: '#d1d5db',
-    fontSize: 14,
-    marginTop: 8,
-    lineHeight: 20,
+  subtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
 
-  profileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 18,
+  profileTopCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    marginBottom: SPACING.md,
   },
   imageWrapper: {
     marginRight: 16,
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: '#0d6efd',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -276,66 +278,37 @@ const styles = StyleSheet.create({
   nameText: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   emailText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     marginTop: 4,
   },
   changePhotoText: {
     fontSize: 13,
-    color: '#0d6efd',
+    color: COLORS.primary,
     marginTop: 8,
     fontWeight: '600',
   },
 
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
     marginBottom: 6,
   },
+
   label: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginTop: 14,
-    color: '#4b5563',
+    marginTop: 12,
+    marginBottom: 6,
+    color: COLORS.textSecondary,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 8,
-    backgroundColor: '#f9fafb',
-    color: '#111827',
-    fontSize: 15,
-  },
-  multiInput: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-  saveButton: {
-    backgroundColor: '#0d6efd',
-    paddingVertical: 16,
-    borderRadius: 14,
-    marginTop: 22,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+
+  multiline: {
+    height: 80,
+    borderRadius: RADIUS.md,
   },
 });
