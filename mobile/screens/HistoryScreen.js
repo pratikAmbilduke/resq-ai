@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,6 @@ export default function HistoryScreen({ navigation }) {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const intervalRef = useRef(null);
-  const emergenciesRef = useRef([]);
-
-  useEffect(() => {
-    emergenciesRef.current = emergencies;
-  }, [emergencies]);
 
   const clearPolling = () => {
     if (intervalRef.current) {
@@ -36,12 +31,12 @@ export default function HistoryScreen({ navigation }) {
 
   const fetchHistory = async () => {
     try {
+      setLoading((prev) => (emergencies.length === 0 ? true : prev));
+
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
         setEmergencies([]);
-        setPreviousEmergencies([]);
-        setLoading(false);
         return;
       }
 
@@ -49,15 +44,15 @@ export default function HistoryScreen({ navigation }) {
       const data = await response.json();
 
       if (Array.isArray(data)) {
-        setPreviousEmergencies(emergenciesRef.current);
+        setPreviousEmergencies(emergencies);
         setEmergencies(data);
       } else {
         console.log('History API response:', data);
-        setPreviousEmergencies(emergenciesRef.current);
         setEmergencies([]);
       }
     } catch (error) {
       console.log('History Error:', error);
+      setEmergencies([]);
       Alert.alert('Error', 'Failed to load history');
     } finally {
       setLoading(false);
@@ -71,7 +66,7 @@ export default function HistoryScreen({ navigation }) {
       clearPolling();
       intervalRef.current = setInterval(() => {
         fetchHistory();
-      }, 4000);
+      }, 5000);
 
       return () => {
         clearPolling();
@@ -116,10 +111,10 @@ export default function HistoryScreen({ navigation }) {
     const s = String(status || '').toLowerCase();
     if (s === 'pending') return '#d4a017';
     if (s === 'accepted') return '#6f42c1';
-    if (s === 'in progress') return '#007bff';
-    if (s === 'resolved') return '#28a745';
+    if (s === 'in progress') return '#0d6efd';
+    if (s === 'resolved') return '#198754';
     if (s === 'cancelled') return '#dc3545';
-    return '#666';
+    return '#6b7280';
   };
 
   const getPriorityColor = (priority) => {
@@ -128,133 +123,130 @@ export default function HistoryScreen({ navigation }) {
     if (p === 'medium') return '#0d6efd';
     if (p === 'high') return '#fd7e14';
     if (p === 'critical') return '#dc3545';
-    return '#666';
+    return '#6b7280';
   };
 
   const isStatusChanged = (item) => {
     const oldItem = previousEmergencies.find((e) => e.id === item.id);
     if (!oldItem) return false;
-
-    return (
-      String(oldItem.status || '').toLowerCase() !==
-      String(item.status || '').toLowerCase()
-    );
+    return String(oldItem.status || '').toLowerCase() !== String(item.status || '').toLowerCase();
   };
+
+  const filterOptions = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'accepted', label: 'Accepted' },
+    { key: 'in progress', label: 'In Progress' },
+    { key: 'resolved', label: 'Resolved' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
 
   const renderItem = ({ item }) => {
     const changed = isStatusChanged(item);
+    const statusColor = getStatusColor(item?.status);
+    const priorityColor = getPriorityColor(item?.priority);
 
     return (
       <TouchableOpacity
-        style={[styles.card, changed && styles.highlightCard]}
+        style={[
+          styles.card,
+          changed && styles.updatedCard,
+          String(item?.priority || '').toLowerCase() === 'critical' && styles.criticalCard,
+        ]}
+        activeOpacity={0.9}
         onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
       >
-        <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
+        <View style={styles.cardTopRow}>
+          <Text style={styles.type}>{String(item?.type || '').toUpperCase()}</Text>
+
+          <Text style={[styles.priorityBadge, { backgroundColor: priorityColor }]}>
+            {String(item?.priority || 'medium').toUpperCase()}
+          </Text>
+        </View>
+
         <Text style={styles.description}>{item?.description || 'No description'}</Text>
         <Text style={styles.location}>{item?.location_text || 'No location available'}</Text>
 
-        <Text style={[styles.status, { color: getStatusColor(item?.status) }]}>
+        <Text style={[styles.statusBadge, { color: statusColor, borderColor: statusColor }]}>
           {String(item?.status || 'unknown').toUpperCase()}
         </Text>
 
-        <Text style={[styles.priorityText, { color: getPriorityColor(item?.priority) }]}>
-          PRIORITY: {String(item?.priority || 'medium').toUpperCase()}
-        </Text>
-
         {item?.accepted_by ? (
-          <Text style={styles.acceptedBy}>Accepted By: {item.accepted_by}</Text>
+          <Text style={styles.acceptedBy}>Assigned: {item.accepted_by}</Text>
         ) : (
-          <Text style={styles.acceptedByPending}>Accepted By: Not assigned yet</Text>
+          <Text style={styles.acceptedByPending}>Assigned: Not assigned yet</Text>
         )}
 
-        {changed && <Text style={styles.updatedText}>🔄 Updated</Text>}
+        {changed ? <Text style={styles.updatedText}>Updated recently</Text> : null}
 
-        <Text style={styles.linkText}>Tap to view details and map</Text>
+        <Text style={styles.linkText}>Tap to view details</Text>
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>📜 My Emergency History</Text>
+      <View style={styles.heroCard}>
+        <Text style={styles.heroTitle}>Emergency History</Text>
+        <Text style={styles.heroSubtitle}>
+          Track your past requests, progress, and final status updates.
+        </Text>
+      </View>
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by type, description, location, provider or priority"
+        placeholder="Search by type, description, location, provider, priority"
+        placeholderTextColor="#9ca3af"
         value={search}
         onChangeText={setSearch}
       />
 
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'all' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('all')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'all' && styles.activeFilterText]}>
-            All
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'pending' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('pending')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'pending' && styles.activeFilterText]}>
-            Pending
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'accepted' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('accepted')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'accepted' && styles.activeFilterText]}>
-            Accepted
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'in progress' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('in progress')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'in progress' && styles.activeFilterText]}>
-            In Progress
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'resolved' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('resolved')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'resolved' && styles.activeFilterText]}>
-            Resolved
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, selectedStatus === 'cancelled' && styles.activeFilter]}
-          onPress={() => setSelectedStatus('cancelled')}
-        >
-          <Text style={[styles.filterText, selectedStatus === 'cancelled' && styles.activeFilterText]}>
-            Cancelled
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FlatList
+        data={filterOptions}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.key}
+        contentContainerStyle={styles.filterContainer}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedStatus === item.key && styles.activeFilterChip,
+            ]}
+            onPress={() => setSelectedStatus(item.key)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                selectedStatus === item.key && styles.activeFilterText,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
 
       {loading ? (
-        <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 30 }} />
+        <ActivityIndicator size="large" color="#0d6efd" style={{ marginTop: 30 }} />
       ) : (
         <FlatList
           data={filteredEmergencies}
           keyExtractor={(item, index) => String(item?.id ?? index)}
           renderItem={renderItem}
           onRefresh={fetchHistory}
-          refreshing={false}
+          refreshing={loading}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={
             filteredEmergencies.length === 0 ? styles.emptyContainer : styles.listContainer
           }
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No emergency history found</Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No emergency history found</Text>
+              <Text style={styles.emptySubtitle}>
+                Your past requests will appear here after you create them.
+              </Text>
+            </View>
           }
         />
       )}
@@ -265,121 +257,175 @@ export default function HistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f6f8',
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    backgroundColor: '#f3f5f7',
+    padding: 18,
   },
-  title: {
-    fontSize: 22,
+
+  heroCard: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 16,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#222',
   },
+  heroSubtitle: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
   searchInput: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 15,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    color: '#111827',
+    marginBottom: 12,
   },
+
   filterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-    gap: 8,
+    paddingBottom: 8,
+    marginBottom: 8,
   },
-  filterButton: {
-    backgroundColor: '#e9ecef',
-    paddingVertical: 10,
+  filterChip: {
+    backgroundColor: '#e5e7eb',
     paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 16,
+    marginRight: 10,
   },
-  activeFilter: {
-    backgroundColor: '#007bff',
+  activeFilterChip: {
+    backgroundColor: '#0d6efd',
   },
   filterText: {
-    color: '#222',
+    color: '#374151',
     fontWeight: '600',
+    fontSize: 13,
   },
   activeFilterText: {
     color: '#fff',
   },
+
   listContainer: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
+
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    elevation: 3,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  highlightCard: {
+  updatedCard: {
+    borderWidth: 1.5,
+    borderColor: '#f59e0b',
+  },
+  criticalCard: {
     borderWidth: 2,
-    borderColor: '#ff9800',
+    borderColor: '#dc3545',
+  },
+
+  cardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   type: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#007bff',
-    marginBottom: 8,
+    color: '#0d6efd',
   },
+  priorityBadge: {
+    color: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+
   description: {
     fontSize: 18,
-    color: '#222',
-    marginBottom: 6,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 12,
   },
   location: {
-    fontSize: 15,
-    color: '#666',
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+
+  statusBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 14,
     marginBottom: 10,
   },
-  status: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  priorityText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
+
   acceptedBy: {
-    fontSize: 14,
     color: '#6f42c1',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  acceptedByPending: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 10,
-  },
-  updatedText: {
-    color: '#ff9800',
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  linkText: {
-    fontSize: 15,
-    color: '#e63946',
+    fontSize: 13,
     fontWeight: '600',
   },
+  acceptedByPending: {
+    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  updatedText: {
+    color: '#f59e0b',
+    fontWeight: '700',
+    marginTop: 10,
+    fontSize: 13,
+  },
+
+  linkText: {
+    marginTop: 12,
+    color: '#0d6efd',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
   emptyContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
-  emptyText: {
+  emptyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
     textAlign: 'center',
-    color: '#666',
-    fontSize: 16,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'center',
   },
 });
