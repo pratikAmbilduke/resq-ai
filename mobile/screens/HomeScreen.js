@@ -239,7 +239,10 @@ export default function HomeScreen({ navigation, onLogout }) {
 
   if (userRole === 'admin') {
     return (
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.profileHeaderLeft}
@@ -262,7 +265,8 @@ export default function HomeScreen({ navigation, onLogout }) {
         <View style={styles.heroCardAdmin}>
           <Text style={styles.heroTitle}>Control Center</Text>
           <Text style={styles.heroSubtitle}>
-            Manage requests, track live movement, and monitor emergency operations.
+            Manage requests, track live movement, and monitor emergency
+            operations.
           </Text>
         </View>
 
@@ -303,7 +307,10 @@ export default function HomeScreen({ navigation, onLogout }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.profileHeaderLeft}
@@ -331,8 +338,10 @@ export default function HomeScreen({ navigation, onLogout }) {
       </View>
 
       <View style={styles.sosSection}>
-        <Text style={styles.sectionTitle}>Emergency Action</Text>
-        <Text style={styles.sectionSubtext}>Fastest way to request immediate help</Text>
+        <Text style={styles.sectionTitleCenter}>Emergency Action</Text>
+        <Text style={styles.sectionSubtextCenter}>
+          Fastest way to request immediate help
+        </Text>
 
         <TouchableOpacity
           style={styles.sosButton}
@@ -346,7 +355,11 @@ export default function HomeScreen({ navigation, onLogout }) {
       </View>
 
       <View style={styles.quickActionRow}>
-        <TouchableOpacity style={styles.quickActionRed} onPress={handleCall112} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={styles.quickActionRed}
+          onPress={handleCall112}
+          activeOpacity={0.9}
+        >
           <Text style={styles.quickActionEmoji}>📞</Text>
           <Text style={styles.quickActionTitle}>Call 112</Text>
           <Text style={styles.quickActionSubtitle}>National emergency</Text>
@@ -368,7 +381,7 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('EmergencyCall')}
         activeOpacity={0.9}
       >
-        <View>
+        <View style={styles.emergencyOptionsTextWrap}>
           <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
           <Text style={styles.emergencyOptionsSubtitle}>
             Ambulance, police, fire and 112 quick access
@@ -401,7 +414,9 @@ export default function HomeScreen({ navigation, onLogout }) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Services</Text>
-        <Text style={styles.sectionSubtext}>Quick links to important sections</Text>
+        <Text style={styles.sectionSubtext}>
+          Quick links to important sections
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -409,9 +424,11 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('HistoryTab')}
         activeOpacity={0.9}
       >
-        <View>
+        <View style={styles.serviceTextWrap}>
           <Text style={styles.serviceTitle}>📜 History</Text>
-          <Text style={styles.serviceSubtitle}>See all previous emergency requests</Text>
+          <Text style={styles.serviceSubtitle}>
+            See all previous emergency requests
+          </Text>
         </View>
         <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
@@ -421,9 +438,11 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('DashboardTab')}
         activeOpacity={0.9}
       >
-        <View>
+        <View style={styles.serviceTextWrap}>
           <Text style={styles.serviceTitle}>📊 Dashboard</Text>
-          <Text style={styles.serviceSubtitle}>Track request updates and progress</Text>
+          <Text style={styles.serviceSubtitle}>
+            Track request updates and progress
+          </Text>
         </View>
         <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
@@ -433,9 +452,11 @@ export default function HomeScreen({ navigation, onLogout }) {
         onPress={() => navigation.navigate('ProfileTab')}
         activeOpacity={0.9}
       >
-        <View>
+        <View style={styles.serviceTextWrap}>
           <Text style={styles.serviceTitle}>👤 Profile</Text>
-          <Text style={styles.serviceSubtitle}>Manage medical and contact details</Text>
+          <Text style={styles.serviceSubtitle}>
+            Manage medical and contact details
+          </Text>
         </View>
         <Text style={styles.arrow}>›</Text>
       </TouchableOpacity>
@@ -445,22 +466,24 @@ export default function HomeScreen({ navigation, onLogout }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
-    backgroundColor: '#f3f5f7',
     flexGrow: 1,
-    paddingBottom: 100,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 140,
+    backgroundColor: '#f3f5f7',
   },
 
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 18,
+    alignItems: 'flex-start',
+    marginBottom: 22,
   },
   profileHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    paddingRight: 12,
   },
   profileImage: {
     width: 58,
@@ -500,9 +523,10 @@ const styles = StyleSheet.create({
   },
   logoutChip: {
     backgroundColor: '#111827',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
   },
   logoutChipText: {
     color: '#fff',
@@ -512,15 +536,15 @@ const styles = StyleSheet.create({
 
   heroCardUser: {
     backgroundColor: '#0d6efd',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 22,
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 28,
   },
   heroCardAdmin: {
     backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 22,
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 28,
   },
   heroTitle: {
     color: '#fff',
@@ -529,47 +553,61 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     color: '#e7f0ff',
-    fontSize: 14,
-    marginTop: 8,
-    lineHeight: 20,
+    fontSize: 15,
+    marginTop: 10,
+    lineHeight: 22,
   },
 
   sectionHeader: {
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: 'bold',
     color: '#111827',
   },
   sectionSubtext: {
     fontSize: 13,
     color: '#6b7280',
-    marginTop: 3,
+    marginTop: 4,
+  },
+
+  sectionTitleCenter: {
+    fontSize: 21,
+    fontWeight: 'bold',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  sectionSubtextCenter: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+    textAlign: 'center',
   },
 
   sosSection: {
-    marginBottom: 22,
+    marginBottom: 30,
     alignItems: 'center',
   },
   sosButton: {
-    marginTop: 16,
-    width: 210,
-    height: 210,
-    borderRadius: 105,
+    marginTop: 22,
+    marginBottom: 8,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     backgroundColor: '#ff3b30',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#ff3b30',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
     shadowRadius: 18,
     elevation: 10,
   },
   sosInnerRing: {
-    width: 164,
-    height: 164,
-    borderRadius: 82,
+    width: 156,
+    height: 156,
+    borderRadius: 78,
     backgroundColor: '#ff5d55',
     justifyContent: 'center',
     alignItems: 'center',
@@ -584,27 +622,31 @@ const styles = StyleSheet.create({
   quickActionRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 22,
   },
   quickActionRed: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
     borderWidth: 1,
     borderColor: '#f1d2d0',
+    minHeight: 132,
+    justifyContent: 'center',
   },
   quickActionGreen: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
     borderWidth: 1,
     borderColor: '#d4ead9',
+    minHeight: 132,
+    justifyContent: 'center',
   },
   quickActionEmoji: {
     fontSize: 24,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   quickActionTitle: {
     fontSize: 16,
@@ -614,17 +656,22 @@ const styles = StyleSheet.create({
   quickActionSubtitle: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
+    marginTop: 6,
+    lineHeight: 18,
   },
 
   emergencyOptionsCard: {
     backgroundColor: '#6f42c1',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
-    marginBottom: 24,
+    marginBottom: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  emergencyOptionsTextWrap: {
+    flex: 1,
+    paddingRight: 10,
   },
   emergencyOptionsTitle: {
     color: '#fff',
@@ -634,8 +681,8 @@ const styles = StyleSheet.create({
   emergencyOptionsSubtitle: {
     color: '#efe7ff',
     fontSize: 12,
-    marginTop: 4,
-    maxWidth: 240,
+    marginTop: 6,
+    lineHeight: 18,
   },
   arrowWhite: {
     color: '#fff',
@@ -646,15 +693,17 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 30,
     gap: 10,
   },
   statusCard: {
     flex: 1,
-    borderRadius: 20,
-    paddingVertical: 18,
+    borderRadius: 22,
+    paddingVertical: 20,
     paddingHorizontal: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 104,
   },
   pendingCard: {
     backgroundColor: '#fff3cd',
@@ -672,7 +721,7 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 13,
-    marginTop: 5,
+    marginTop: 6,
     color: '#374151',
     fontWeight: '600',
     textAlign: 'center',
@@ -680,9 +729,9 @@ const styles = StyleSheet.create({
 
   serviceCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 18,
-    marginBottom: 14,
+    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -692,6 +741,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  serviceTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
   serviceTitle: {
     fontSize: 17,
     fontWeight: 'bold',
@@ -700,14 +753,15 @@ const styles = StyleSheet.create({
   serviceSubtitle: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 4,
+    marginTop: 5,
+    lineHeight: 18,
   },
 
   primaryAdminCard: {
     backgroundColor: '#0d6efd',
     borderRadius: 22,
     padding: 20,
-    marginBottom: 14,
+    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -720,14 +774,15 @@ const styles = StyleSheet.create({
   primaryAdminSubtitle: {
     color: '#e7f0ff',
     fontSize: 12,
-    marginTop: 5,
+    marginTop: 6,
     maxWidth: 250,
+    lineHeight: 18,
   },
   secondaryAdminCard: {
     backgroundColor: '#fff',
     borderRadius: 22,
     padding: 20,
-    marginBottom: 14,
+    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -740,8 +795,9 @@ const styles = StyleSheet.create({
   secondaryAdminSubtitle: {
     color: '#6b7280',
     fontSize: 12,
-    marginTop: 5,
+    marginTop: 6,
     maxWidth: 250,
+    lineHeight: 18,
   },
 
   arrow: {
