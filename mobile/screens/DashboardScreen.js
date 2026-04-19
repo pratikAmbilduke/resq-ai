@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,14 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
+
+import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
+import AppCard from '../components/AppCard';
+import AppChip from '../components/AppChip';
+import SectionHeader from '../components/SectionHeader';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -22,6 +28,10 @@ export default function DashboardScreen() {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
+        setPending(0);
+        setProgress(0);
+        setResolved(0);
+        setTotal(0);
         setLoading(false);
         return;
       }
@@ -30,20 +40,24 @@ export default function DashboardScreen() {
       const data = await res.json();
 
       if (!Array.isArray(data)) {
+        setPending(0);
+        setProgress(0);
+        setResolved(0);
+        setTotal(0);
         setLoading(false);
         return;
       }
 
       const pendingCount = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'pending'
+        (item) => String(item?.status || '').toLowerCase() === 'pending'
       ).length;
 
       const progressCount = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'in progress'
+        (item) => String(item?.status || '').toLowerCase() === 'in progress'
       ).length;
 
       const resolvedCount = data.filter(
-        (item) => String(item?.status).toLowerCase() === 'resolved'
+        (item) => String(item?.status || '').toLowerCase() === 'resolved'
       ).length;
 
       setPending(pendingCount);
@@ -52,6 +66,10 @@ export default function DashboardScreen() {
       setTotal(data.length);
     } catch (error) {
       console.log('Dashboard error:', error);
+      setPending(0);
+      setProgress(0);
+      setResolved(0);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -61,60 +79,162 @@ export default function DashboardScreen() {
     loadDashboard();
   }, []);
 
+  const resolutionRate = useMemo(() => {
+    if (!total) return 0;
+    return Math.round((resolved / total) * 100);
+  }, [resolved, total]);
+
+  const activeRate = useMemo(() => {
+    if (!total) return 0;
+    return Math.round(((pending + progress) / total) * 100);
+  }, [pending, progress, total]);
+
+  const dominantStatus = useMemo(() => {
+    const maxValue = Math.max(pending, progress, resolved);
+
+    if (maxValue === 0) return 'No activity';
+    if (maxValue === pending) return 'Pending';
+    if (maxValue === progress) return 'In Progress';
+    return 'Resolved';
+  }, [pending, progress, resolved]);
+
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
+    return (
+      <ActivityIndicator
+        style={{ flex: 1, backgroundColor: COLORS.background }}
+        size="large"
+        color={COLORS.primary}
+      />
+    );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* HERO */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Dashboard</Text>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <LinearGradient
+        colors={GRADIENTS.blueCyan}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
+      >
+        <Text style={styles.heroTitle}>Dashboard Overview</Text>
         <Text style={styles.heroSubtitle}>
-          Track your emergency activity and request status in real time.
+          Track your requests, current progress, and safety activity in one place.
         </Text>
-      </View>
 
-      {/* TOTAL CARD */}
-      <View style={styles.totalCard}>
+        <View style={styles.heroChipsRow}>
+          <AppChip label={`${total} Total`} type="info" />
+          <View style={{ width: 8 }} />
+          <AppChip label={`${resolutionRate}% Resolved`} type="success" />
+        </View>
+      </LinearGradient>
+
+      <SectionHeader
+        title="Summary"
+        subtitle="Quick glance at all request activity"
+      />
+
+      <AppCard variant="purple" style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Requests</Text>
         <Text style={styles.totalValue}>{total}</Text>
+        <Text style={styles.totalSubtext}>All emergencies created so far</Text>
+      </AppCard>
+
+      <View style={styles.statsRow}>
+        <AppCard variant="orange" style={styles.smallStatCard}>
+          <Text style={styles.smallStatCount}>{pending}</Text>
+          <Text style={styles.smallStatLabel}>Pending</Text>
+        </AppCard>
+
+        <AppCard variant="blue" style={styles.smallStatCard}>
+          <Text style={styles.smallStatCount}>{progress}</Text>
+          <Text style={styles.smallStatLabel}>In Progress</Text>
+        </AppCard>
+
+        <AppCard variant="green" style={styles.smallStatCard}>
+          <Text style={styles.smallStatCount}>{resolved}</Text>
+          <Text style={styles.smallStatLabel}>Resolved</Text>
+        </AppCard>
       </View>
 
-      {/* STATUS CARDS */}
-      <View style={styles.grid}>
-        <View style={[styles.card, styles.pendingCard]}>
-          <Text style={styles.count}>{pending}</Text>
-          <Text style={styles.label}>Pending</Text>
+      <SectionHeader
+        title="Insights"
+        subtitle="Useful information from your current numbers"
+      />
+
+      <AppCard style={styles.insightsCard}>
+        <View style={styles.insightItem}>
+          <Text style={styles.insightTitle}>Most Common Status</Text>
+          <View style={styles.insightChipWrap}>
+            <AppChip
+              label={dominantStatus}
+              type={
+                dominantStatus === 'Pending'
+                  ? 'warning'
+                  : dominantStatus === 'In Progress'
+                  ? 'info'
+                  : dominantStatus === 'Resolved'
+                  ? 'success'
+                  : 'default'
+              }
+            />
+          </View>
         </View>
 
-        <View style={[styles.card, styles.progressCard]}>
-          <Text style={styles.count}>{progress}</Text>
-          <Text style={styles.label}>In Progress</Text>
+        <View style={styles.divider} />
+
+        <View style={styles.insightItem}>
+          <Text style={styles.insightTitle}>Resolution Rate</Text>
+          <Text style={styles.insightValue}>{resolutionRate}%</Text>
+          <Text style={styles.insightSubtext}>
+            Percentage of total requests already resolved
+          </Text>
         </View>
 
-        <View style={[styles.card, styles.resolvedCard]}>
-          <Text style={styles.count}>{resolved}</Text>
-          <Text style={styles.label}>Resolved</Text>
+        <View style={styles.divider} />
+
+        <View style={styles.insightItem}>
+          <Text style={styles.insightTitle}>Active Request Rate</Text>
+          <Text style={styles.insightValue}>{activeRate}%</Text>
+          <Text style={styles.insightSubtext}>
+            Requests that are still pending or in progress
+          </Text>
         </View>
-      </View>
+      </AppCard>
 
-      {/* ANALYTICS SECTION */}
-      <View style={styles.analyticsCard}>
-        <Text style={styles.analyticsTitle}>Insights</Text>
+      <SectionHeader
+        title="Progress Cards"
+        subtitle="Visual cards for your app activity"
+      />
 
-        <Text style={styles.analyticsText}>
-          • Most of your requests are currently {pending > progress ? 'Pending' : 'In Progress'}.
-        </Text>
+      <View style={styles.progressCardsWrap}>
+        <LinearGradient
+          colors={GRADIENTS.sunset}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.progressGradientCard}
+        >
+          <Text style={styles.gradientCardTitle}>Pending Work</Text>
+          <Text style={styles.gradientCardCount}>{pending}</Text>
+          <Text style={styles.gradientCardSubtext}>
+            Requests waiting for action
+          </Text>
+        </LinearGradient>
 
-        <Text style={styles.analyticsText}>
-          • Your resolution rate is{' '}
-          {total > 0 ? Math.round((resolved / total) * 100) : 0}%.
-        </Text>
-
-        <Text style={styles.analyticsText}>
-          • Stay alert and monitor your active emergencies.
-        </Text>
+        <LinearGradient
+          colors={GRADIENTS.greenBlue}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.progressGradientCard}
+        >
+          <Text style={styles.gradientCardTitle}>Resolved Work</Text>
+          <Text style={styles.gradientCardCount}>{resolved}</Text>
+          <Text style={styles.gradientCardSubtext}>
+            Successfully completed requests
+          </Text>
+        </LinearGradient>
       </View>
     </ScrollView>
   );
@@ -122,99 +242,137 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
-    backgroundColor: '#f3f5f7',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: 140,
+    backgroundColor: COLORS.background,
     flexGrow: 1,
-    paddingBottom: 100,
   },
 
   heroCard: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 18,
+    borderRadius: RADIUS.xl,
+    padding: 24,
+    marginBottom: 24,
+    ...SHADOW.card,
   },
   heroTitle: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 24,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#d1d5db',
+    color: '#E0F2FE',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 20,
+    lineHeight: 21,
+  },
+  heroChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
   },
 
   totalCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 18,
+    marginBottom: 20,
     alignItems: 'center',
-    elevation: 2,
+    paddingVertical: 22,
   },
   totalLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  totalValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginTop: 6,
-    color: '#111827',
-  },
-
-  grid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 18,
-  },
-
-  card: {
-    flex: 1,
-    borderRadius: 20,
-    padding: 18,
-    alignItems: 'center',
-  },
-  pendingCard: {
-    backgroundColor: '#fff3cd',
-  },
-  progressCard: {
-    backgroundColor: '#d9ecff',
-  },
-  resolvedCard: {
-    backgroundColor: '#dff5e3',
-  },
-
-  count: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  label: {
-    fontSize: 13,
-    marginTop: 6,
-    color: '#374151',
+    fontSize: 15,
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
-
-  analyticsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 22,
-    padding: 20,
-    elevation: 2,
-  },
-  analyticsTitle: {
-    fontSize: 18,
+  totalValue: {
+    fontSize: 40,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#111827',
+    color: COLORS.textPrimary,
+    marginTop: 8,
   },
-  analyticsText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 6,
+  totalSubtext: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+  },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  smallStatCard: {
+    flex: 1,
+    alignItems: 'center',
+    minHeight: 110,
+    justifyContent: 'center',
+  },
+  smallStatCount: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+  },
+  smallStatLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
+  insightsCard: {
+    marginBottom: 24,
+  },
+  insightItem: {
+    paddingVertical: 4,
+  },
+  insightTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+  },
+  insightChipWrap: {
+    marginTop: 2,
+  },
+  insightValue: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: COLORS.primaryDark,
+  },
+  insightSubtext: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 14,
+  },
+
+  progressCardsWrap: {
+    gap: 14,
+  },
+  progressGradientCard: {
+    borderRadius: RADIUS.xl,
+    padding: 22,
+    ...SHADOW.card,
+  },
+  gradientCardTitle: {
+    color: COLORS.textLight,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  gradientCardCount: {
+    color: COLORS.textLight,
+    fontSize: 34,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  gradientCardSubtext: {
+    color: '#FFF7ED',
+    fontSize: 12,
+    marginTop: 6,
+    lineHeight: 18,
   },
 });
