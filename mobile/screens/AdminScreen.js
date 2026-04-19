@@ -736,3 +736,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
+  },
+  lowButton: {
+    backgroundColor: '#6c757d',
+  },
+  mediumButton: {
+    backgroundColor: '#0d6efd',
+  },
+  highButton: {
+    backgroundColor: '#fd7e14',
+  },
+  criticalButton: {
+    backgroundColor: '#dc3545',
+  },
+  priorityButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+
+  deleteButton: {
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+});
