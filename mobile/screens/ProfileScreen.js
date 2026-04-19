@@ -83,6 +83,7 @@ export default function ProfileScreen() {
         const imageUri = result.assets[0].uri;
         setProfileImage(imageUri);
         await AsyncStorage.setItem('userProfileImage', imageUri);
+        Alert.alert('Success', 'Profile photo updated');
       }
     } catch (error) {
       console.log('Pick image error:', error);
@@ -127,15 +128,20 @@ export default function ProfileScreen() {
   };
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>My Profile</Text>
+      <View style={styles.heroCard}>
+        <Text style={styles.heroTitle}>My Profile</Text>
+        <Text style={styles.heroSubtitle}>
+          Manage your safety information, emergency contact, and medical details.
+        </Text>
+      </View>
 
-      <View style={styles.headerCard}>
-        <TouchableOpacity style={styles.imageWrapper} onPress={pickImage}>
+      <View style={styles.profileCard}>
+        <TouchableOpacity style={styles.imageWrapper} onPress={pickImage} activeOpacity={0.9}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
           ) : (
@@ -147,20 +153,21 @@ export default function ProfileScreen() {
           )}
         </TouchableOpacity>
 
-        <View style={styles.headerTextBox}>
+        <View style={styles.profileInfo}>
           <Text style={styles.nameText}>{name || 'User'}</Text>
           <Text style={styles.emailText}>{email || 'No email available'}</Text>
           <Text style={styles.changePhotoText}>Tap image to change photo</Text>
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Personal Safety Info</Text>
+      <View style={styles.formCard}>
+        <Text style={styles.sectionTitle}>Safety Information</Text>
 
         <Text style={styles.label}>Blood Group</Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. O+"
+          placeholderTextColor="#9ca3af"
           value={bloodGroup}
           onChangeText={setBloodGroup}
         />
@@ -169,6 +176,7 @@ export default function ProfileScreen() {
         <TextInput
           style={styles.input}
           placeholder="Phone number"
+          placeholderTextColor="#9ca3af"
           keyboardType="phone-pad"
           value={emergencyContactPhone}
           onChangeText={setEmergencyContactPhone}
@@ -177,7 +185,8 @@ export default function ProfileScreen() {
         <Text style={styles.label}>Medical Notes</Text>
         <TextInput
           style={[styles.input, styles.multiInput]}
-          placeholder="Allergies, conditions, important notes"
+          placeholder="Allergies, medical conditions, important notes"
+          placeholderTextColor="#9ca3af"
           multiline
           value={medicalNotes}
           onChangeText={setMedicalNotes}
@@ -187,13 +196,14 @@ export default function ProfileScreen() {
         <TextInput
           style={[styles.input, styles.multiInput]}
           placeholder="Your address"
+          placeholderTextColor="#9ca3af"
           multiline
           value={address}
           onChangeText={setAddress}
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleSave}>
-          <Text style={styles.buttonText}>Save Profile</Text>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Save Profile</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -205,21 +215,39 @@ const styles = StyleSheet.create({
     padding: 18,
     backgroundColor: '#f3f5f7',
     flexGrow: 1,
+    paddingBottom: 100,
   },
-  title: {
+
+  heroCard: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
+  },
+  heroTitle: {
+    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 18,
-    color: '#111827',
   },
-  headerCard: {
-    backgroundColor: '#ffffff',
+  heroSubtitle: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  profileCard: {
+    backgroundColor: '#fff',
     borderRadius: 22,
     padding: 18,
     marginBottom: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   imageWrapper: {
     marginRight: 16,
@@ -242,7 +270,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: 'bold',
   },
-  headerTextBox: {
+  profileInfo: {
     flex: 1,
   },
   nameText: {
@@ -261,17 +289,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: '600',
   },
-  card: {
+
+  formCard: {
     backgroundColor: '#fff',
     borderRadius: 22,
     padding: 18,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   label: {
     fontSize: 14,
@@ -287,19 +320,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: '#f9fafb',
     color: '#111827',
+    fontSize: 15,
   },
   multiInput: {
     minHeight: 90,
     textAlignVertical: 'top',
   },
-  button: {
+  saveButton: {
     backgroundColor: '#0d6efd',
     paddingVertical: 16,
     borderRadius: 14,
     marginTop: 22,
     alignItems: 'center',
   },
-  buttonText: {
+  saveButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
