@@ -3,13 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Alert,
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
+
+// ✅ Design System
+import { COLORS, RADIUS, SPACING } from '../theme';
+import AppButton from '../components/AppButton';
+import AppInput from '../components/AppInput';
+import AppCard from '../components/AppCard';
 
 export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -25,7 +30,10 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
       });
 
       const data = await response.json();
@@ -52,7 +60,11 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* 🔥 HERO */}
       <View style={styles.heroCard}>
         <Text style={styles.heroTitle}>Welcome to ResQ AI</Text>
         <Text style={styles.heroSubtitle}>
@@ -60,15 +72,14 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         </Text>
       </View>
 
-      <View style={styles.formCard}>
+      {/* 🔥 FORM */}
+      <AppCard>
         <Text style={styles.formTitle}>Login</Text>
         <Text style={styles.formSubtitle}>Sign in to continue</Text>
 
         <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Enter email"
-          placeholderTextColor="#9ca3af"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -76,28 +87,28 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         />
 
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
+        <AppInput
           placeholder="Enter password"
-          placeholderTextColor="#9ca3af"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
+        {/* 🔥 BUTTON */}
+        <View style={{ marginTop: 18 }}>
+          <AppButton title="Login" onPress={handleLogin} />
+        </View>
 
+        {/* 🔥 LINK */}
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={styles.linkWrapper}
           onPress={() => navigation.navigate('Register')}
         >
-          <Text style={styles.secondaryButtonText}>
+          <Text style={styles.linkText}>
             Don&apos;t have an account? Register
           </Text>
         </TouchableOpacity>
-      </View>
+      </AppCard>
     </ScrollView>
   );
 }
@@ -105,16 +116,16 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 18,
+    padding: SPACING.md,
     justifyContent: 'center',
-    backgroundColor: '#f3f5f7',
+    backgroundColor: COLORS.background,
   },
 
   heroCard: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
+    backgroundColor: COLORS.secondary,
+    borderRadius: RADIUS.xl,
     padding: 22,
-    marginBottom: 18,
+    marginBottom: SPACING.md,
   },
   heroTitle: {
     color: '#fff',
@@ -128,24 +139,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
   formTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   formSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     marginTop: 4,
     marginBottom: 16,
   },
@@ -154,40 +155,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#4b5563',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 14,
-    padding: 14,
-    backgroundColor: '#f9fafb',
-    color: '#111827',
-    fontSize: 15,
+    marginTop: 12,
     marginBottom: 6,
   },
 
-  button: {
-    backgroundColor: '#0d6efd',
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-
-  secondaryButton: {
-    paddingVertical: 12,
+  linkWrapper: {
+    marginTop: 14,
     alignItems: 'center',
   },
-  secondaryButtonText: {
-    color: '#0d6efd',
+  linkText: {
+    color: COLORS.primary,
     fontWeight: '600',
     fontSize: 14,
   },
