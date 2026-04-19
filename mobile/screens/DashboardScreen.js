@@ -1,169 +1,220 @@
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    in_progress: 0,
-    resolved: 0,
-  });
 
-  const fetchStats = async () => {
+  const [pending, setPending] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [resolved, setResolved] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  const loadDashboard = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        setStats({
-          total: 0,
-          pending: 0,
-          in_progress: 0,
-          resolved: 0,
-        });
+        setLoading(false);
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
-      const data = await response.json();
+      const res = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
+      const data = await res.json();
 
-      if (data.error) {
+      if (!Array.isArray(data)) {
+        setLoading(false);
         return;
       }
 
-      const total = data.length;
-      const pending = data.filter((e) => e.status === 'pending').length;
-      const in_progress = data.filter((e) => e.status === 'in_progress').length;
-      const resolved = data.filter((e) => e.status === 'resolved').length;
+      const pendingCount = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'pending'
+      ).length;
 
-      setStats({ total, pending, in_progress, resolved });
+      const progressCount = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'in progress'
+      ).length;
+
+      const resolvedCount = data.filter(
+        (item) => String(item?.status).toLowerCase() === 'resolved'
+      ).length;
+
+      setPending(pendingCount);
+      setProgress(progressCount);
+      setResolved(resolvedCount);
+      setTotal(data.length);
     } catch (error) {
-      console.log('Dashboard Error:', error);
+      console.log('Dashboard error:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
-
-    const interval = setInterval(() => {
-      fetchStats();
-    }, 5000);
-
-    return () => clearInterval(interval);
+    loadDashboard();
   }, []);
 
-  const renderSkeleton = () => {
-    return (
-      <View>
-        {[1, 2, 3, 4].map((item) => (
-          <View key={item} style={styles.skeletonCard}>
-            <View style={styles.skeletonLine} />
-          </View>
-        ))}
-      </View>
-    );
-  };
+  if (loading) {
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>📊 Dashboard</Text>
-      <Text style={styles.subtitle}>Live emergency summary</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      {/* HERO */}
+      <View style={styles.heroCard}>
+        <Text style={styles.heroTitle}>Dashboard</Text>
+        <Text style={styles.heroSubtitle}>
+          Track your emergency activity and request status in real time.
+        </Text>
+      </View>
 
-      {loading ? (
-        renderSkeleton()
-      ) : (
-        <>
-          <View style={[styles.card, styles.totalCard]}>
-            <Text style={styles.cardTitle}>Total Emergencies</Text>
-            <Text style={styles.cardValue}>{stats.total}</Text>
-          </View>
+      {/* TOTAL CARD */}
+      <View style={styles.totalCard}>
+        <Text style={styles.totalLabel}>Total Requests</Text>
+        <Text style={styles.totalValue}>{total}</Text>
+      </View>
 
-          <View style={[styles.card, styles.pendingCard]}>
-            <Text style={styles.cardTitle}>Pending</Text>
-            <Text style={styles.cardValue}>{stats.pending}</Text>
-          </View>
+      {/* STATUS CARDS */}
+      <View style={styles.grid}>
+        <View style={[styles.card, styles.pendingCard]}>
+          <Text style={styles.count}>{pending}</Text>
+          <Text style={styles.label}>Pending</Text>
+        </View>
 
-          <View style={[styles.card, styles.progressCard]}>
-            <Text style={styles.cardTitle}>In Progress</Text>
-            <Text style={styles.cardValue}>{stats.in_progress}</Text>
-          </View>
+        <View style={[styles.card, styles.progressCard]}>
+          <Text style={styles.count}>{progress}</Text>
+          <Text style={styles.label}>In Progress</Text>
+        </View>
 
-          <View style={[styles.card, styles.resolvedCard]}>
-            <Text style={styles.cardTitle}>Resolved</Text>
-            <Text style={styles.cardValue}>{stats.resolved}</Text>
-          </View>
-        </>
-      )}
-    </View>
+        <View style={[styles.card, styles.resolvedCard]}>
+          <Text style={styles.count}>{resolved}</Text>
+          <Text style={styles.label}>Resolved</Text>
+        </View>
+      </View>
+
+      {/* ANALYTICS SECTION */}
+      <View style={styles.analyticsCard}>
+        <Text style={styles.analyticsTitle}>Insights</Text>
+
+        <Text style={styles.analyticsText}>
+          • Most of your requests are currently {pending > progress ? 'Pending' : 'In Progress'}.
+        </Text>
+
+        <Text style={styles.analyticsText}>
+          • Your resolution rate is{' '}
+          {total > 0 ? Math.round((resolved / total) * 100) : 0}%.
+        </Text>
+
+        <Text style={styles.analyticsText}>
+          • Stay alert and monitor your active emergencies.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#f4f6f8',
+    padding: 18,
+    backgroundColor: '#f3f5f7',
+    flexGrow: 1,
+    paddingBottom: 100,
   },
-  title: {
-    fontSize: 28,
+
+  heroCard: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#111',
   },
-  subtitle: {
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 6,
-    marginBottom: 20,
+  heroSubtitle: {
+    color: '#d1d5db',
     fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
   },
-  card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 14,
-    elevation: 3,
-  },
+
   totalCard: {
     backgroundColor: '#ffffff',
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 18,
+    alignItems: 'center',
+    elevation: 2,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  totalValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginTop: 6,
+    color: '#111827',
+  },
+
+  grid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 18,
+  },
+
+  card: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 18,
+    alignItems: 'center',
   },
   pendingCard: {
     backgroundColor: '#fff3cd',
   },
   progressCard: {
-    backgroundColor: '#d1ecf1',
+    backgroundColor: '#d9ecff',
   },
   resolvedCard: {
-    backgroundColor: '#d4edda',
+    backgroundColor: '#dff5e3',
   },
-  cardTitle: {
-    fontSize: 16,
-    color: '#222',
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  cardValue: {
+
+  count: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#111',
+    color: '#111827',
   },
-  skeletonCard: {
-    backgroundColor: '#fff',
+  label: {
+    fontSize: 13,
+    marginTop: 6,
+    color: '#374151',
+    fontWeight: '600',
+  },
+
+  analyticsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
     padding: 20,
-    borderRadius: 16,
-    marginBottom: 14,
     elevation: 2,
   },
-  skeletonLine: {
-    height: 22,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 10,
+  analyticsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#111827',
+  },
+  analyticsText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 6,
   },
 });
