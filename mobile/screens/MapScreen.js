@@ -328,64 +328,29 @@ export default function MapScreen() {
     return `${Math.ceil(etaMinutes)} min ETA`;
   }, [selectedDistanceKm]);
 
+  const getEmptyText = () => {
+    if (selectedType === 'hospital') return 'No hospitals available for this filter';
+    if (selectedType === 'police') return 'No police locations available for this filter';
+    if (selectedType === 'ambulance') return 'No ambulance points available for this filter';
+    if (selectedType === 'all-services') return 'No service locations available for this filter';
+    return 'No emergency locations available for this filter';
+  };
+
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#007bff" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#0d6efd" />;
   }
 
   if (!allVisibleMarkers.length && !userLocation) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No locations available for this filter</Text>
+        <Text style={styles.emptyTitle}>No map data available</Text>
+        <Text style={styles.emptyText}>{getEmptyText()}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {selectedMarker && (
-        <View style={styles.topInfoCard}>
-          <View style={styles.topInfoHeader}>
-            <Text style={styles.topInfoTitle}>
-              {selectedMarker.name || 'Selected Location'}
-            </Text>
-            <TouchableOpacity onPress={() => setSelectedMarker(null)}>
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.topInfoType}>
-            {selectedMarker.markerCategory === 'emergency'
-              ? 'Emergency'
-              : String(selectedMarker.type || 'Service').toUpperCase()}
-          </Text>
-
-          <Text style={styles.topInfoText}>
-            {selectedMarker.description || 'No description'}
-          </Text>
-
-          <Text style={styles.topInfoText}>
-            {selectedMarker.location_text || 'No address'}
-          </Text>
-
-          {!!selectedDistanceText && (
-            <Text style={styles.distanceText}>📏 {selectedDistanceText}</Text>
-          )}
-
-          {!!selectedEtaText && (
-            <Text style={styles.etaText}>⏱ {selectedEtaText}</Text>
-          )}
-
-          <TouchableOpacity
-            style={styles.navigateButton}
-            onPress={() =>
-              openNavigation(selectedMarker.latitude, selectedMarker.longitude)
-            }
-          >
-            <Text style={styles.navigateButtonText}>Navigate</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={styles.filterWrapper}>
         <ScrollView
           horizontal
@@ -394,8 +359,8 @@ export default function MapScreen() {
         >
           <TouchableOpacity
             style={[
-              styles.filterButton,
-              selectedType === 'emergency' && styles.activeFilterButton,
+              styles.filterChip,
+              selectedType === 'emergency' && styles.activeFilterChip,
             ]}
             onPress={() => {
               setSelectedType('emergency');
@@ -404,8 +369,8 @@ export default function MapScreen() {
           >
             <Text
               style={[
-                styles.filterButtonText,
-                selectedType === 'emergency' && styles.activeFilterButtonText,
+                styles.filterChipText,
+                selectedType === 'emergency' && styles.activeFilterChipText,
               ]}
             >
               Emergencies
@@ -414,8 +379,8 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={[
-              styles.filterButton,
-              selectedType === 'all-services' && styles.activeFilterButton,
+              styles.filterChip,
+              selectedType === 'all-services' && styles.activeFilterChip,
             ]}
             onPress={() => {
               setSelectedType('all-services');
@@ -424,8 +389,8 @@ export default function MapScreen() {
           >
             <Text
               style={[
-                styles.filterButtonText,
-                selectedType === 'all-services' && styles.activeFilterButtonText,
+                styles.filterChipText,
+                selectedType === 'all-services' && styles.activeFilterChipText,
               ]}
             >
               All Services
@@ -434,8 +399,8 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={[
-              styles.filterButton,
-              selectedType === 'hospital' && styles.activeFilterButton,
+              styles.filterChip,
+              selectedType === 'hospital' && styles.activeFilterChip,
             ]}
             onPress={() => {
               setSelectedType('hospital');
@@ -444,8 +409,8 @@ export default function MapScreen() {
           >
             <Text
               style={[
-                styles.filterButtonText,
-                selectedType === 'hospital' && styles.activeFilterButtonText,
+                styles.filterChipText,
+                selectedType === 'hospital' && styles.activeFilterChipText,
               ]}
             >
               Hospitals
@@ -454,8 +419,8 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={[
-              styles.filterButton,
-              selectedType === 'police' && styles.activeFilterButton,
+              styles.filterChip,
+              selectedType === 'police' && styles.activeFilterChip,
             ]}
             onPress={() => {
               setSelectedType('police');
@@ -464,8 +429,8 @@ export default function MapScreen() {
           >
             <Text
               style={[
-                styles.filterButtonText,
-                selectedType === 'police' && styles.activeFilterButtonText,
+                styles.filterChipText,
+                selectedType === 'police' && styles.activeFilterChipText,
               ]}
             >
               Police
@@ -474,8 +439,8 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={[
-              styles.filterButton,
-              selectedType === 'ambulance' && styles.activeFilterButton,
+              styles.filterChip,
+              selectedType === 'ambulance' && styles.activeFilterChip,
             ]}
             onPress={() => {
               setSelectedType('ambulance');
@@ -484,8 +449,8 @@ export default function MapScreen() {
           >
             <Text
               style={[
-                styles.filterButtonText,
-                selectedType === 'ambulance' && styles.activeFilterButtonText,
+                styles.filterChipText,
+                selectedType === 'ambulance' && styles.activeFilterChipText,
               ]}
             >
               Ambulance
@@ -493,6 +458,50 @@ export default function MapScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {selectedMarker ? (
+        <View style={styles.infoCard}>
+          <View style={styles.infoTopRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.infoTitle}>
+                {selectedMarker.name || 'Selected Location'}
+              </Text>
+              <Text style={styles.infoType}>
+                {selectedMarker.markerCategory === 'emergency'
+                  ? 'Emergency'
+                  : String(selectedMarker.type || 'Service').toUpperCase()}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={() => setSelectedMarker(null)}>
+              <Text style={styles.closeText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.infoDescription}>
+            {selectedMarker.description || 'No description'}
+          </Text>
+
+          <Text style={styles.infoLocation}>
+            {selectedMarker.location_text || 'No address'}
+          </Text>
+
+          {!!selectedDistanceText ? (
+            <Text style={styles.distanceText}>📏 {selectedDistanceText}</Text>
+          ) : null}
+
+          {!!selectedEtaText ? (
+            <Text style={styles.etaText}>⏱ {selectedEtaText}</Text>
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.navigateButton}
+            onPress={() => openNavigation(selectedMarker.latitude, selectedMarker.longitude)}
+          >
+            <Text style={styles.navigateButtonText}>Navigate</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <MapView
         ref={mapRef}
@@ -505,7 +514,7 @@ export default function MapScreen() {
         }}
         onPress={() => setSelectedMarker(null)}
       >
-        {userLocation && (
+        {userLocation ? (
           <Marker
             coordinate={{
               latitude: Number(userLocation.latitude),
@@ -521,15 +530,15 @@ export default function MapScreen() {
               </View>
             </View>
           </Marker>
-        )}
+        ) : null}
 
-        {routeCoordinates.length === 2 && (
+        {routeCoordinates.length === 2 ? (
           <Polyline
             coordinates={routeCoordinates}
-            strokeColor="#007bff"
+            strokeColor="#0d6efd"
             strokeWidth={4}
           />
-        )}
+        ) : null}
 
         {visibleEmergencyMarkers.map((loc, index) => (
           <Marker
@@ -576,49 +585,91 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#f3f5f7',
+  },
+  map: {
+    flex: 1,
+  },
 
-  topInfoCard: {
+  filterWrapper: {
     position: 'absolute',
-    top: 62,
+    top: 12,
     left: 12,
     right: 12,
     zIndex: 20,
+  },
+  filterRow: {
+    paddingRight: 8,
+  },
+  filterChip: {
     backgroundColor: '#ffffffee',
-    borderRadius: 14,
-    padding: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  activeFilterChip: {
+    backgroundColor: '#0d6efd',
+    borderColor: '#0d6efd',
+  },
+  filterChipText: {
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  activeFilterChipText: {
+    color: '#fff',
+  },
+
+  infoCard: {
+    position: 'absolute',
+    top: 68,
+    left: 12,
+    right: 12,
+    zIndex: 19,
+    backgroundColor: '#ffffffee',
+    borderRadius: 20,
+    padding: 16,
     elevation: 5,
   },
-  topInfoHeader: {
+  infoTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  topInfoTitle: {
-    fontSize: 16,
+  infoTitle: {
+    fontSize: 17,
     fontWeight: 'bold',
-    flex: 1,
-    marginRight: 10,
+    color: '#111827',
+  },
+  infoType: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0d6efd',
   },
   closeText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#555',
+    color: '#6b7280',
+    marginLeft: 10,
   },
-  topInfoType: {
+  infoDescription: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  infoLocation: {
     marginTop: 6,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#007bff',
-  },
-  topInfoText: {
-    marginTop: 6,
-    fontSize: 13,
-    color: '#333',
+    color: '#6b7280',
   },
   distanceText: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 14,
     fontWeight: 'bold',
     color: '#198754',
@@ -630,36 +681,17 @@ const styles = StyleSheet.create({
     color: '#fd7e14',
   },
 
-  filterWrapper: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    right: 10,
-    zIndex: 10,
+  navigateButton: {
+    marginTop: 12,
+    backgroundColor: '#0d6efd',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
   },
-  filterRow: {
-    paddingRight: 8,
-  },
-  filterButton: {
-    backgroundColor: '#ffffffee',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  activeFilterButton: {
-    backgroundColor: '#007bff',
-    borderColor: '#007bff',
-  },
-  filterButtonText: {
-    color: '#333',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  activeFilterButtonText: {
+  navigateButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 
   emptyContainer: {
@@ -667,38 +699,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#f4f5f7',
+    backgroundColor: '#f3f5f7',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#555',
+    fontSize: 14,
+    color: '#6b7280',
     textAlign: 'center',
   },
 
-  navigateButton: {
-    marginTop: 10,
-    backgroundColor: '#007bff',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  navigateButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-
   userMarkerOuter: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(0, 122, 255, 0.25)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(13, 110, 253, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   userMarkerMiddle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -707,25 +733,27 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0d6efd',
   },
 
   legendBox: {
     position: 'absolute',
     bottom: 20,
-    left: 15,
+    left: 14,
     backgroundColor: '#ffffffee',
-    padding: 10,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 16,
     elevation: 4,
   },
   legendTitle: {
     fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 6,
+    color: '#111827',
   },
   legendItem: {
     fontSize: 12,
     marginBottom: 2,
+    color: '#374151
   },
 });
