@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,6 +21,10 @@ import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
 import AppCard from '../components/AppCard';
 import AppChip from '../components/AppChip';
 import SectionHeader from '../components/SectionHeader';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -44,7 +51,12 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  const animateNext = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  };
+
   const toggleExpandCard = (id) => {
+    animateNext();
     setExpandedCardId((prev) => (prev === id ? null : id));
   };
 
@@ -245,6 +257,8 @@ export default function AdminScreen({ navigation }) {
                   return;
                 }
 
+                animateNext();
+
                 const updatedRequests = requests.filter(
                   (item) => item.id !== emergencyId
                 );
@@ -295,6 +309,8 @@ export default function AdminScreen({ navigation }) {
         Alert.alert('Error', data.error);
         return;
       }
+
+      animateNext();
 
       const updatedRequests = requests.map((item) =>
         item.id === emergencyId ? { ...item, priority } : item
@@ -489,7 +505,10 @@ export default function AdminScreen({ navigation }) {
                     </View>
                   </View>
 
-                  <Text numberOfLines={isExpanded ? undefined : 2} style={styles.requestDescription}>
+                  <Text
+                    numberOfLines={isExpanded ? undefined : 2}
+                    style={styles.requestDescription}
+                  >
                     {item?.description || 'No description'}
                   </Text>
 
@@ -618,6 +637,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 22,
   },
+
   largeSummaryCard: {
     width: '100%',
     marginBottom: 12,
