@@ -24,6 +24,7 @@ export default function AdminScreen({ navigation }) {
   const [requests, setRequests] = useState([]);
   const [adminName, setAdminName] = useState('');
   const [adminUserId, setAdminUserId] = useState('');
+  const [expandedCardId, setExpandedCardId] = useState(null);
 
   const [pendingCount, setPendingCount] = useState(0);
   const [acceptedCount, setAcceptedCount] = useState(0);
@@ -41,6 +42,10 @@ export default function AdminScreen({ navigation }) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  };
+
+  const toggleExpandCard = (id) => {
+    setExpandedCardId((prev) => (prev === id ? null : id));
   };
 
   const calculateCounts = (data) => {
@@ -247,6 +252,10 @@ export default function AdminScreen({ navigation }) {
                 setRequests(updatedRequests);
                 calculateCounts(updatedRequests);
 
+                if (expandedCardId === emergencyId) {
+                  setExpandedCardId(null);
+                }
+
                 Alert.alert('Success', 'Request deleted successfully');
                 loadAdminData();
               } catch (error) {
@@ -401,7 +410,7 @@ export default function AdminScreen({ navigation }) {
 
       <SectionHeader
         title="Request Management"
-        subtitle="Search, filter, and manage requests"
+        subtitle="Tap any card to expand actions"
       />
 
       <AppCard variant="blue" style={styles.searchCard}>
@@ -448,108 +457,121 @@ export default function AdminScreen({ navigation }) {
           </Text>
         </AppCard>
       ) : (
-        filteredRequests.map((item, index) => (
-          <View key={String(item?.id ?? index)} style={styles.requestWrap}>
-            <AppCard
-              style={[
-                styles.requestCard,
-                String(item?.priority || '').toLowerCase() === 'critical' &&
-                  styles.criticalCard,
-              ]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.92}
-                onPress={() =>
-                  navigation.navigate('EmergencyDetails', { emergency: item })
-                }
+        filteredRequests.map((item, index) => {
+          const isExpanded = expandedCardId === item.id;
+
+          return (
+            <View key={String(item?.id ?? index)} style={styles.requestWrap}>
+              <AppCard
+                style={[
+                  styles.requestCard,
+                  String(item?.priority || '').toLowerCase() === 'critical' &&
+                    styles.criticalCard,
+                ]}
               >
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.requestType}>
-                    {String(item?.type || 'Emergency').toUpperCase()}
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  onPress={() => toggleExpandCard(item.id)}
+                >
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.requestType}>
+                      {String(item?.type || 'Emergency').toUpperCase()}
+                    </Text>
+
+                    <View style={styles.rightTopSection}>
+                      <AppChip
+                        label={String(item?.status || 'unknown').toUpperCase()}
+                        type={getStatusChipType(item?.status)}
+                      />
+                      <Text style={styles.expandIcon}>
+                        {isExpanded ? '▴' : '▾'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text numberOfLines={isExpanded ? undefined : 2} style={styles.requestDescription}>
+                    {item?.description || 'No description'}
                   </Text>
 
-                  <AppChip
-                    label={String(item?.status || 'unknown').toUpperCase()}
-                    type={getStatusChipType(item?.status)}
-                  />
-                </View>
-
-                <Text numberOfLines={2} style={styles.requestDescription}>
-                  {item?.description || 'No description'}
-                </Text>
-
-                <Text style={styles.requestLocation}>
-                  📍 {item?.location_text || 'No location available'}
-                </Text>
-
-                <View style={styles.metaRowFixed}>
-                  <AppChip
-                    label={String(item?.priority || 'medium').toUpperCase()}
-                    type={getPriorityChipType(item?.priority)}
-                  />
-
-                  <Text style={styles.assignedText}>
-                    {item?.accepted_by ? `👤 ${item.accepted_by}` : 'Unassigned'}
+                  <Text style={styles.requestLocation}>
+                    📍 {item?.location_text || 'No location available'}
                   </Text>
-                </View>
-              </TouchableOpacity>
 
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() =>
-                    navigation.navigate('EmergencyDetails', { emergency: item })
-                  }
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.actionText}>View</Text>
+                  <View style={styles.metaRowFixed}>
+                    <AppChip
+                      label={String(item?.priority || 'medium').toUpperCase()}
+                      type={getPriorityChipType(item?.priority)}
+                    />
+
+                    <Text style={styles.assignedText}>
+                      {item?.accepted_by ? `👤 ${item.accepted_by}` : 'Unassigned'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleSetPriority(item.id, 'high')}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.actionText}>High</Text>
-                </TouchableOpacity>
+                {isExpanded && (
+                  <View style={styles.expandedSection}>
+                    <View style={styles.divider} />
 
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDeleteRequest(item.id)}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.deleteText}>Delete</Text>
-                </TouchableOpacity>
-              </View>
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() =>
+                          navigation.navigate('EmergencyDetails', { emergency: item })
+                        }
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.actionText}>View</Text>
+                      </TouchableOpacity>
 
-              <View style={styles.quickPriorityRow}>
-                <TouchableOpacity
-                  style={[styles.smallPriorityBtn, styles.lowSmallBtn]}
-                  onPress={() => handleSetPriority(item.id, 'low')}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.smallPriorityText}>Low</Text>
-                </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleSetPriority(item.id, 'high')}
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.actionText}>High</Text>
+                      </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.smallPriorityBtn, styles.mediumSmallBtn]}
-                  onPress={() => handleSetPriority(item.id, 'medium')}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.smallPriorityText}>Medium</Text>
-                </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteBtn}
+                        onPress={() => handleDeleteRequest(item.id)}
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.deleteText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.smallPriorityBtn, styles.criticalSmallBtn]}
-                  onPress={() => handleSetPriority(item.id, 'critical')}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.smallPriorityText}>Critical</Text>
-                </TouchableOpacity>
-              </View>
-            </AppCard>
-          </View>
-        ))
+                    <View style={styles.quickPriorityRow}>
+                      <TouchableOpacity
+                        style={[styles.smallPriorityBtn, styles.lowSmallBtn]}
+                        onPress={() => handleSetPriority(item.id, 'low')}
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.smallPriorityText}>Low</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.smallPriorityBtn, styles.mediumSmallBtn]}
+                        onPress={() => handleSetPriority(item.id, 'medium')}
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.smallPriorityText}>Medium</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.smallPriorityBtn, styles.criticalSmallBtn]}
+                        onPress={() => handleSetPriority(item.id, 'critical')}
+                        activeOpacity={0.92}
+                      >
+                        <Text style={styles.smallPriorityText}>Critical</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </AppCard>
+            </View>
+          );
+        })
       )}
     </ScrollView>
   );
@@ -745,6 +767,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.primaryDark,
   },
+  rightTopSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  expandIcon: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+    fontWeight: 'bold',
+  },
   requestDescription: {
     fontSize: 16,
     fontWeight: '700',
@@ -774,10 +806,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  expandedSection: {
+    marginTop: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 12,
+  },
+
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 14,
     gap: 10,
   },
   actionBtn: {
@@ -831,30 +871,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  deleteButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  deleteGradient: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-  },
-  deleteButtonText: {
-    color: COLORS.textLight,
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-
   arrowWhite: {
     color: COLORS.textLight,
     fontSize: 30,
-    fontWeight: '300',
-  },
-  arrow: {
-    fontSize: 30,
-    color: '#9CA3AF',
     fontWeight: '300',
   },
 });
