@@ -118,7 +118,17 @@ export default function EmergencyDetailsScreen({ route }) {
     if (p === 'medium') return '#0d6efd';
     if (p === 'high') return '#fd7e14';
     if (p === 'critical') return '#dc3545';
-    return '#666';
+    return '#6b7280';
+  };
+
+  const getStatusColor = (value) => {
+    const s = String(value || '').toLowerCase();
+    if (s === 'pending') return '#d4a017';
+    if (s === 'accepted') return '#6f42c1';
+    if (s === 'in progress') return '#0d6efd';
+    if (s === 'resolved') return '#198754';
+    if (s === 'cancelled') return '#dc3545';
+    return '#6b7280';
   };
 
   const updateStatus = async (newStatus) => {
@@ -212,11 +222,29 @@ export default function EmergencyDetailsScreen({ route }) {
     latitude !== 0 &&
     longitude !== 0;
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Emergency Details</Text>
+  const statusColor = getStatusColor(status);
+  const priorityColor = getPriorityColor(priority);
 
-      <View style={styles.card}>
+  return (
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCard}>
+        <Text style={styles.heroTitle}>Emergency Details</Text>
+        <Text style={styles.heroSubtitle}>
+          Track request details, provider movement, and current progress.
+        </Text>
+      </View>
+
+      <View style={styles.infoCard}>
+        <View style={styles.topBadgesRow}>
+          <Text style={[styles.statusBadge, { color: statusColor, borderColor: statusColor }]}>
+            {String(status || 'unknown').toUpperCase()}
+          </Text>
+
+          <Text style={[styles.priorityBadge, { backgroundColor: priorityColor }]}>
+            {String(priority || 'medium').toUpperCase()}
+          </Text>
+        </View>
+
         <Text style={styles.label}>Type</Text>
         <Text style={styles.value}>{emergency.type || '-'}</Text>
 
@@ -226,46 +254,39 @@ export default function EmergencyDetailsScreen({ route }) {
         <Text style={styles.label}>Location</Text>
         <Text style={styles.value}>{emergency.location_text || '-'}</Text>
 
-        <Text style={styles.label}>Latitude</Text>
-        <Text style={styles.value}>{String(emergency.latitude ?? '-')}</Text>
+        <View style={styles.coordRow}>
+          <View style={styles.coordBox}>
+            <Text style={styles.coordLabel}>Latitude</Text>
+            <Text style={styles.coordValue}>{String(emergency.latitude ?? '-')}</Text>
+          </View>
 
-        <Text style={styles.label}>Longitude</Text>
-        <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
-
-        <Text style={styles.label}>Status</Text>
-        <Text
-          style={[
-            styles.value,
-            status === 'pending'
-              ? styles.pending
-              : status === 'accepted'
-              ? styles.accepted
-              : status === 'in progress'
-              ? styles.progress
-              : status === 'resolved'
-              ? styles.resolved
-              : styles.cancelled,
-          ]}
-        >
-          {status}
-        </Text>
-
-        <Text style={styles.label}>Priority</Text>
-        <Text style={[styles.priorityValue, { color: getPriorityColor(priority) }]}>
-          {String(priority || 'medium').toUpperCase()}
-        </Text>
+          <View style={styles.coordBox}>
+            <Text style={styles.coordLabel}>Longitude</Text>
+            <Text style={styles.coordValue}>{String(emergency.longitude ?? '-')}</Text>
+          </View>
+        </View>
 
         {acceptedBy ? (
           <>
-            <Text style={styles.label}>Accepted By</Text>
-            <Text style={styles.acceptedByText}>{acceptedBy}</Text>
+            <Text style={styles.label}>Assigned Provider</Text>
+            <Text style={styles.assignedText}>{acceptedBy}</Text>
           </>
-        ) : null}
+        ) : (
+          <>
+            <Text style={styles.label}>Assigned Provider</Text>
+            <Text style={styles.unassignedText}>Not assigned yet</Text>
+          </>
+        )}
       </View>
 
       {hasValidCoords && (
         <View style={styles.mapCard}>
-          <Text style={styles.mapTitle}>Tracking Map</Text>
+          <View style={styles.mapHeaderRow}>
+            <Text style={styles.mapTitle}>Live Tracking Map</Text>
+            <TouchableOpacity style={styles.mapActionChip} onPress={openInMaps}>
+              <Text style={styles.mapActionChipText}>Navigate</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.mapContainer}>
             <MapView
@@ -304,69 +325,68 @@ export default function EmergencyDetailsScreen({ route }) {
               {routeCoordinates.length === 2 ? (
                 <Polyline
                   coordinates={routeCoordinates}
-                  strokeColor="#007bff"
+                  strokeColor="#0d6efd"
                   strokeWidth={4}
                 />
               ) : null}
             </MapView>
           </View>
 
-          <TouchableOpacity style={styles.mapButton} onPress={openInMaps}>
-            <Text style={styles.mapButtonText}>Open Navigation</Text>
+          <TouchableOpacity style={styles.fullWidthButton} onPress={openInMaps}>
+            <Text style={styles.fullWidthButtonText}>Open Navigation</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {userRole === 'admin' && (
+      {userRole === 'admin' ? (
         <View style={styles.actionCard}>
           <Text style={styles.actionTitle}>Update Status</Text>
 
           <TouchableOpacity
-            style={[styles.statusButton, styles.acceptedButton]}
+            style={[styles.actionButton, styles.acceptedButton]}
             onPress={() => updateStatus('accepted')}
             disabled={loading}
           >
-            <Text style={styles.statusButtonText}>Accept Request</Text>
+            <Text style={styles.actionButtonText}>Accept Request</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statusButton, styles.pendingButton]}
+            style={[styles.actionButton, styles.pendingButton]}
             onPress={() => updateStatus('pending')}
             disabled={loading}
           >
-            <Text style={styles.statusButtonText}>Set Pending</Text>
+            <Text style={styles.actionButtonText}>Set Pending</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statusButton, styles.progressButton]}
+            style={[styles.actionButton, styles.progressButton]}
             onPress={() => updateStatus('in progress')}
             disabled={loading}
           >
-            <Text style={styles.statusButtonText}>Set In Progress</Text>
+            <Text style={styles.actionButtonText}>Set In Progress</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statusButton, styles.resolvedButton]}
+            style={[styles.actionButton, styles.resolvedButton]}
             onPress={() => updateStatus('resolved')}
             disabled={loading}
           >
-            <Text style={styles.statusButtonText}>Set Resolved</Text>
+            <Text style={styles.actionButtonText}>Set Resolved</Text>
           </TouchableOpacity>
 
-          {loading && (
+          {loading ? (
             <ActivityIndicator
               size="large"
-              color="#007bff"
-              style={{ marginTop: 15 }}
+              color="#0d6efd"
+              style={{ marginTop: 14 }}
             />
-          )}
+          ) : null}
         </View>
-      )}
-
-      {userRole !== 'admin' && (
+      ) : (
         <View style={styles.noteCard}>
+          <Text style={styles.noteTitle}>User View</Text>
           <Text style={styles.noteText}>
-            Only admin can update emergency status.
+            You can track the request and assigned provider here. Only admin can update the request status.
           </Text>
         </View>
       )}
@@ -376,119 +396,190 @@ export default function EmergencyDetailsScreen({ route }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f4f6f8',
+    padding: 18,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
+    paddingBottom: 100,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f3f5f7',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#6b7280',
   },
-  title: {
+
+  heroCard: {
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
+  },
+  heroTitle: {
+    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 18,
-    textAlign: 'center',
   },
-  card: {
+  heroSubtitle: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
+  infoCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 22,
     padding: 18,
-    elevation: 3,
     marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  topBadgesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    gap: 10,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  priorityBadge: {
+    color: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
-    color: '#555',
-    marginTop: 10,
+    color: '#6b7280',
+    marginTop: 12,
   },
   value: {
     fontSize: 16,
-    color: '#222',
-    marginTop: 4,
+    color: '#111827',
+    marginTop: 6,
+    lineHeight: 22,
   },
-  pending: {
-    color: '#c89b00',
-    fontWeight: 'bold',
-  },
-  accepted: {
+  assignedText: {
     color: '#6f42c1',
-    fontWeight: 'bold',
-  },
-  progress: {
-    color: '#007bff',
-    fontWeight: 'bold',
-  },
-  resolved: {
-    color: '#28a745',
-    fontWeight: 'bold',
-  },
-  cancelled: {
-    color: '#dc3545',
-    fontWeight: 'bold',
-  },
-  priorityValue: {
-    fontWeight: 'bold',
+    fontWeight: '700',
     fontSize: 16,
-    marginTop: 4,
+    marginTop: 6,
   },
-  acceptedByText: {
-    color: '#6f42c1',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginTop: 4,
+  unassignedText: {
+    color: '#6b7280',
+    fontWeight: '600',
+    fontSize: 15,
+    marginTop: 6,
   },
+
+  coordRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  coordBox: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+    borderRadius: 16,
+    padding: 14,
+  },
+  coordLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+  },
+  coordValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 6,
+  },
+
   mapCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 22,
     padding: 18,
-    elevation: 3,
     marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  mapHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
   },
   mapTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    color: '#111827',
+  },
+  mapActionChip: {
+    backgroundColor: '#e8f1ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  mapActionChipText: {
+    color: '#0d6efd',
+    fontWeight: '700',
+    fontSize: 12,
   },
   mapContainer: {
-    height: 280,
-    borderRadius: 12,
+    height: 300,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   map: {
     width: '100%',
     height: '100%',
   },
-  mapButton: {
-    backgroundColor: '#007bff',
-    marginTop: 15,
-    padding: 14,
-    borderRadius: 12,
+  fullWidthButton: {
+    backgroundColor: '#0d6efd',
+    marginTop: 14,
+    paddingVertical: 15,
+    borderRadius: 14,
     alignItems: 'center',
   },
-  mapButtonText: {
+  fullWidthButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
   },
+
   providerMarkerOuter: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(0, 122, 255, 0.25)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(13, 110, 253, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   providerMarkerMiddle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -497,23 +588,29 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0d6efd',
   },
+
   actionCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 22,
     padding: 18,
-    elevation: 3,
     marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   actionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#111827',
     marginBottom: 14,
   },
-  statusButton: {
+  actionButton: {
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     marginBottom: 12,
   },
@@ -524,25 +621,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#d4a017',
   },
   progressButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#0d6efd',
   },
   resolvedButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#198754',
   },
-  statusButtonText: {
+  actionButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,
   },
+
   noteCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    elevation: 3,
+    borderRadius: 22,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  noteTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
   },
   noteText: {
-    color: '#666',
+    color: '#6b7280',
     fontSize: 14,
-    textAlign: 'center',
+    lineHeight: 21,
   },
 });
