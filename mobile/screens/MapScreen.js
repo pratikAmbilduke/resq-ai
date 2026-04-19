@@ -754,6 +754,6 @@ const styles = StyleSheet.create({
   legendItem: {
     fontSize: 12,
     marginBottom: 2,
-    color: '#374151
+    color: '#374151',
   },
 });
