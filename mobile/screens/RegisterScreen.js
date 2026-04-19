@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
-  View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   ScrollView,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
 export default function RegisterScreen({ navigation }) {
@@ -28,11 +28,6 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      if (password.length > 20) {
-        Alert.alert('Error', 'Use a shorter password (max 20 characters)');
-        return;
-      }
-
       setLoading(true);
 
       const response = await fetch(`${API_BASE_URL}/register`, {
@@ -45,26 +40,10 @@ export default function RegisterScreen({ navigation }) {
         }),
       });
 
-      const text = await response.text();
-      let data = {};
+      const data = await response.json();
 
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.log('Register Parse Error:', text);
-        Alert.alert('Error', 'Server returned invalid response');
-        return;
-      }
-
-      console.log('Register Response:', data);
-
-      if (!response.ok) {
-        Alert.alert('Register Failed', data.error || `HTTP ${response.status}`);
-        return;
-      }
-
-      if (data.error) {
-        Alert.alert('Register Failed', data.error);
+      if (!response.ok || data.error) {
+        Alert.alert('Register Failed', data.error || 'Something went wrong');
         return;
       }
 
@@ -75,7 +54,7 @@ export default function RegisterScreen({ navigation }) {
         },
       ]);
     } catch (error) {
-      console.log('Register Error FULL:', error);
+      console.log('Register Error:', error);
       Alert.alert('Error', 'Cannot connect to server');
     } finally {
       setLoading(false);
@@ -83,53 +62,47 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Create Your Account</Text>
-        <Text style={styles.heroSubtitle}>
-          Join ResQ AI to access emergency support, live tracking, and safer response tools.
+    <ScrollView contentContainerStyle={styles.container}>
+      
+      {/* 🔥 TOP GRADIENT */}
+      <LinearGradient
+        colors={['#ff6a00', '#ee0979']}
+        style={styles.topSection}
+      >
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>
+          Join ResQ AI and stay safe 🚀
         </Text>
-      </View>
+      </LinearGradient>
 
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Register</Text>
-        <Text style={styles.formSubtitle}>Start your safety journey</Text>
-
+      {/* 📦 FORM CARD */}
+      <View style={styles.card}>
         <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter full name"
-          placeholderTextColor="#9ca3af"
+        <TextInputCustom
           value={name}
           onChangeText={setName}
-          maxLength={50}
+          placeholder="Enter full name"
         />
 
         <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter email"
-          placeholderTextColor="#9ca3af"
+        <TextInputCustom
           value={email}
           onChangeText={setEmail}
-          autoCapitalize="none"
+          placeholder="Enter email"
           keyboardType="email-address"
-          maxLength={100}
         />
 
         <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter password"
-          placeholderTextColor="#9ca3af"
+        <TextInputCustom
           value={password}
           onChangeText={setPassword}
+          placeholder="Enter password"
           secureTextEntry
-          maxLength={20}
         />
 
+        {/* 🚀 BUTTON */}
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, loading && { opacity: 0.6 }]}
           onPress={handleRegister}
           disabled={loading}
         >
@@ -138,11 +111,9 @@ export default function RegisterScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Text style={styles.secondaryButtonText}>
+        {/* 🔗 LOGIN LINK */}
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.link}>
             Already have an account? Login
           </Text>
         </TouchableOpacity>
@@ -151,96 +122,85 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
+/* 🔹 CUSTOM INPUT */
+import { TextInput } from 'react-native';
+
+const TextInputCustom = ({ style, ...props }) => (
+  <TextInput
+    {...props}
+    style={[styles.input, style]}
+    placeholderTextColor="#9ca3af"
+  />
+);
+
+/* 🎨 STYLES */
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 18,
-    justifyContent: 'center',
     backgroundColor: '#f3f5f7',
   },
 
-  heroCard: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 18,
-  },
-  heroTitle: {
-    color: '#fff',
-    fontSize: 26,
-    fontWeight: 'bold',
-  },
-  heroSubtitle: {
-    color: '#d1d5db',
-    fontSize: 14,
-    marginTop: 8,
-    lineHeight: 20,
+  topSection: {
+    padding: 30,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  formTitle: {
-    fontSize: 24,
+  title: {
+    color: '#fff',
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#111827',
   },
-  formSubtitle: {
+
+  subtitle: {
+    color: '#fff',
+    marginTop: 6,
     fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
-    marginBottom: 16,
+  },
+
+  card: {
+    margin: 20,
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    elevation: 3,
   },
 
   label: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4b5563',
-    marginTop: 10,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 6,
+    color: '#374151',
   },
+
   input: {
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 14,
     backgroundColor: '#f9fafb',
-    color: '#111827',
-    fontSize: 15,
-    marginBottom: 6,
   },
 
   button: {
-    backgroundColor: '#198754',
-    paddingVertical: 16,
+    marginTop: 20,
+    backgroundColor: '#ee0979',
+    padding: 16,
     borderRadius: 14,
     alignItems: 'center',
-    marginTop: 18,
-    marginBottom: 12,
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
+
   buttonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
 
-  secondaryButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: '#0d6efd',
+  link: {
+    textAlign: 'center',
+    marginTop: 16,
+    color: '#ee0979',
     fontWeight: '600',
-    fontSize: 14,
   },
 });

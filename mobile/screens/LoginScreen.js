@@ -8,11 +8,14 @@ import {
   ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
-import { COLORS, RADIUS, SPACING } from '../theme';
+
+import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
 import AppButton from '../components/AppButton';
 import AppInput from '../components/AppInput';
 import AppCard from '../components/AppCard';
+import AppChip from '../components/AppChip';
 
 export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -36,8 +39,6 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
       const data = await response.json();
 
-      console.log('Login response:', data);
-
       if (data.error) {
         Alert.alert('Login Failed', data.error);
         return;
@@ -45,15 +46,12 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
       const roleFromBackend = data?.data?.role || 'user';
 
-      console.log('Role from backend:', roleFromBackend);
-      console.log('User email from backend:', data?.data?.email);
-
       await AsyncStorage.setItem('userId', String(data.data.id));
       await AsyncStorage.setItem('userName', data.data.name || '');
       await AsyncStorage.setItem('userEmail', data.data.email || '');
       await AsyncStorage.setItem('userRole', roleFromBackend);
 
-      Alert.alert('Success', `Login successful as ${roleFromBackend}`);
+      Alert.alert('Success', 'Login successful');
 
       if (onLoginSuccess) {
         onLoginSuccess();
@@ -69,14 +67,25 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.heroCard}>
+      <LinearGradient
+        colors={GRADIENTS.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
+      >
         <Text style={styles.heroTitle}>Welcome to ResQ AI</Text>
         <Text style={styles.heroSubtitle}>
-          Fast emergency support, live tracking, and safer response in one app.
+          Smart emergency support with live tracking and fast response.
         </Text>
-      </View>
 
-      <AppCard>
+        <View style={styles.heroChipsRow}>
+          <AppChip label="Fast" type="info" />
+          <View style={{ width: 8 }} />
+          <AppChip label="Secure" type="purple" />
+        </View>
+      </LinearGradient>
+
+      <AppCard style={styles.formCard}>
         <Text style={styles.formTitle}>Login</Text>
         <Text style={styles.formSubtitle}>Sign in to continue</Text>
 
@@ -97,8 +106,8 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
           secureTextEntry
         />
 
-        <View style={{ marginTop: 18 }}>
-          <AppButton title="Login" onPress={handleLogin} />
+        <View style={styles.buttonWrap}>
+          <AppButton title="Login" onPress={handleLogin} variant="primary" />
         </View>
 
         <TouchableOpacity
@@ -117,29 +126,39 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.xl,
+    paddingBottom: 40,
     justifyContent: 'center',
     backgroundColor: COLORS.background,
   },
 
   heroCard: {
-    backgroundColor: COLORS.secondary,
     borderRadius: RADIUS.xl,
-    padding: 22,
-    marginBottom: SPACING.md,
+    padding: 24,
+    marginBottom: 22,
+    ...SHADOW.card,
   },
   heroTitle: {
-    color: '#fff',
-    fontSize: 26,
+    color: COLORS.textLight,
+    fontSize: 28,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#d1d5db',
+    color: '#E0E7FF',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 20,
+    lineHeight: 21,
+  },
+  heroChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
   },
 
+  formCard: {
+    marginBottom: 10,
+  },
   formTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -149,24 +168,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   label: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4b5563',
+    color: COLORS.textSecondary,
     marginTop: 12,
     marginBottom: 6,
   },
 
+  buttonWrap: {
+    marginTop: 20,
+  },
+
   linkWrapper: {
-    marginTop: 14,
+    marginTop: 16,
     alignItems: 'center',
   },
   linkText: {
-    color: COLORS.primary,
-    fontWeight: '600',
+    color: COLORS.secondary,
+    fontWeight: '700',
     fontSize: 14,
   },
 });
