@@ -429,7 +429,10 @@ export default function AdminScreen({ navigation }) {
                 <Text
                   style={[
                     styles.statusBadge,
-                    { color: getStatusColor(item?.status), borderColor: getStatusColor(item?.status) },
+                    {
+                      color: getStatusColor(item?.status),
+                      borderColor: getStatusColor(item?.status),
+                    },
                   ]}
                 >
                   {String(item?.status || 'unknown').toUpperCase()}
@@ -733,8 +736,3 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
-  },
-  lowButton: {
-    backgroundColor: '#6c757d',
-  },
-  medium
