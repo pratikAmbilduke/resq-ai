@@ -76,9 +76,9 @@ export default function AdminScreen({ navigation }) {
       setAdminUserId(userId || '');
 
       if (!userId) {
-        setLoading(false);
         setRequests([]);
         calculateCounts([]);
+        setLoading(false);
         return;
       }
 
@@ -196,8 +196,10 @@ export default function AdminScreen({ navigation }) {
     });
 
     return result.sort((a, b) => {
-      const priorityA = priorityOrder[String(a?.priority || 'medium').toLowerCase()] || 0;
-      const priorityB = priorityOrder[String(b?.priority || 'medium').toLowerCase()] || 0;
+      const priorityA =
+        priorityOrder[String(a?.priority || 'medium').toLowerCase()] || 0;
+      const priorityB =
+        priorityOrder[String(b?.priority || 'medium').toLowerCase()] || 0;
 
       if (priorityB !== priorityA) {
         return priorityB - priorityA;
@@ -238,7 +240,10 @@ export default function AdminScreen({ navigation }) {
                   return;
                 }
 
-                const updatedRequests = requests.filter((item) => item.id !== emergencyId);
+                const updatedRequests = requests.filter(
+                  (item) => item.id !== emergencyId
+                );
+
                 setRequests(updatedRequests);
                 calculateCounts(updatedRequests);
 
@@ -321,6 +326,7 @@ export default function AdminScreen({ navigation }) {
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <LinearGradient
         colors={GRADIENTS.dark}
@@ -330,12 +336,12 @@ export default function AdminScreen({ navigation }) {
       >
         <Text style={styles.heroTitle}>Admin Operations</Text>
         <Text style={styles.heroSubtitle}>
-          Manage emergencies, set priorities, delete requests, and monitor active operations.
+          Manage emergencies, priorities, and live request flow in one place.
         </Text>
 
         <View style={styles.heroChipRow}>
           <AppChip label={`${totalRequests} Total`} type="info" />
-          <View style={{ width: 8 }} />
+          <View style={styles.heroChipSpacer} />
           <AppChip label={`${pendingCount} Pending`} type="warning" />
         </View>
       </LinearGradient>
@@ -395,11 +401,12 @@ export default function AdminScreen({ navigation }) {
 
       <SectionHeader
         title="Request Management"
-        subtitle="Search, filter, prioritize, and delete requests"
+        subtitle="Search, filter, and manage requests"
       />
 
       <AppCard variant="blue" style={styles.searchCard}>
         <Text style={styles.searchLabel}>Search Requests</Text>
+
         <TextInput
           style={styles.searchInput}
           placeholder="Search by type, description, location, provider, priority"
@@ -442,10 +449,7 @@ export default function AdminScreen({ navigation }) {
         </AppCard>
       ) : (
         filteredRequests.map((item, index) => (
-          <View
-            key={String(item?.id ?? index)}
-            style={styles.requestWrap}
-          >
+          <View key={String(item?.id ?? index)} style={styles.requestWrap}>
             <AppCard
               style={[
                 styles.requestCard,
@@ -455,95 +459,94 @@ export default function AdminScreen({ navigation }) {
             >
               <TouchableOpacity
                 activeOpacity={0.92}
-                onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
+                onPress={() =>
+                  navigation.navigate('EmergencyDetails', { emergency: item })
+                }
               >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.requestType}>
-                    {String(item?.type || '').toUpperCase()}
+                    {String(item?.type || 'Emergency').toUpperCase()}
                   </Text>
 
-                  <AppChip
-                    label={String(item?.priority || 'medium').toUpperCase()}
-                    type={getPriorityChipType(item?.priority)}
-                  />
-                </View>
-
-                <Text style={styles.requestDescription}>
-                  {item?.description || 'No description'}
-                </Text>
-
-                <Text style={styles.requestLocation}>
-                  {item?.location_text || 'No location available'}
-                </Text>
-
-                <View style={styles.metaRow}>
                   <AppChip
                     label={String(item?.status || 'unknown').toUpperCase()}
                     type={getStatusChipType(item?.status)}
                   />
-
-                  {item?.accepted_by ? (
-                    <Text style={styles.acceptedByText}>
-                      Assigned: {item.accepted_by}
-                    </Text>
-                  ) : (
-                    <Text style={styles.notAssignedText}>Not assigned</Text>
-                  )}
                 </View>
 
-                <Text style={styles.viewDetailsText}>Tap to view details</Text>
+                <Text numberOfLines={2} style={styles.requestDescription}>
+                  {item?.description || 'No description'}
+                </Text>
+
+                <Text style={styles.requestLocation}>
+                  📍 {item?.location_text || 'No location available'}
+                </Text>
+
+                <View style={styles.metaRowFixed}>
+                  <AppChip
+                    label={String(item?.priority || 'medium').toUpperCase()}
+                    type={getPriorityChipType(item?.priority)}
+                  />
+
+                  <Text style={styles.assignedText}>
+                    {item?.accepted_by ? `👤 ${item.accepted_by}` : 'Unassigned'}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
-              <Text style={styles.actionSectionTitle}>Set Priority</Text>
-
-              <View style={styles.priorityRow}>
+              <View style={styles.actionRow}>
                 <TouchableOpacity
-                  style={[styles.priorityButton, styles.lowButton]}
-                  onPress={() => handleSetPriority(item.id, 'low')}
+                  style={styles.actionBtn}
+                  onPress={() =>
+                    navigation.navigate('EmergencyDetails', { emergency: item })
+                  }
                   activeOpacity={0.92}
                 >
-                  <Text style={styles.priorityButtonText}>Low</Text>
+                  <Text style={styles.actionText}>View</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.priorityButton, styles.mediumButton]}
-                  onPress={() => handleSetPriority(item.id, 'medium')}
-                  activeOpacity={0.92}
-                >
-                  <Text style={styles.priorityButtonText}>Medium</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.priorityButton, styles.highButton]}
+                  style={styles.actionBtn}
                   onPress={() => handleSetPriority(item.id, 'high')}
                   activeOpacity={0.92}
                 >
-                  <Text style={styles.priorityButtonText}>High</Text>
+                  <Text style={styles.actionText}>High</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.priorityButton, styles.criticalButton]}
-                  onPress={() => handleSetPriority(item.id, 'critical')}
+                  style={styles.deleteBtn}
+                  onPress={() => handleDeleteRequest(item.id)}
                   activeOpacity={0.92}
                 >
-                  <Text style={styles.priorityButtonText}>Critical</Text>
+                  <Text style={styles.deleteText}>Delete</Text>
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteRequest(item.id)}
-                activeOpacity={0.92}
-              >
-                <LinearGradient
-                  colors={GRADIENTS.sunset}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.deleteGradient}
+              <View style={styles.quickPriorityRow}>
+                <TouchableOpacity
+                  style={[styles.smallPriorityBtn, styles.lowSmallBtn]}
+                  onPress={() => handleSetPriority(item.id, 'low')}
+                  activeOpacity={0.92}
                 >
-                  <Text style={styles.deleteButtonText}>Delete Request</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <Text style={styles.smallPriorityText}>Low</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.smallPriorityBtn, styles.mediumSmallBtn]}
+                  onPress={() => handleSetPriority(item.id, 'medium')}
+                  activeOpacity={0.92}
+                >
+                  <Text style={styles.smallPriorityText}>Medium</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.smallPriorityBtn, styles.criticalSmallBtn]}
+                  onPress={() => handleSetPriority(item.id, 'critical')}
+                  activeOpacity={0.92}
+                >
+                  <Text style={styles.smallPriorityText}>Critical</Text>
+                </TouchableOpacity>
+              </View>
             </AppCard>
           </View>
         ))
@@ -556,7 +559,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
-    paddingBottom: 140,
+    paddingBottom: 80,
     backgroundColor: COLORS.background,
     flexGrow: 1,
   },
@@ -582,6 +585,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 14,
+  },
+  heroChipSpacer: {
+    width: 8,
   },
 
   summaryGrid: {
@@ -717,10 +723,10 @@ const styles = StyleSheet.create({
   },
 
   requestWrap: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   requestCard: {
-    padding: 18,
+    padding: 16,
   },
   criticalCard: {
     borderWidth: 2,
@@ -740,11 +746,11 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
   },
   requestDescription: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    marginTop: 12,
-    lineHeight: 23,
+    marginTop: 10,
+    lineHeight: 22,
   },
   requestLocation: {
     fontSize: 13,
@@ -753,64 +759,76 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  metaRow: {
+  metaRowFixed: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 10,
+  },
+  assignedText: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 14,
     gap: 10,
   },
-  acceptedByText: {
-    color: COLORS.secondary,
-    fontSize: 13,
+  actionBtn: {
+    flex: 1,
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  actionText: {
+    color: '#4F46E5',
     fontWeight: '700',
-    marginTop: 8,
-  },
-  notAssignedText: {
-    color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
-    marginTop: 8,
   },
-  viewDetailsText: {
-    marginTop: 12,
-    color: COLORS.primaryDark,
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  deleteText: {
+    color: '#DC2626',
     fontWeight: '700',
     fontSize: 13,
   },
 
-  actionSectionTitle: {
-    marginTop: 18,
-    marginBottom: 10,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-
-  priorityRow: {
+  quickPriorityRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 14,
+    marginTop: 10,
   },
-  priorityButton: {
-    borderRadius: 14,
+  smallPriorityBtn: {
+    flex: 1,
+    borderRadius: 12,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    alignItems: 'center',
   },
-  lowButton: {
+  lowSmallBtn: {
     backgroundColor: '#E5E7EB',
   },
-  mediumButton: {
+  mediumSmallBtn: {
     backgroundColor: '#DBEAFE',
   },
-  highButton: {
-    backgroundColor: '#FEF3C7',
-  },
-  criticalButton: {
+  criticalSmallBtn: {
     backgroundColor: '#FEE2E2',
   },
-  priorityButtonText: {
-    fontWeight: '700',
+  smallPriorityText: {
     color: COLORS.textPrimary,
-    fontSize: 13,
+    fontWeight: '700',
+    fontSize: 12,
   },
 
   deleteButton: {
