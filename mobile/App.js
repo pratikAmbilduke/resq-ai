@@ -11,7 +11,8 @@ import EmergencyDetailsScreen from './screens/EmergencyDetailsScreen';
 import MapScreen from './screens/MapScreen';
 import EmergencyCallScreen from './screens/EmergencyCallScreen';
 
-import BottomTabs from './navigation/BottomTabs';
+import UserBottomTabs from './navigation/UserBottomTabs';
+import AdminBottomTabs from './navigation/AdminBottomTabs';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +30,9 @@ export default function App() {
       const userId = await AsyncStorage.getItem('userId');
       const role = await AsyncStorage.getItem('userRole');
 
+      console.log('App checkLogin userId:', userId);
+      console.log('App checkLogin role:', role);
+
       setIsLoggedIn(!!userId);
       setUserRole(role || 'user');
     } catch (error) {
@@ -43,6 +47,9 @@ export default function App() {
   const handleLoginSuccess = async () => {
     try {
       const role = await AsyncStorage.getItem('userRole');
+
+      console.log('App handleLoginSuccess role:', role);
+
       setUserRole(role || 'user');
       setIsLoggedIn(true);
     } catch (error) {
@@ -59,7 +66,9 @@ export default function App() {
         'userName',
         'userEmail',
         'userRole',
+        'userProfileImage',
       ]);
+
       setUserRole('user');
       setIsLoggedIn(false);
     } catch (error) {
@@ -100,18 +109,25 @@ export default function App() {
           </>
         ) : (
           <>
-            <Stack.Screen
-              name="MainTabs"
-              options={{ headerShown: false }}
-            >
-              {(props) => (
-                <BottomTabs
-                  {...props}
-                  userRole={userRole}
-                  onLogout={handleLogout}
-                />
-              )}
-            </Stack.Screen>
+            {userRole === 'admin' ? (
+              <Stack.Screen
+                name="AdminTabs"
+                options={{ headerShown: false }}
+              >
+                {(props) => (
+                  <AdminBottomTabs {...props} onLogout={handleLogout} />
+                )}
+              </Stack.Screen>
+            ) : (
+              <Stack.Screen
+                name="UserTabs"
+                options={{ headerShown: false }}
+              >
+                {(props) => (
+                  <UserBottomTabs {...props} onLogout={handleLogout} />
+                )}
+              </Stack.Screen>
+            )}
 
             <Stack.Screen
               name="Emergency"
@@ -129,12 +145,6 @@ export default function App() {
               name="Map"
               component={MapScreen}
               options={{ title: 'Live Map' }}
-            />
-
-            <Stack.Screen
-              name="AdminMapTab"
-              component={MapScreen}
-              options={{ title: 'Admin Live Map' }}
             />
 
             <Stack.Screen

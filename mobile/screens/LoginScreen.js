@@ -9,8 +9,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE_URL from '../config';
-
-// ✅ Design System
 import { COLORS, RADIUS, SPACING } from '../theme';
 import AppButton from '../components/AppButton';
 import AppInput from '../components/AppInput';
@@ -38,20 +36,27 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
       const data = await response.json();
 
+      console.log('Login response:', data);
+
       if (data.error) {
         Alert.alert('Login Failed', data.error);
         return;
       }
 
+      const roleFromBackend = data?.data?.role || 'user';
+
+      console.log('Role from backend:', roleFromBackend);
+      console.log('User email from backend:', data?.data?.email);
+
       await AsyncStorage.setItem('userId', String(data.data.id));
       await AsyncStorage.setItem('userName', data.data.name || '');
       await AsyncStorage.setItem('userEmail', data.data.email || '');
-      await AsyncStorage.setItem('userRole', data.data.role || 'user');
+      await AsyncStorage.setItem('userRole', roleFromBackend);
 
-      Alert.alert('Success', 'Login successful');
+      Alert.alert('Success', `Login successful as ${roleFromBackend}`);
 
       if (onLoginSuccess) {
-        onLoginSuccess(data.data.role || 'user');
+        onLoginSuccess();
       }
     } catch (error) {
       console.log('Login Error:', error);
@@ -64,7 +69,6 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {/* 🔥 HERO */}
       <View style={styles.heroCard}>
         <Text style={styles.heroTitle}>Welcome to ResQ AI</Text>
         <Text style={styles.heroSubtitle}>
@@ -72,7 +76,6 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
         </Text>
       </View>
 
-      {/* 🔥 FORM */}
       <AppCard>
         <Text style={styles.formTitle}>Login</Text>
         <Text style={styles.formSubtitle}>Sign in to continue</Text>
@@ -94,12 +97,10 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
           secureTextEntry
         />
 
-        {/* 🔥 BUTTON */}
         <View style={{ marginTop: 18 }}>
           <AppButton title="Login" onPress={handleLogin} />
         </View>
 
-        {/* 🔥 LINK */}
         <TouchableOpacity
           style={styles.linkWrapper}
           onPress={() => navigation.navigate('Register')}
