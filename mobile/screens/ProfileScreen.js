@@ -11,13 +11,15 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
-// ✅ Design system
-import { COLORS, SPACING, RADIUS } from '../theme';
+import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
 import AppCard from '../components/AppCard';
 import AppInput from '../components/AppInput';
 import AppButton from '../components/AppButton';
+import SectionHeader from '../components/SectionHeader';
+import AppChip from '../components/AppChip';
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,9 @@ export default function ProfileScreen() {
 
       const res = await fetch(`${API_BASE_URL}/profile/${userId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           blood_group: bloodGroup,
           emergency_contact_phone: emergencyContactPhone,
@@ -133,10 +137,15 @@ export default function ProfileScreen() {
     }
   };
 
+  const getInitial = () => {
+    if (!name) return 'U';
+    return name.charAt(0).toUpperCase();
+  };
+
   if (loading) {
     return (
       <ActivityIndicator
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: COLORS.background }}
         size="large"
         color={COLORS.primary}
       />
@@ -144,24 +153,43 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerCard}>
-        <Text style={styles.title}>My Profile</Text>
-        <Text style={styles.subtitle}>
-          Manage your personal and emergency information
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <LinearGradient
+        colors={GRADIENTS.pinkPurple}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
+      >
+        <Text style={styles.heroTitle}>My Profile</Text>
+        <Text style={styles.heroSubtitle}>
+          Keep your identity, health info, and emergency contact ready.
         </Text>
-      </View>
 
-      <AppCard style={styles.profileTopCard}>
-        <TouchableOpacity style={styles.imageWrapper} onPress={pickImage} activeOpacity={0.9}>
+        <View style={styles.heroChipRow}>
+          <AppChip label="Safe Profile" type="purple" />
+          <View style={{ width: 8 }} />
+          <AppChip label="Quick Access" type="info" />
+        </View>
+      </LinearGradient>
+
+      <AppCard style={styles.topProfileCard} variant="blue">
+        <TouchableOpacity
+          style={styles.imageWrapper}
+          onPress={pickImage}
+          activeOpacity={0.9}
+        >
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
           ) : (
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>
-                {name ? name.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            </View>
+            <LinearGradient
+              colors={GRADIENTS.primary}
+              style={styles.placeholderImage}
+            >
+              <Text style={styles.placeholderText}>{getInitial()}</Text>
+            </LinearGradient>
           )}
         </TouchableOpacity>
 
@@ -172,15 +200,25 @@ export default function ProfileScreen() {
         </View>
       </AppCard>
 
-      <AppCard>
-        <Text style={styles.sectionTitle}>Safety Information</Text>
+      <SectionHeader
+        title="Personal Information"
+        subtitle="Basic account details"
+      />
 
+      <AppCard variant="purple" style={styles.infoCard}>
         <Text style={styles.label}>Name</Text>
         <AppInput value={name} editable={false} />
 
         <Text style={styles.label}>Email</Text>
         <AppInput value={email} editable={false} />
+      </AppCard>
 
+      <SectionHeader
+        title="Emergency Details"
+        subtitle="Important health and contact information"
+      />
+
+      <AppCard style={styles.formCard}>
         <Text style={styles.label}>Blood Group</Text>
         <AppInput
           placeholder="e.g. O+"
@@ -198,11 +236,11 @@ export default function ProfileScreen() {
 
         <Text style={styles.label}>Medical Notes</Text>
         <AppInput
-          placeholder="Allergies, conditions..."
+          placeholder="Allergies, conditions, medicines..."
           value={medicalNotes}
           onChangeText={setMedicalNotes}
           multiline
-          style={styles.multiline}
+          style={styles.multilineInput}
         />
 
         <Text style={styles.label}>Address</Text>
@@ -210,13 +248,15 @@ export default function ProfileScreen() {
           placeholder="Your address"
           value={address}
           onChangeText={setAddress}
+          multiline
+          style={styles.addressInput}
         />
 
-        <View style={{ marginTop: 18 }}>
+        <View style={styles.buttonWrap}>
           <AppButton
             title="Save Profile"
             onPress={handleSave}
-            color={COLORS.success}
+            variant="success"
           />
         </View>
       </AppCard>
@@ -226,49 +266,58 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: 140,
     backgroundColor: COLORS.background,
     flexGrow: 1,
-    paddingBottom: 100,
   },
 
-  headerCard: {
-    marginBottom: SPACING.md,
+  heroCard: {
+    borderRadius: RADIUS.xl,
+    padding: 24,
+    marginBottom: 22,
+    ...SHADOW.card,
   },
-  title: {
+  heroTitle: {
+    color: COLORS.textLight,
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
   },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 4,
+  heroSubtitle: {
+    color: '#FCE7F3',
+    fontSize: 14,
+    marginTop: 8,
+    lineHeight: 21,
   },
-
-  profileTopCard: {
+  heroChipRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginTop: 14,
+  },
+
+  topProfileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   imageWrapper: {
     marginRight: 16,
   },
   profileImage: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
   },
   placeholderImage: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: COLORS.primary,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 30,
     fontWeight: 'bold',
   },
@@ -276,7 +325,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nameText: {
-    fontSize: 22,
+    fontSize: 23,
     fontWeight: 'bold',
     color: COLORS.textPrimary,
   },
@@ -287,16 +336,16 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     fontSize: 13,
-    color: COLORS.primary,
+    color: COLORS.secondary,
     marginTop: 8,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
+  infoCard: {
+    marginBottom: 22,
+  },
+  formCard: {
+    marginBottom: 20,
   },
 
   label: {
@@ -307,8 +356,16 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
 
-  multiline: {
-    height: 80,
-    borderRadius: RADIUS.md,
+  multilineInput: {
+    minHeight: 92,
+    textAlignVertical: 'top',
+  },
+  addressInput: {
+    minHeight: 82,
+    textAlignVertical: 'top',
+  },
+
+  buttonWrap: {
+    marginTop: 20,
   },
 });
