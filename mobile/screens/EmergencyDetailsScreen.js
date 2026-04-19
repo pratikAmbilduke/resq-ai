@@ -12,7 +12,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
+
+import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
+import AppCard from '../components/AppCard';
+import AppChip from '../components/AppChip';
+import SectionHeader from '../components/SectionHeader';
 
 export default function EmergencyDetailsScreen({ route }) {
   const emergency = route?.params?.emergency;
@@ -112,23 +118,23 @@ export default function EmergencyDetailsScreen({ route }) {
     }
   };
 
-  const getPriorityColor = (value) => {
+  const getPriorityChipType = (value) => {
     const p = String(value || '').toLowerCase();
-    if (p === 'low') return '#6c757d';
-    if (p === 'medium') return '#0d6efd';
-    if (p === 'high') return '#fd7e14';
-    if (p === 'critical') return '#dc3545';
-    return '#6b7280';
+    if (p === 'low') return 'default';
+    if (p === 'medium') return 'info';
+    if (p === 'high') return 'warning';
+    if (p === 'critical') return 'danger';
+    return 'default';
   };
 
-  const getStatusColor = (value) => {
+  const getStatusChipType = (value) => {
     const s = String(value || '').toLowerCase();
-    if (s === 'pending') return '#d4a017';
-    if (s === 'accepted') return '#6f42c1';
-    if (s === 'in progress') return '#0d6efd';
-    if (s === 'resolved') return '#198754';
-    if (s === 'cancelled') return '#dc3545';
-    return '#6b7280';
+    if (s === 'pending') return 'warning';
+    if (s === 'accepted') return 'purple';
+    if (s === 'in progress') return 'info';
+    if (s === 'resolved') return 'success';
+    if (s === 'cancelled') return 'danger';
+    return 'default';
   };
 
   const updateStatus = async (newStatus) => {
@@ -222,173 +228,235 @@ export default function EmergencyDetailsScreen({ route }) {
     latitude !== 0 &&
     longitude !== 0;
 
-  const statusColor = getStatusColor(status);
-  const priorityColor = getPriorityColor(priority);
-
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCard}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <LinearGradient
+        colors={GRADIENTS.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
+      >
         <Text style={styles.heroTitle}>Emergency Details</Text>
         <Text style={styles.heroSubtitle}>
-          Track request details, provider movement, and current progress.
+          View complete request information, live tracking, and response updates.
         </Text>
-      </View>
 
-      <View style={styles.infoCard}>
-        <View style={styles.topBadgesRow}>
-          <Text style={[styles.statusBadge, { color: statusColor, borderColor: statusColor }]}>
-            {String(status || 'unknown').toUpperCase()}
-          </Text>
+        <View style={styles.heroChipRow}>
+          <AppChip
+            label={String(status || 'pending').toUpperCase()}
+            type={getStatusChipType(status)}
+          />
+          <View style={{ width: 8 }} />
+          <AppChip
+            label={String(priority || 'medium').toUpperCase()}
+            type={getPriorityChipType(priority)}
+          />
+        </View>
+      </LinearGradient>
 
-          <Text style={[styles.priorityBadge, { backgroundColor: priorityColor }]}>
-            {String(priority || 'medium').toUpperCase()}
-          </Text>
+      <SectionHeader
+        title="Request Information"
+        subtitle="All key emergency details in one place"
+      />
+
+      <AppCard style={styles.detailsCard}>
+        <View style={styles.infoBlock}>
+          <Text style={styles.label}>Type</Text>
+          <Text style={styles.value}>{emergency.type || '-'}</Text>
         </View>
 
-        <Text style={styles.label}>Type</Text>
-        <Text style={styles.value}>{emergency.type || '-'}</Text>
+        <View style={styles.infoBlock}>
+          <Text style={styles.label}>Description</Text>
+          <Text style={styles.value}>{emergency.description || '-'}</Text>
+        </View>
 
-        <Text style={styles.label}>Description</Text>
-        <Text style={styles.value}>{emergency.description || '-'}</Text>
+        <View style={styles.infoBlock}>
+          <Text style={styles.label}>Location</Text>
+          <Text style={styles.value}>{emergency.location_text || '-'}</Text>
+        </View>
 
-        <Text style={styles.label}>Location</Text>
-        <Text style={styles.value}>{emergency.location_text || '-'}</Text>
-
-        <View style={styles.coordRow}>
-          <View style={styles.coordBox}>
-            <Text style={styles.coordLabel}>Latitude</Text>
-            <Text style={styles.coordValue}>{String(emergency.latitude ?? '-')}</Text>
+        <View style={styles.rowInfo}>
+          <View style={styles.halfBlock}>
+            <Text style={styles.label}>Latitude</Text>
+            <Text style={styles.value}>{String(emergency.latitude ?? '-')}</Text>
           </View>
 
-          <View style={styles.coordBox}>
-            <Text style={styles.coordLabel}>Longitude</Text>
-            <Text style={styles.coordValue}>{String(emergency.longitude ?? '-')}</Text>
+          <View style={styles.halfBlock}>
+            <Text style={styles.label}>Longitude</Text>
+            <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
+          </View>
+        </View>
+
+        <View style={styles.rowInfo}>
+          <View style={styles.halfBlock}>
+            <Text style={styles.label}>Status</Text>
+            <View style={styles.chipWrap}>
+              <AppChip
+                label={String(status || 'pending').toUpperCase()}
+                type={getStatusChipType(status)}
+              />
+            </View>
+          </View>
+
+          <View style={styles.halfBlock}>
+            <Text style={styles.label}>Priority</Text>
+            <View style={styles.chipWrap}>
+              <AppChip
+                label={String(priority || 'medium').toUpperCase()}
+                type={getPriorityChipType(priority)}
+              />
+            </View>
           </View>
         </View>
 
         {acceptedBy ? (
-          <>
-            <Text style={styles.label}>Assigned Provider</Text>
-            <Text style={styles.assignedText}>{acceptedBy}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.label}>Assigned Provider</Text>
-            <Text style={styles.unassignedText}>Not assigned yet</Text>
-          </>
-        )}
-      </View>
+          <View style={styles.infoBlock}>
+            <Text style={styles.label}>Accepted By</Text>
+            <Text style={styles.acceptedByText}>{acceptedBy}</Text>
+          </View>
+        ) : null}
+      </AppCard>
 
       {hasValidCoords && (
-        <View style={styles.mapCard}>
-          <View style={styles.mapHeaderRow}>
-            <Text style={styles.mapTitle}>Live Tracking Map</Text>
-            <TouchableOpacity style={styles.mapActionChip} onPress={openInMaps}>
-              <Text style={styles.mapActionChipText}>Navigate</Text>
-            </TouchableOpacity>
-          </View>
+        <>
+          <SectionHeader
+            title="Live Tracking"
+            subtitle="Track emergency location and provider movement"
+          />
 
-          <View style={styles.mapContainer}>
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude,
-                longitude,
-                latitudeDelta: 0.02,
-                longitudeDelta: 0.02,
-              }}
-            >
-              <Marker
-                coordinate={{ latitude, longitude }}
-                title={emergency.type || 'Emergency'}
-                description={emergency.location_text || 'Emergency Location'}
-                pinColor="red"
-              />
-
-              {providerLocation?.latitude && providerLocation?.longitude ? (
+          <AppCard style={styles.mapCard}>
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude,
+                  longitude,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+              >
                 <Marker
-                  coordinate={{
-                    latitude: Number(providerLocation.latitude),
-                    longitude: Number(providerLocation.longitude),
-                  }}
-                  title={providerLocation.provider_name || 'Provider'}
-                  description="Live Provider Location"
-                >
-                  <View style={styles.providerMarkerOuter}>
-                    <View style={styles.providerMarkerMiddle}>
-                      <View style={styles.providerMarkerInner} />
-                    </View>
-                  </View>
-                </Marker>
-              ) : null}
-
-              {routeCoordinates.length === 2 ? (
-                <Polyline
-                  coordinates={routeCoordinates}
-                  strokeColor="#0d6efd"
-                  strokeWidth={4}
+                  coordinate={{ latitude, longitude }}
+                  title={emergency.type || 'Emergency'}
+                  description={emergency.location_text || 'Emergency Location'}
+                  pinColor="red"
                 />
-              ) : null}
-            </MapView>
-          </View>
 
-          <TouchableOpacity style={styles.fullWidthButton} onPress={openInMaps}>
-            <Text style={styles.fullWidthButtonText}>Open Navigation</Text>
-          </TouchableOpacity>
-        </View>
+                {providerLocation?.latitude && providerLocation?.longitude ? (
+                  <Marker
+                    coordinate={{
+                      latitude: Number(providerLocation.latitude),
+                      longitude: Number(providerLocation.longitude),
+                    }}
+                    title={providerLocation.provider_name || 'Provider'}
+                    description="Live Provider Location"
+                  >
+                    <View style={styles.providerMarkerOuter}>
+                      <View style={styles.providerMarkerMiddle}>
+                        <View style={styles.providerMarkerInner} />
+                      </View>
+                    </View>
+                  </Marker>
+                ) : null}
+
+                {routeCoordinates.length === 2 ? (
+                  <Polyline
+                    coordinates={routeCoordinates}
+                    strokeColor="#0d6efd"
+                    strokeWidth={4}
+                  />
+                ) : null}
+              </MapView>
+            </View>
+
+            <TouchableOpacity
+              style={styles.mapButtonWrap}
+              onPress={openInMaps}
+              activeOpacity={0.92}
+            >
+              <LinearGradient
+                colors={GRADIENTS.blueCyan}
+                style={styles.mapButton}
+              >
+                <Text style={styles.mapButtonText}>Open Navigation</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </AppCard>
+        </>
       )}
 
-      {userRole === 'admin' ? (
-        <View style={styles.actionCard}>
-          <Text style={styles.actionTitle}>Update Status</Text>
+      {userRole === 'admin' && (
+        <>
+          <SectionHeader
+            title="Status Actions"
+            subtitle="Update current emergency progress"
+          />
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptedButton]}
-            onPress={() => updateStatus('accepted')}
-            disabled={loading}
-          >
-            <Text style={styles.actionButtonText}>Accept Request</Text>
-          </TouchableOpacity>
+          <AppCard style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionWrap}
+              onPress={() => updateStatus('accepted')}
+              disabled={loading}
+              activeOpacity={0.92}
+            >
+              <LinearGradient colors={GRADIENTS.pinkPurple} style={styles.statusButton}>
+                <Text style={styles.statusButtonText}>Accept Request</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.pendingButton]}
-            onPress={() => updateStatus('pending')}
-            disabled={loading}
-          >
-            <Text style={styles.actionButtonText}>Set Pending</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionWrap}
+              onPress={() => updateStatus('pending')}
+              disabled={loading}
+              activeOpacity={0.92}
+            >
+              <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.statusButton}>
+                <Text style={styles.statusButtonText}>Set Pending</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.progressButton]}
-            onPress={() => updateStatus('in progress')}
-            disabled={loading}
-          >
-            <Text style={styles.actionButtonText}>Set In Progress</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionWrap}
+              onPress={() => updateStatus('in progress')}
+              disabled={loading}
+              activeOpacity={0.92}
+            >
+              <LinearGradient colors={GRADIENTS.blueCyan} style={styles.statusButton}>
+                <Text style={styles.statusButtonText}>Set In Progress</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.resolvedButton]}
-            onPress={() => updateStatus('resolved')}
-            disabled={loading}
-          >
-            <Text style={styles.actionButtonText}>Set Resolved</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionWrap}
+              onPress={() => updateStatus('resolved')}
+              disabled={loading}
+              activeOpacity={0.92}
+            >
+              <LinearGradient colors={GRADIENTS.greenBlue} style={styles.statusButton}>
+                <Text style={styles.statusButtonText}>Set Resolved</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          {loading ? (
-            <ActivityIndicator
-              size="large"
-              color="#0d6efd"
-              style={{ marginTop: 14 }}
-            />
-          ) : null}
-        </View>
-      ) : (
-        <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>User View</Text>
+            {loading && (
+              <ActivityIndicator
+                size="large"
+                color={COLORS.primary}
+                style={{ marginTop: 16 }}
+              />
+            )}
+          </AppCard>
+        </>
+      )}
+
+      {userRole !== 'admin' && (
+        <AppCard variant="purple" style={styles.noteCard}>
           <Text style={styles.noteText}>
-            You can track the request and assigned provider here. Only admin can update the request status.
+            Only admin can update emergency status.
           </Text>
-        </View>
+        </AppCard>
       )}
     </ScrollView>
   );
@@ -396,174 +464,106 @@ export default function EmergencyDetailsScreen({ route }) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 18,
-    backgroundColor: '#f3f5f7',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: 140,
+    backgroundColor: COLORS.background,
     flexGrow: 1,
-    paddingBottom: 100,
   },
+
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f5f7',
+    backgroundColor: COLORS.background,
   },
   emptyText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: COLORS.textSecondary,
   },
 
   heroCard: {
-    backgroundColor: '#111827',
-    borderRadius: 24,
-    padding: 22,
-    marginBottom: 18,
+    borderRadius: RADIUS.xl,
+    padding: 24,
+    marginBottom: 24,
+    ...SHADOW.card,
   },
   heroTitle: {
-    color: '#fff',
+    color: COLORS.textLight,
     fontSize: 24,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#d1d5db',
+    color: '#E0E7FF',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 20,
+    lineHeight: 21,
+  },
+  heroChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
   },
 
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+  detailsCard: {
+    marginBottom: 24,
   },
-  topBadgesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  infoBlock: {
     marginBottom: 14,
-    gap: 10,
   },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: 'bold',
+  rowInfo: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
   },
-  priorityBadge: {
-    color: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    fontSize: 11,
-    fontWeight: 'bold',
+  halfBlock: {
+    flex: 1,
   },
   label: {
     fontSize: 13,
-    fontWeight: 'bold',
-    color: '#6b7280',
-    marginTop: 12,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
   },
   value: {
     fontSize: 16,
-    color: '#111827',
-    marginTop: 6,
+    color: COLORS.textPrimary,
     lineHeight: 22,
+    fontWeight: '500',
   },
-  assignedText: {
-    color: '#6f42c1',
-    fontWeight: '700',
+  chipWrap: {
+    marginTop: 2,
+  },
+  acceptedByText: {
+    color: COLORS.secondary,
     fontSize: 16,
-    marginTop: 6,
-  },
-  unassignedText: {
-    color: '#6b7280',
-    fontWeight: '600',
-    fontSize: 15,
-    marginTop: 6,
-  },
-
-  coordRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  coordBox: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-    borderRadius: 16,
-    padding: 14,
-  },
-  coordLabel: {
-    fontSize: 12,
     fontWeight: '700',
-    color: '#6b7280',
-  },
-  coordValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginTop: 6,
   },
 
   mapCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  mapHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
-  },
-  mapTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  mapActionChip: {
-    backgroundColor: '#e8f1ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  mapActionChipText: {
-    color: '#0d6efd',
-    fontWeight: '700',
-    fontSize: 12,
+    marginBottom: 24,
   },
   mapContainer: {
     height: 300,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   map: {
     width: '100%',
     height: '100%',
   },
-  fullWidthButton: {
-    backgroundColor: '#0d6efd',
-    marginTop: 14,
-    paddingVertical: 15,
-    borderRadius: 14,
-    alignItems: 'center',
+  mapButtonWrap: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  fullWidthButtonText: {
-    color: '#fff',
+  mapButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapButtonText: {
+    color: COLORS.textLight,
     fontSize: 15,
     fontWeight: 'bold',
   },
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(13, 110, 253, 0.25)',
+    backgroundColor: 'rgba(59, 130, 246, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -588,69 +588,37 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#0d6efd',
+    backgroundColor: '#3B82F6',
   },
 
   actionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    marginBottom: 24,
   },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 14,
-  },
-  actionButton: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
+  actionWrap: {
+    borderRadius: 16,
+    overflow: 'hidden',
     marginBottom: 12,
   },
-  acceptedButton: {
-    backgroundColor: '#6f42c1',
+  statusButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pendingButton: {
-    backgroundColor: '#d4a017',
-  },
-  progressButton: {
-    backgroundColor: '#0d6efd',
-  },
-  resolvedButton: {
-    backgroundColor: '#198754',
-  },
-  actionButtonText: {
-    color: '#fff',
+  statusButtonText: {
+    color: COLORS.textLight,
     fontWeight: 'bold',
     fontSize: 15,
   },
 
   noteCard: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  noteTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 8,
+    marginBottom: 24,
+    alignItems: 'center',
+    paddingVertical: 18,
   },
   noteText: {
-    color: '#6b7280',
+    color: COLORS.textSecondary,
     fontSize: 14,
-    lineHeight: 21,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });
