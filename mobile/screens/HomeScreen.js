@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
 export default function HomeScreen({ navigation, onLogout }) {
@@ -27,13 +28,9 @@ export default function HomeScreen({ navigation, onLogout }) {
   const intervalRef = useRef(null);
 
   const clearPolling = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
-  // 🔥 Send location
   const sendLocation = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
@@ -53,65 +50,38 @@ export default function HomeScreen({ navigation, onLogout }) {
           longitude: location.coords.longitude,
         }),
       });
-    } catch (error) {
-      console.log('Location Error:', error);
-    }
+    } catch (e) {}
   };
 
-  // 🔥 Load profile
-  const loadProfileData = async (userId) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/profile/${userId}`);
-      const data = await res.json();
+  const loadData = async () => {
+    const name = await AsyncStorage.getItem('userName');
+    const role = await AsyncStorage.getItem('userRole');
+    const userId = await AsyncStorage.getItem('userId');
+    const img = await AsyncStorage.getItem('userProfileImage');
 
-      if (data && !data.error) {
-        setEmergencyContactPhone(data.emergency_contact_phone || '');
-      }
-    } catch {
-      setEmergencyContactPhone('');
-    }
-  };
+    setUserName(name || 'User');
+    setUserRole(role || 'user');
+    setProfileImage(img || '');
 
-  // 🔥 Load home data
-  const loadHomeData = async () => {
-    try {
-      const name = await AsyncStorage.getItem('userName');
-      const role = await AsyncStorage.getItem('userRole');
-      const userId = await AsyncStorage.getItem('userId');
-      const img = await AsyncStorage.getItem('userProfileImage');
+    if (!userId) return;
 
-      setUserName(name || 'User');
-      setUserRole(role || 'user');
-      setProfileImage(img || '');
+    const res = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
+    const data = await res.json();
 
-      if (!userId) return;
+    if (!Array.isArray(data)) return;
 
-      await loadProfileData(userId);
-
-      if (role === 'admin') return;
-
-      const res = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
-      const data = await res.json();
-
-      if (!Array.isArray(data)) return;
-
-      setPendingCount(data.filter(i => i.status === 'pending').length);
-      setProgressCount(data.filter(i => i.status === 'in progress').length);
-      setResolvedCount(data.filter(i => i.status === 'resolved').length);
-
-    } catch (e) {
-      console.log('Home Error:', e);
-    }
+    setPendingCount(data.filter(i => i.status === 'pending').length);
+    setProgressCount(data.filter(i => i.status === 'in progress').length);
+    setResolvedCount(data.filter(i => i.status === 'resolved').length);
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadHomeData();
+      loadData();
       sendLocation();
 
-      clearPolling();
       intervalRef.current = setInterval(() => {
-        loadHomeData();
+        loadData();
         sendLocation();
       }, 6000);
 
@@ -119,29 +89,8 @@ export default function HomeScreen({ navigation, onLogout }) {
     }, [])
   );
 
-  useEffect(() => () => clearPolling(), []);
-
-  // 🔥 Logout
-  const handleLogout = async () => {
-    await AsyncStorage.clear();
-    if (onLogout) onLogout();
-  };
-
-  // 🔥 Call function
-  const callPhoneNumber = async (number) => {
-    if (!number) return Alert.alert('Error', 'Number not available');
-
-    const url = `tel:${number}`;
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) return Alert.alert('Error', 'Call not supported');
-
-    Linking.openURL(url);
-  };
-
   const firstName = userName.split(' ')[0];
 
-  // 🔥 Profile UI
   const renderProfile = () => (
     profileImage
       ? <Image source={{ uri: profileImage }} style={styles.profileImage} />
@@ -152,49 +101,11 @@ export default function HomeScreen({ navigation, onLogout }) {
       )
   );
 
-  // ================= ADMIN =================
-  if (userRole === 'admin') {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.profileRow}>
-            {renderProfile()}
-            <View>
-              <Text style={styles.greeting}>Welcome</Text>
-              <Text style={styles.name}>{firstName}</Text>
-              <Text style={styles.role}>Admin</Text>
-            </View>
-          </View>
+  const call = (num) => Linking.openURL(`tel:${num}`);
 
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.heroDark}>
-          <Text style={styles.heroTitle}>Control Center</Text>
-          <Text style={styles.heroSub}>
-            Manage emergencies & monitor activity
-          </Text>
-        </View>
-
-        <TouchableOpacity style={styles.bigCard}
-          onPress={() => navigation.navigate('RequestsTab')}>
-          <Text style={styles.cardTitle}>🛠 Manage Requests</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.smallCard}
-          onPress={() => navigation.navigate('AdminMapTab')}>
-          <Text style={styles.cardTitleDark}>📍 Live Map</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
-  // ================= USER =================
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      
+
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.profileRow}>
@@ -205,33 +116,40 @@ export default function HomeScreen({ navigation, onLogout }) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+          <Text style={{ color: '#fff' }}>Logout</Text>
         </TouchableOpacity>
       </View>
 
-      {/* HERO */}
-      <View style={styles.heroBlue}>
+      {/* 🔥 GRADIENT HERO */}
+      <LinearGradient
+        colors={['#0d6efd', '#6610f2']}
+        style={styles.hero}
+      >
         <Text style={styles.heroTitle}>Emergency Support</Text>
-        <Text style={styles.heroSub}>Fast help when you need it</Text>
+        <Text style={styles.heroSub}>Fast, reliable, real-time help</Text>
+      </LinearGradient>
+
+      {/* 🔥 FLOATING SOS */}
+      <View style={styles.sosWrapper}>
+        <TouchableOpacity
+          style={styles.sos}
+          onPress={() => navigation.navigate('Emergency')}
+        >
+          <Text style={styles.sosText}>SOS</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* SOS */}
-      <TouchableOpacity style={styles.sosBtn}
-        onPress={() => navigation.navigate('Emergency')}>
-        <Text style={styles.sosText}>SOS</Text>
-      </TouchableOpacity>
-
-      {/* QUICK ACTION */}
+      {/* ACTION CARDS */}
       <View style={styles.row}>
-        <TouchableOpacity style={styles.actionRed}
-          onPress={() => callPhoneNumber('112')}>
-          <Text style={styles.actionText}>📞 Call 112</Text>
+        <TouchableOpacity style={styles.cardRed} onPress={() => call('112')}>
+          <Text style={styles.cardTitle}>📞 Call 112</Text>
+          <Text style={styles.cardSub}>Emergency number</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionGreen}
-          onPress={() => callPhoneNumber(emergencyContactPhone)}>
-          <Text style={styles.actionText}>👤 Contact</Text>
+        <TouchableOpacity style={styles.cardGreen}>
+          <Text style={styles.cardTitle}>👤 Contact</Text>
+          <Text style={styles.cardSub}>Saved contact</Text>
         </TouchableOpacity>
       </View>
 
@@ -255,7 +173,7 @@ export default function HomeScreen({ navigation, onLogout }) {
   );
 }
 
-// ================= STYLES =================
+// 🎨 STYLES
 const styles = StyleSheet.create({
   container: {
     padding: 18,
@@ -268,37 +186,24 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  profileRow: { flexDirection: 'row', alignItems: 'center' },
 
-  profileImage: {
-    width: 55,
-    height: 55,
-    borderRadius: 28,
-    marginRight: 10,
-  },
+  profileImage: { width: 55, height: 55, borderRadius: 30, marginRight: 10 },
 
   profilePlaceholder: {
     width: 55,
     height: 55,
-    borderRadius: 28,
+    borderRadius: 30,
     backgroundColor: '#0d6efd',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
 
-  profileText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  profileText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
 
   greeting: { color: '#6b7280' },
   name: { fontSize: 20, fontWeight: 'bold' },
-  role: { color: '#0d6efd' },
 
   logoutBtn: {
     backgroundColor: '#111',
@@ -306,35 +211,32 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
 
-  logoutText: { color: '#fff' },
+  hero: {
+    padding: 25,
+    borderRadius: 25,
+    marginBottom: 30,
+  },
 
-  heroBlue: {
-    backgroundColor: '#0d6efd',
-    padding: 20,
-    borderRadius: 20,
+  heroTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
+  heroSub: { color: '#e0e0e0', marginTop: 5 },
+
+  sosWrapper: {
+    alignItems: 'center',
+    marginTop: -60,
     marginBottom: 20,
   },
 
-  heroDark: {
-    backgroundColor: '#111',
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-
-  heroTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  heroSub: { color: '#ddd', marginTop: 5 },
-
-  sosBtn: {
+  sos: {
     backgroundColor: 'red',
+    width: 120,
     height: 120,
     borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    elevation: 10,
   },
 
-  sosText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+  sosText: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
 
   row: {
     flexDirection: 'row',
@@ -342,48 +244,36 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
 
-  actionRed: {
+  cardRed: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 15,
-    marginRight: 5,
+    padding: 18,
+    borderRadius: 20,
+    marginRight: 8,
+    elevation: 3,
   },
 
-  actionGreen: {
+  cardGreen: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 15,
-    marginLeft: 5,
+    padding: 18,
+    borderRadius: 20,
+    marginLeft: 8,
+    elevation: 3,
   },
 
-  actionText: { fontWeight: 'bold' },
+  cardTitle: { fontWeight: 'bold', fontSize: 16 },
+  cardSub: { fontSize: 12, color: '#777', marginTop: 4 },
 
   statusCard: {
     flex: 1,
     backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 15,
+    borderRadius: 20,
     alignItems: 'center',
-    marginHorizontal: 3,
+    marginHorizontal: 4,
+    elevation: 2,
   },
 
   count: { fontSize: 22, fontWeight: 'bold' },
-
-  bigCard: {
-    backgroundColor: '#0d6efd',
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-
-  smallCard: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 20,
-  },
-
-  cardTitle: { color: '#fff', fontSize: 18 },
-  cardTitleDark: { fontSize: 18 },
 });
