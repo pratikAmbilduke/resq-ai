@@ -11,11 +11,13 @@ import {
   TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import API_BASE_URL from '../config';
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -62,6 +64,62 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  const handlePickImage = async () => {
+    try {
+      setUploadingImage(true);
+
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Gallery permission is needed to upload profile image.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const imageUri = result.assets?.[0]?.uri || '';
+
+      if (!imageUri) {
+        Alert.alert('Error', 'Image not selected');
+        return;
+      }
+
+      setProfileImage(imageUri);
+      await AsyncStorage.setItem('userProfileImage', imageUri);
+
+      Alert.alert('Success', 'Profile image updated');
+    } catch (error) {
+      console.log('Pick image error:', error);
+      Alert.alert('Error', 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    try {
+      setProfileImage('');
+      await AsyncStorage.removeItem('userProfileImage');
+      Alert.alert('Success', 'Profile image removed');
+    } catch (error) {
+      console.log('Remove image error:', error);
+      Alert.alert('Error', 'Failed to remove image');
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -116,7 +174,10 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.heroCard}>
         <Text style={styles.heroTitle}>My Profile</Text>
         <Text style={styles.heroSubtitle}>
@@ -135,6 +196,29 @@ export default function ProfileScreen() {
 
         <Text style={styles.profileName}>{name || 'User'}</Text>
         <Text style={styles.profileEmail}>{email || 'No email available'}</Text>
+
+        <View style={styles.imageButtonRow}>
+          <TouchableOpacity
+            style={[styles.imageButton, styles.uploadButton]}
+            onPress={handlePickImage}
+            disabled={uploadingImage}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.imageButtonText}>
+              {uploadingImage ? 'Uploading...' : 'Upload Image'}
+            </Text>
+          </TouchableOpacity>
+
+          {profileImage ? (
+            <TouchableOpacity
+              style={[styles.imageButton, styles.removeButton]}
+              onPress={handleRemoveImage}
+              activeOpacity={0.9}
+            >
+              <Text style={styles.imageButtonText}>Remove</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -279,6 +363,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     marginTop: 4,
+  },
+
+  imageButtonRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+  },
+  imageButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginHorizontal: 6,
+  },
+  uploadButton: {
+    backgroundColor: '#0d6efd',
+  },
+  removeButton: {
+    backgroundColor: '#ef4444',
+  },
+  imageButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
 
   card: {
