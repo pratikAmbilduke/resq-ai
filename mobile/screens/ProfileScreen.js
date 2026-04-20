@@ -6,43 +6,36 @@ import {
   ActivityIndicator,
   Alert,
   View,
-  TouchableOpacity,
   Image,
+  TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
-
-import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
-import AppCard from '../components/AppCard';
-import AppInput from '../components/AppInput';
-import AppButton from '../components/AppButton';
-import SectionHeader from '../components/SectionHeader';
-import AppChip from '../components/AppChip';
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [profileImage, setProfileImage] = useState('');
 
   const [bloodGroup, setBloodGroup] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
   const [medicalNotes, setMedicalNotes] = useState('');
   const [address, setAddress] = useState('');
-  const [profileImage, setProfileImage] = useState('');
 
   const loadProfile = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
       const storedName = await AsyncStorage.getItem('userName');
       const storedEmail = await AsyncStorage.getItem('userEmail');
-      const storedImage = await AsyncStorage.getItem('userProfileImage');
+      const storedProfileImage = await AsyncStorage.getItem('userProfileImage');
 
       setName(storedName || '');
       setEmail(storedEmail || '');
-      setProfileImage(storedImage || '');
+      setProfileImage(storedProfileImage || '');
 
       if (!userId) {
         setLoading(false);
@@ -70,37 +63,6 @@ export default function ProfileScreen() {
     loadProfile();
   }, []);
 
-  const pickImage = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Please allow gallery access to upload profile image.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const imageUri = result.assets[0].uri;
-        setProfileImage(imageUri);
-        await AsyncStorage.setItem('userProfileImage', imageUri);
-        Alert.alert('Success', 'Profile photo updated');
-      }
-    } catch (error) {
-      console.log('Pick image error:', error);
-      Alert.alert('Error', 'Failed to pick image');
-    }
-  };
-
   const handleSave = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
@@ -110,11 +72,11 @@ export default function ProfileScreen() {
         return;
       }
 
+      setSaving(true);
+
       const res = await fetch(`${API_BASE_URL}/profile/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           blood_group: bloodGroup,
           emergency_contact_phone: emergencyContactPhone,
@@ -134,238 +96,248 @@ export default function ProfileScreen() {
     } catch (error) {
       console.log('Save profile error:', error);
       Alert.alert('Error', 'Failed to update profile');
+    } finally {
+      setSaving(false);
     }
   };
 
   const getInitial = () => {
-    if (!name) return 'U';
-    return name.charAt(0).toUpperCase();
+    return name ? name.charAt(0).toUpperCase() : 'U';
   };
 
   if (loading) {
     return (
       <ActivityIndicator
-        style={{ flex: 1, backgroundColor: COLORS.background }}
+        style={{ flex: 1, backgroundColor: '#f3f5f7' }}
         size="large"
-        color={COLORS.primary}
+        color="#0d6efd"
       />
     );
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      <LinearGradient
-        colors={GRADIENTS.pinkPurple}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCard}>
         <Text style={styles.heroTitle}>My Profile</Text>
         <Text style={styles.heroSubtitle}>
-          Keep your identity, health info, and emergency contact ready.
+          Manage your personal, medical, and emergency information
         </Text>
+      </View>
 
-        <View style={styles.heroChipRow}>
-          <AppChip label="Safe Profile" type="purple" />
-          <View style={{ width: 8 }} />
-          <AppChip label="Quick Access" type="info" />
-        </View>
-      </LinearGradient>
+      <View style={styles.avatarSection}>
+        {profileImage ? (
+          <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarPlaceholderText}>{getInitial()}</Text>
+          </View>
+        )}
 
-      <AppCard style={styles.topProfileCard} variant="blue">
-        <TouchableOpacity
-          style={styles.imageWrapper}
-          onPress={pickImage}
-          activeOpacity={0.9}
-        >
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
-          ) : (
-            <LinearGradient
-              colors={GRADIENTS.primary}
-              style={styles.placeholderImage}
-            >
-              <Text style={styles.placeholderText}>{getInitial()}</Text>
-            </LinearGradient>
-          )}
-        </TouchableOpacity>
+        <Text style={styles.profileName}>{name || 'User'}</Text>
+        <Text style={styles.profileEmail}>{email || 'No email available'}</Text>
+      </View>
 
-        <View style={styles.profileInfo}>
-          <Text style={styles.nameText}>{name || 'User'}</Text>
-          <Text style={styles.emailText}>{email || 'No email available'}</Text>
-          <Text style={styles.changePhotoText}>Tap image to change photo</Text>
-        </View>
-      </AppCard>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Personal Info</Text>
 
-      <SectionHeader
-        title="Personal Information"
-        subtitle="Basic account details"
-      />
-
-      <AppCard variant="purple" style={styles.infoCard}>
         <Text style={styles.label}>Name</Text>
-        <AppInput value={name} editable={false} />
+        <TextInput
+          style={[styles.input, styles.disabledInput]}
+          value={name}
+          editable={false}
+          placeholder="Name"
+          placeholderTextColor="#9ca3af"
+        />
 
         <Text style={styles.label}>Email</Text>
-        <AppInput value={email} editable={false} />
-      </AppCard>
-
-      <SectionHeader
-        title="Emergency Details"
-        subtitle="Important health and contact information"
-      />
-
-      <AppCard style={styles.formCard}>
-        <Text style={styles.label}>Blood Group</Text>
-        <AppInput
-          placeholder="e.g. O+"
-          value={bloodGroup}
-          onChangeText={setBloodGroup}
-        />
-
-        <Text style={styles.label}>Emergency Contact</Text>
-        <AppInput
-          placeholder="Phone number"
-          value={emergencyContactPhone}
-          onChangeText={setEmergencyContactPhone}
-          keyboardType="phone-pad"
-        />
-
-        <Text style={styles.label}>Medical Notes</Text>
-        <AppInput
-          placeholder="Allergies, conditions, medicines..."
-          value={medicalNotes}
-          onChangeText={setMedicalNotes}
-          multiline
-          style={styles.multilineInput}
+        <TextInput
+          style={[styles.input, styles.disabledInput]}
+          value={email}
+          editable={false}
+          placeholder="Email"
+          placeholderTextColor="#9ca3af"
         />
 
         <Text style={styles.label}>Address</Text>
-        <AppInput
-          placeholder="Your address"
+        <TextInput
+          style={styles.input}
           value={address}
           onChangeText={setAddress}
-          multiline
-          style={styles.addressInput}
+          placeholder="Enter your address"
+          placeholderTextColor="#9ca3af"
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Medical Info</Text>
+
+        <Text style={styles.label}>Blood Group</Text>
+        <TextInput
+          style={styles.input}
+          value={bloodGroup}
+          onChangeText={setBloodGroup}
+          placeholder="e.g. O+"
+          placeholderTextColor="#9ca3af"
         />
 
-        <View style={styles.buttonWrap}>
-          <AppButton
-            title="Save Profile"
-            onPress={handleSave}
-            variant="success"
-          />
-        </View>
-      </AppCard>
+        <Text style={styles.label}>Medical Notes</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          value={medicalNotes}
+          onChangeText={setMedicalNotes}
+          placeholder="Allergies, conditions, important notes..."
+          placeholderTextColor="#9ca3af"
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Emergency Contact</Text>
+
+        <Text style={styles.label}>Emergency Contact Number</Text>
+        <TextInput
+          style={styles.input}
+          value={emergencyContactPhone}
+          onChangeText={setEmergencyContactPhone}
+          placeholder="Enter phone number"
+          placeholderTextColor="#9ca3af"
+          keyboardType="phone-pad"
+        />
+      </View>
+
+      <TouchableOpacity
+        style={[styles.saveButton, saving && styles.disabledButton]}
+        onPress={handleSave}
+        disabled={saving}
+        activeOpacity={0.9}
+      >
+        <Text style={styles.saveButtonText}>
+          {saving ? 'Saving...' : 'Save Profile'}
+        </Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: 140,
-    backgroundColor: COLORS.background,
+    padding: 18,
+    paddingBottom: 120,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
   },
 
   heroCard: {
-    borderRadius: RADIUS.xl,
-    padding: 24,
-    marginBottom: 22,
-    ...SHADOW.card,
+    backgroundColor: '#111827',
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 20,
   },
   heroTitle: {
-    color: COLORS.textLight,
+    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#FCE7F3',
+    color: '#d1d5db',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 21,
-  },
-  heroChipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
+    lineHeight: 20,
   },
 
-  topProfileCard: {
-    flexDirection: 'row',
+  avatarSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  imageWrapper: {
-    marginRight: 16,
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    marginBottom: 12,
   },
-  profileImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  placeholderImage: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  avatarPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#0d6efd',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  placeholderText: {
-    color: COLORS.textLight,
-    fontSize: 30,
+  avatarPlaceholderText: {
+    color: '#fff',
+    fontSize: 34,
     fontWeight: 'bold',
   },
-  profileInfo: {
-    flex: 1,
-  },
-  nameText: {
-    fontSize: 23,
+  profileName: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#111827',
   },
-  emailText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+  profileEmail: {
+    fontSize: 13,
+    color: '#6b7280',
     marginTop: 4,
   },
-  changePhotoText: {
-    fontSize: 13,
-    color: COLORS.secondary,
-    marginTop: 8,
-    fontWeight: '700',
-  },
 
-  infoCard: {
-    marginBottom: 22,
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  formCard: {
-    marginBottom: 20,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 14,
   },
 
   label: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4b5563',
+    marginBottom: 8,
+    marginTop: 8,
+  },
+
+  input: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#111827',
+    fontSize: 15,
+  },
+  disabledInput: {
+    backgroundColor: '#eef2f7',
+    color: '#6b7280',
+  },
+  textArea: {
+    minHeight: 100,
+  },
+
+  saveButton: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 12,
-    marginBottom: 6,
-    color: COLORS.textSecondary,
-  },
-
-  multilineInput: {
-    minHeight: 92,
-    textAlignVertical: 'top',
-  },
-  addressInput: {
-    minHeight: 82,
-    textAlignVertical: 'top',
-  },
-
-  buttonWrap: {
-    marginTop: 20,
   },
 });
