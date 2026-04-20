@@ -4,16 +4,16 @@ import { COLORS } from '../theme';
 
 export default function SectionHeader({ title, subtitle }) {
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 12,
+  container: {
+    marginBottom: 10,
   },
   title: {
     fontSize: 20,
