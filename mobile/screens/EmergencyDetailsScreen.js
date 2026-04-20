@@ -17,7 +17,6 @@ import API_BASE_URL from '../config';
 
 import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
 import AppCard from '../components/AppCard';
-import AppChip from '../components/AppChip';
 import SectionHeader from '../components/SectionHeader';
 
 export default function EmergencyDetailsScreen({ route }) {
@@ -52,7 +51,7 @@ export default function EmergencyDetailsScreen({ route }) {
       const role = await AsyncStorage.getItem('userRole');
       setUserRole(role || 'user');
     } catch (error) {
-      console.log('Load Role Error:', error);
+      console.log('Load role error:', error);
     }
   };
 
@@ -122,29 +121,6 @@ export default function EmergencyDetailsScreen({ route }) {
     }
   };
 
-  const getPriorityChipType = (value) => {
-    const p = String(value || '').toLowerCase();
-
-    if (p === 'low') return 'default';
-    if (p === 'medium') return 'info';
-    if (p === 'high') return 'warning';
-    if (p === 'critical') return 'danger';
-
-    return 'default';
-  };
-
-  const getStatusChipType = (value) => {
-    const s = String(value || '').toLowerCase();
-
-    if (s === 'pending') return 'warning';
-    if (s === 'accepted') return 'purple';
-    if (s === 'in progress') return 'info';
-    if (s === 'resolved') return 'success';
-    if (s === 'cancelled') return 'danger';
-
-    return 'default';
-  };
-
   const updateStatus = async (newStatus) => {
     try {
       setLoading(true);
@@ -189,11 +165,49 @@ export default function EmergencyDetailsScreen({ route }) {
 
       Alert.alert('Success', `Status updated to ${newStatus}`);
     } catch (error) {
-      console.log('Update Status Error:', error);
+      console.log('Update status error:', error);
       Alert.alert('Error', 'Failed to update status');
     } finally {
       setLoading(false);
     }
+  };
+
+  const getStatusColors = (value) => {
+    const s = String(value || '').toLowerCase();
+
+    if (s === 'pending') {
+      return { bg: '#FEF3C7', text: '#B45309' };
+    }
+    if (s === 'accepted') {
+      return { bg: '#EDE9FE', text: '#6D28D9' };
+    }
+    if (s === 'in progress') {
+      return { bg: '#DBEAFE', text: '#1D4ED8' };
+    }
+    if (s === 'resolved') {
+      return { bg: '#DCFCE7', text: '#15803D' };
+    }
+    if (s === 'cancelled') {
+      return { bg: '#FEE2E2', text: '#B91C1C' };
+    }
+
+    return { bg: '#E5E7EB', text: '#374151' };
+  };
+
+  const getPriorityColors = (value) => {
+    const p = String(value || '').toLowerCase();
+
+    if (p === 'critical') {
+      return { bg: '#FEE2E2', text: '#B91C1C' };
+    }
+    if (p === 'high') {
+      return { bg: '#FFEDD5', text: '#C2410C' };
+    }
+    if (p === 'medium') {
+      return { bg: '#DBEAFE', text: '#1D4ED8' };
+    }
+
+    return { bg: '#E5E7EB', text: '#374151' };
   };
 
   const latitude = Number(emergency?.latitude);
@@ -238,6 +252,9 @@ export default function EmergencyDetailsScreen({ route }) {
     latitude !== 0 &&
     longitude !== 0;
 
+  const statusColors = getStatusColors(status);
+  const priorityColors = getPriorityColors(priority);
+
   return (
     <ScrollView
       contentContainerStyle={styles.container}
@@ -251,19 +268,21 @@ export default function EmergencyDetailsScreen({ route }) {
       >
         <Text style={styles.heroTitle}>Emergency Details</Text>
         <Text style={styles.heroSubtitle}>
-          View request information, status, and live tracking.
+          View request information, status updates, and live tracking.
         </Text>
 
-        <View style={styles.heroChipRow}>
-          <AppChip
-            label={String(status || 'pending').toUpperCase()}
-            type={getStatusChipType(status)}
-          />
-          <View style={{ width: 8 }} />
-          <AppChip
-            label={String(priority || 'medium').toUpperCase()}
-            type={getPriorityChipType(priority)}
-          />
+        <View style={styles.badgeRow}>
+          <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
+            <Text style={[styles.badgeText, { color: statusColors.text }]}>
+              {String(status || 'pending').toUpperCase()}
+            </Text>
+          </View>
+
+          <View style={[styles.badge, { backgroundColor: priorityColors.bg }]}>
+            <Text style={[styles.badgeText, { color: priorityColors.text }]}>
+              {String(priority || 'medium').toUpperCase()}
+            </Text>
+          </View>
         </View>
       </LinearGradient>
 
@@ -272,7 +291,7 @@ export default function EmergencyDetailsScreen({ route }) {
         subtitle="Important details about this emergency"
       />
 
-      <AppCard style={styles.detailsCard}>
+      <AppCard style={styles.infoCard}>
         <View style={styles.infoBlock}>
           <Text style={styles.label}>Type</Text>
           <Text style={styles.value}>{emergency.type || 'Emergency'}</Text>
@@ -292,43 +311,41 @@ export default function EmergencyDetailsScreen({ route }) {
           </Text>
         </View>
 
-        <View style={styles.rowInfo}>
-          <View style={styles.halfBlock}>
+        <View style={styles.row}>
+          <View style={styles.half}>
             <Text style={styles.label}>Status</Text>
-            <View style={styles.chipWrap}>
-              <AppChip
-                label={String(status || 'pending').toUpperCase()}
-                type={getStatusChipType(status)}
-              />
+            <View style={[styles.badge, { backgroundColor: statusColors.bg }]}>
+              <Text style={[styles.badgeText, { color: statusColors.text }]}>
+                {String(status || 'pending').toUpperCase()}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.halfBlock}>
+          <View style={styles.half}>
             <Text style={styles.label}>Priority</Text>
-            <View style={styles.chipWrap}>
-              <AppChip
-                label={String(priority || 'medium').toUpperCase()}
-                type={getPriorityChipType(priority)}
-              />
+            <View style={[styles.badge, { backgroundColor: priorityColors.bg }]}>
+              <Text style={[styles.badgeText, { color: priorityColors.text }]}>
+                {String(priority || 'medium').toUpperCase()}
+              </Text>
             </View>
           </View>
         </View>
 
-        {acceptedBy ? (
-          <View style={styles.infoBlock}>
-            <Text style={styles.label}>Accepted By</Text>
-            <Text style={styles.acceptedByText}>{acceptedBy}</Text>
-          </View>
-        ) : null}
+        <View style={styles.infoBlock}>
+          <Text style={styles.label}>Assigned To</Text>
+          <Text style={styles.assignedValue}>
+            {acceptedBy || 'Not assigned yet'}
+          </Text>
+        </View>
 
         {userRole === 'admin' && (
-          <View style={styles.rowInfo}>
-            <View style={styles.halfBlock}>
+          <View style={styles.row}>
+            <View style={styles.half}>
               <Text style={styles.label}>Latitude</Text>
               <Text style={styles.value}>{String(emergency.latitude ?? '-')}</Text>
             </View>
 
-            <View style={styles.halfBlock}>
+            <View style={styles.half}>
               <Text style={styles.label}>Longitude</Text>
               <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
             </View>
@@ -344,7 +361,7 @@ export default function EmergencyDetailsScreen({ route }) {
           />
 
           <AppCard style={styles.mapCard}>
-            <View style={styles.mapContainer}>
+            <View style={styles.mapWrap}>
               <MapView
                 style={styles.map}
                 initialRegion={{
@@ -407,8 +424,8 @@ export default function EmergencyDetailsScreen({ route }) {
       {userRole === 'admin' ? (
         <>
           <SectionHeader
-            title="Status Actions"
-            subtitle="Update emergency progress"
+            title="Admin Actions"
+            subtitle="Update request progress"
           />
 
           <AppCard style={styles.actionCard}>
@@ -418,8 +435,8 @@ export default function EmergencyDetailsScreen({ route }) {
               disabled={loading}
               activeOpacity={0.92}
             >
-              <LinearGradient colors={GRADIENTS.pinkPurple} style={styles.statusButton}>
-                <Text style={styles.statusButtonText}>Accept Request</Text>
+              <LinearGradient colors={['#8b5cf6', '#7c3aed']} style={styles.actionButton}>
+                <Text style={styles.actionText}>Accept Request</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -429,8 +446,8 @@ export default function EmergencyDetailsScreen({ route }) {
               disabled={loading}
               activeOpacity={0.92}
             >
-              <LinearGradient colors={['#F59E0B', '#F97316']} style={styles.statusButton}>
-                <Text style={styles.statusButtonText}>Set Pending</Text>
+              <LinearGradient colors={['#f59e0b', '#f97316']} style={styles.actionButton}>
+                <Text style={styles.actionText}>Set Pending</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -440,8 +457,8 @@ export default function EmergencyDetailsScreen({ route }) {
               disabled={loading}
               activeOpacity={0.92}
             >
-              <LinearGradient colors={GRADIENTS.blueCyan} style={styles.statusButton}>
-                <Text style={styles.statusButtonText}>Set In Progress</Text>
+              <LinearGradient colors={GRADIENTS.blueCyan} style={styles.actionButton}>
+                <Text style={styles.actionText}>Set In Progress</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -451,8 +468,8 @@ export default function EmergencyDetailsScreen({ route }) {
               disabled={loading}
               activeOpacity={0.92}
             >
-              <LinearGradient colors={GRADIENTS.greenBlue} style={styles.statusButton}>
-                <Text style={styles.statusButtonText}>Set Resolved</Text>
+              <LinearGradient colors={GRADIENTS.success} style={styles.actionButton}>
+                <Text style={styles.actionText}>Set Resolved</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -460,13 +477,14 @@ export default function EmergencyDetailsScreen({ route }) {
               <ActivityIndicator
                 size="large"
                 color={COLORS.primary}
-                style={{ marginTop: 16 }}
+                style={styles.loader}
               />
             )}
           </AppCard>
         </>
       ) : (
-        <AppCard variant="purple" style={styles.noteCard}>
+        <AppCard style={styles.noteCard}>
+          <Text style={styles.noteTitle}>Tracking Enabled</Text>
           <Text style={styles.noteText}>
             You can track this request here. Status updates are handled by admin.
           </Text>
@@ -498,41 +516,54 @@ const styles = StyleSheet.create({
 
   heroCard: {
     borderRadius: RADIUS.xl,
-    padding: 24,
-    marginBottom: 24,
+    padding: 22,
+    marginBottom: 20,
     ...SHADOW.card,
   },
   heroTitle: {
     color: COLORS.textLight,
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#E0E7FF',
+    color: '#e5e7ff',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 21,
+    lineHeight: 20,
   },
-  heroChipRow: {
+
+  badgeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginTop: 14,
   },
 
-  detailsCard: {
-    marginBottom: 24,
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    marginRight: 10,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+
+  infoCard: {
+    marginBottom: 22,
   },
   infoBlock: {
     marginBottom: 14,
   },
-  rowInfo: {
+  row: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
     marginBottom: 14,
   },
-  halfBlock: {
-    flex: 1,
+  half: {
+    width: '48%',
   },
+
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -545,19 +576,17 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
   },
-  chipWrap: {
-    marginTop: 2,
-  },
-  acceptedByText: {
-    color: COLORS.secondary,
+  assignedValue: {
     fontSize: 16,
+    color: COLORS.secondary,
+    lineHeight: 22,
     fontWeight: '700',
   },
 
   mapCard: {
-    marginBottom: 24,
+    marginBottom: 22,
   },
-  mapContainer: {
+  mapWrap: {
     height: 300,
     borderRadius: 18,
     overflow: 'hidden',
@@ -565,21 +594,6 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
-  },
-  mapButtonWrap: {
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  mapButton: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapButtonText: {
-    color: COLORS.textLight,
-    fontSize: 15,
-    fontWeight: 'bold',
   },
 
   providerMarkerOuter: {
@@ -605,6 +619,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
   },
 
+  mapButtonWrap: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  mapButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapButtonText: {
+    color: COLORS.textLight,
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+
   actionCard: {
     marginBottom: 24,
   },
@@ -613,21 +643,30 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
   },
-  statusButton: {
+  actionButton: {
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusButtonText: {
+  actionText: {
     color: COLORS.textLight,
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  loader: {
+    marginTop: 10,
   },
 
   noteCard: {
     marginBottom: 24,
     alignItems: 'center',
     paddingVertical: 18,
+  },
+  noteTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
   },
   noteText: {
     color: COLORS.textSecondary,
