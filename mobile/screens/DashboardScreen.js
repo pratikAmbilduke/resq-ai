@@ -1,109 +1,174 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
-import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
-import AppCard from '../components/AppCard';
-import AppChip from '../components/AppChip';
-import SectionHeader from '../components/SectionHeader';
-
-export default function DashboardScreen() {
+export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState([]);
 
-  const [pending, setPending] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [resolved, setResolved] = useState(0);
-  const [total, setTotal] = useState(0);
+  const intervalRef = useRef(null);
+
+  const clearPolling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
 
   const loadDashboard = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!userId) {
-        setPending(0);
-        setProgress(0);
-        setResolved(0);
-        setTotal(0);
+        setRequests([]);
         setLoading(false);
         return;
       }
 
-      const res = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
-      const data = await res.json();
+      const response = await fetch(`${API_BASE_URL}/emergencies/${userId}`);
+      const data = await response.json();
 
       if (!Array.isArray(data)) {
-        setPending(0);
-        setProgress(0);
-        setResolved(0);
-        setTotal(0);
+        console.log('Dashboard API response:', data);
+        setRequests([]);
         setLoading(false);
         return;
       }
 
-      const pendingCount = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'pending'
-      ).length;
+      const sortedData = [...data].sort(
+        (a, b) => Number(b?.id || 0) - Number(a?.id || 0)
+      );
 
-      const progressCount = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'in progress'
-      ).length;
-
-      const resolvedCount = data.filter(
-        (item) => String(item?.status || '').toLowerCase() === 'resolved'
-      ).length;
-
-      setPending(pendingCount);
-      setProgress(progressCount);
-      setResolved(resolvedCount);
-      setTotal(data.length);
+      setRequests(sortedData);
     } catch (error) {
-      console.log('Dashboard error:', error);
-      setPending(0);
-      setProgress(0);
-      setResolved(0);
-      setTotal(0);
+      console.log('Dashboard load error:', error);
+      Alert.alert('Error', 'Failed to load dashboard');
+      setRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboard();
 
-  const resolutionRate = useMemo(() => {
-    if (!total) return 0;
-    return Math.round((resolved / total) * 100);
-  }, [resolved, total]);
+      clearPolling();
+      intervalRef.current = setInterval(() => {
+        loadDashboard();
+      }, 5000);
 
-  const activeRate = useMemo(() => {
-    if (!total) return 0;
-    return Math.round(((pending + progress) / total) * 100);
-  }, [pending, progress, total]);
+      return () => {
+        clearPolling();
+      };
+    }, [])
+  );
 
-  const dominantStatus = useMemo(() => {
-    const maxValue = Math.max(pending, progress, resolved);
+  const counts = useMemo(() => {
+    const pending = requests.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'pending'
+    ).length;
 
-    if (maxValue === 0) return 'No activity';
-    if (maxValue === pending) return 'Pending';
-    if (maxValue === progress) return 'In Progress';
-    return 'Resolved';
-  }, [pending, progress, resolved]);
+    const accepted = requests.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'accepted'
+    ).length;
+
+    const progress = requests.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'in progress'
+    ).length;
+
+    const resolved = requests.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'resolved'
+    ).length;
+
+    const cancelled = requests.filter(
+      (item) => String(item?.status || '').toLowerCase() === 'cancelled'
+    ).length;
+
+    return {
+      total: requests.length,
+      pending,
+      accepted,
+      progress,
+      resolved,
+      cancelled,
+    };
+  }, [requests]);
+
+  const getStatusColors = (status) => {
+    const value = String(status || '').toLowerCase();
+
+    if (value === 'pending') {
+      return { bg: '#FEF3C7', text: '#B45309' };
+    }
+
+    if (value === 'accepted') {
+      return { bg: '#EDE9FE', text: '#6D28D9' };
+    }
+
+    if (value === 'in progress') {
+      return { bg: '#DBEAFE', text: '#1D4ED8' };
+    }
+
+    if (value === 'resolved') {
+      return { bg: '#DCFCE7', text: '#15803D' };
+    }
+
+    if (value === 'cancelled') {
+      return { bg: '#FEE2E2', text: '#B91C1C' };
+    }
+
+    return { bg: '#E5E7EB', text: '#374151' };
+  };
+
+  const getPriorityColors = (priority) => {
+    const value = String(priority || '').toLowerCase();
+
+    if (value === 'critical') {
+      return { bg: '#FEE2E2', text: '#B91C1C' };
+    }
+
+    if (value === 'high') {
+      return { bg: '#FFEDD5', text: '#C2410C' };
+    }
+
+    if (value === 'medium') {
+      return { bg: '#DBEAFE', text: '#1D4ED8' };
+    }
+
+    return { bg: '#E5E7EB', text: '#374151' };
+  };
+
+  const activeRequest = useMemo(() => {
+    return (
+      requests.find((item) => {
+        const status = String(item?.status || '').toLowerCase();
+        return status === 'pending' || status === 'accepted' || status === 'in progress';
+      }) || null
+    );
+  }, [requests]);
+
+  const recentRequests = useMemo(() => {
+    return requests.slice(0, 3);
+  }, [requests]);
 
   if (loading) {
     return (
       <ActivityIndicator
-        style={{ flex: 1, backgroundColor: COLORS.background }}
+        style={{ flex: 1, backgroundColor: '#f3f5f7' }}
         size="large"
-        color={COLORS.primary}
+        color="#0d6efd"
       />
     );
   }
@@ -114,265 +179,579 @@ export default function DashboardScreen() {
       showsVerticalScrollIndicator={false}
     >
       <LinearGradient
-        colors={GRADIENTS.blueCyan}
+        colors={['#0d6efd', '#7c3aed']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroCard}
       >
-        <Text style={styles.heroTitle}>Dashboard Overview</Text>
+        <Text style={styles.heroTitle}>Dashboard</Text>
         <Text style={styles.heroSubtitle}>
-          Track your requests, current progress, and safety activity in one place.
+          Live emergency overview, active request tracking, and quick actions.
         </Text>
-
-        <View style={styles.heroChipsRow}>
-          <AppChip label={`${total} Total`} type="info" />
-          <View style={{ width: 8 }} />
-          <AppChip label={`${resolutionRate}% Resolved`} type="success" />
-        </View>
       </LinearGradient>
 
-      <SectionHeader
-        title="Summary"
-        subtitle="Quick glance at all request activity"
-      />
-
-      <AppCard variant="purple" style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total Requests</Text>
-        <Text style={styles.totalValue}>{total}</Text>
-        <Text style={styles.totalSubtext}>All emergencies created so far</Text>
-      </AppCard>
-
-      <View style={styles.statsRow}>
-        <AppCard variant="orange" style={styles.smallStatCard}>
-          <Text style={styles.smallStatCount}>{pending}</Text>
-          <Text style={styles.smallStatLabel}>Pending</Text>
-        </AppCard>
-
-        <AppCard variant="blue" style={styles.smallStatCard}>
-          <Text style={styles.smallStatCount}>{progress}</Text>
-          <Text style={styles.smallStatLabel}>In Progress</Text>
-        </AppCard>
-
-        <AppCard variant="green" style={styles.smallStatCard}>
-          <Text style={styles.smallStatCount}>{resolved}</Text>
-          <Text style={styles.smallStatLabel}>Resolved</Text>
-        </AppCard>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Quick Overview</Text>
+        <Text style={styles.sectionSubtext}>Real-time emergency summary</Text>
       </View>
 
-      <SectionHeader
-        title="Insights"
-        subtitle="Useful information from your current numbers"
-      />
+      <View style={styles.topStatsRow}>
+        <View style={[styles.mainStatCard, styles.totalCard]}>
+          <Text style={styles.mainStatValue}>{counts.total}</Text>
+          <Text style={styles.mainStatLabel}>Total Requests</Text>
+        </View>
 
-      <AppCard style={styles.insightsCard}>
-        <View style={styles.insightItem}>
-          <Text style={styles.insightTitle}>Most Common Status</Text>
-          <View style={styles.insightChipWrap}>
-            <AppChip
-              label={dominantStatus}
-              type={
-                dominantStatus === 'Pending'
-                  ? 'warning'
-                  : dominantStatus === 'In Progress'
-                  ? 'info'
-                  : dominantStatus === 'Resolved'
-                  ? 'success'
-                  : 'default'
-              }
-            />
+        <View style={styles.sideStatsColumn}>
+          <View style={[styles.smallStatCard, styles.pendingCard]}>
+            <Text style={styles.smallStatValue}>{counts.pending}</Text>
+            <Text style={styles.smallStatLabel}>Pending</Text>
+          </View>
+
+          <View style={[styles.smallStatCard, styles.progressCard]}>
+            <Text style={styles.smallStatValue}>{counts.progress}</Text>
+            <Text style={styles.smallStatLabel}>In Progress</Text>
           </View>
         </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.insightItem}>
-          <Text style={styles.insightTitle}>Resolution Rate</Text>
-          <Text style={styles.insightValue}>{resolutionRate}%</Text>
-          <Text style={styles.insightSubtext}>
-            Percentage of total requests already resolved
-          </Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.insightItem}>
-          <Text style={styles.insightTitle}>Active Request Rate</Text>
-          <Text style={styles.insightValue}>{activeRate}%</Text>
-          <Text style={styles.insightSubtext}>
-            Requests that are still pending or in progress
-          </Text>
-        </View>
-      </AppCard>
-
-      <SectionHeader
-        title="Progress Cards"
-        subtitle="Visual cards for your app activity"
-      />
-
-      <View style={styles.progressCardsWrap}>
-        <LinearGradient
-          colors={GRADIENTS.sunset}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.progressGradientCard}
-        >
-          <Text style={styles.gradientCardTitle}>Pending Work</Text>
-          <Text style={styles.gradientCardCount}>{pending}</Text>
-          <Text style={styles.gradientCardSubtext}>
-            Requests waiting for action
-          </Text>
-        </LinearGradient>
-
-        <LinearGradient
-          colors={GRADIENTS.greenBlue}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.progressGradientCard}
-        >
-          <Text style={styles.gradientCardTitle}>Resolved Work</Text>
-          <Text style={styles.gradientCardCount}>{resolved}</Text>
-          <Text style={styles.gradientCardSubtext}>
-            Successfully completed requests
-          </Text>
-        </LinearGradient>
       </View>
+
+      <View style={styles.bottomStatsRow}>
+        <View style={[styles.bottomStatCard, styles.acceptedCard]}>
+          <Text style={styles.bottomStatValue}>{counts.accepted}</Text>
+          <Text style={styles.bottomStatLabel}>Accepted</Text>
+        </View>
+
+        <View style={[styles.bottomStatCard, styles.resolvedCard]}>
+          <Text style={styles.bottomStatValue}>{counts.resolved}</Text>
+          <Text style={styles.bottomStatLabel}>Resolved</Text>
+        </View>
+
+        <View style={[styles.bottomStatCard, styles.cancelledCard]}>
+          <Text style={styles.bottomStatValue}>{counts.cancelled}</Text>
+          <Text style={styles.bottomStatLabel}>Cancelled</Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Active Request</Text>
+        <Text style={styles.sectionSubtext}>Your most urgent ongoing request</Text>
+      </View>
+
+      {activeRequest ? (
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={() =>
+            navigation.navigate('EmergencyDetails', { emergency: activeRequest })
+          }
+          style={styles.activeWrap}
+        >
+          <LinearGradient
+            colors={['#111827', '#1f2937']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.activeCard}
+          >
+            <View style={styles.activeTopRow}>
+              <Text style={styles.activeType}>
+                {String(activeRequest?.type || 'Emergency').toUpperCase()}
+              </Text>
+
+              <View
+                style={[
+                  styles.priorityBadge,
+                  {
+                    backgroundColor: getPriorityColors(activeRequest?.priority).bg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.priorityBadgeText,
+                    {
+                      color: getPriorityColors(activeRequest?.priority).text,
+                    },
+                  ]}
+                >
+                  {String(activeRequest?.priority || 'medium').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.activeDescription}>
+              {activeRequest?.description || 'No description available'}
+            </Text>
+
+            <Text style={styles.activeLocation}>
+              📍 {activeRequest?.location_text || 'Location not available'}
+            </Text>
+
+            <View style={styles.activeBottomRow}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  {
+                    backgroundColor: getStatusColors(activeRequest?.status).bg,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    {
+                      color: getStatusColors(activeRequest?.status).text,
+                    },
+                  ]}
+                >
+                  {String(activeRequest?.status || 'unknown').toUpperCase()}
+                </Text>
+              </View>
+
+              <Text style={styles.trackText}>Track Now ›</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.emptyActiveCard}>
+          <Text style={styles.emptyActiveTitle}>No active request</Text>
+          <Text style={styles.emptyActiveSubtitle}>
+            You currently have no pending or in-progress emergency requests.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <Text style={styles.sectionSubtext}>Fast access to important sections</Text>
+      </View>
+
+      <View style={styles.quickActionsRow}>
+        <TouchableOpacity
+          style={styles.quickActionWrap}
+          activeOpacity={0.92}
+          onPress={() => navigation.navigate('Emergency')}
+        >
+          <View style={[styles.quickActionCard, styles.quickActionBlue]}>
+            <Text style={styles.quickActionEmoji}>🚨</Text>
+            <Text style={styles.quickActionTitle}>New SOS</Text>
+            <Text style={styles.quickActionSubtitle}>Create emergency request</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionWrap}
+          activeOpacity={0.92}
+          onPress={() => navigation.navigate('HistoryTab')}
+        >
+          <View style={[styles.quickActionCard, styles.quickActionPurple]}>
+            <Text style={styles.quickActionEmoji}>📜</Text>
+            <Text style={styles.quickActionTitle}>History</Text>
+            <Text style={styles.quickActionSubtitle}>See all requests</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <Text style={styles.sectionSubtext}>Latest 3 request updates</Text>
+      </View>
+
+      {recentRequests.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No activity yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Your recent emergency activity will appear here.
+          </Text>
+        </View>
+      ) : (
+        recentRequests.map((item, index) => {
+          const statusColors = getStatusColors(item?.status);
+          const priorityColors = getPriorityColors(item?.priority);
+
+          return (
+            <TouchableOpacity
+              key={String(item?.id ?? index)}
+              activeOpacity={0.92}
+              onPress={() =>
+                navigation.navigate('EmergencyDetails', { emergency: item })
+              }
+              style={styles.requestWrap}
+            >
+              <View style={styles.requestCard}>
+                <View style={styles.requestTopRow}>
+                  <Text style={styles.requestType}>
+                    {String(item?.type || 'Emergency').toUpperCase()}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.priorityBadge,
+                      { backgroundColor: priorityColors.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.priorityBadgeText,
+                        { color: priorityColors.text },
+                      ]}
+                    >
+                      {String(item?.priority || 'medium').toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.requestDescription}>
+                  {item?.description || 'No description available'}
+                </Text>
+
+                <Text style={styles.requestLocation}>
+                  📍 {item?.location_text || 'Location not available'}
+                </Text>
+
+                <View style={styles.requestBottomRow}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: statusColors.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        { color: statusColors.text },
+                      ]}
+                    >
+                      {String(item?.status || 'unknown').toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.viewDetailsText}>Open ›</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: 140,
-    backgroundColor: COLORS.background,
+    padding: 18,
+    paddingBottom: 120,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
   },
 
   heroCard: {
-    borderRadius: RADIUS.xl,
-    padding: 24,
-    marginBottom: 24,
-    ...SHADOW.card,
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 20,
   },
   heroTitle: {
-    color: COLORS.textLight,
-    fontSize: 24,
+    color: '#fff',
+    fontSize: 25,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#E0F2FE',
+    color: '#e5e7ff',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 21,
-  },
-  heroChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
+    lineHeight: 20,
   },
 
-  totalCard: {
-    marginBottom: 20,
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  sectionSubtext: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+
+  topStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  mainStatCard: {
+    width: '48%',
+    borderRadius: 20,
+    padding: 18,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 22,
+    minHeight: 170,
   },
-  totalLabel: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
+  totalCard: {
+    backgroundColor: '#ede9fe',
   },
-  totalValue: {
+  mainStatValue: {
     fontSize: 40,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#111827',
+  },
+  mainStatLabel: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '700',
     marginTop: 8,
-  },
-  totalSubtext: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 6,
-  },
-
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
-  },
-  smallStatCard: {
-    flex: 1,
-    alignItems: 'center',
-    minHeight: 110,
-    justifyContent: 'center',
-  },
-  smallStatCount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  smallStatLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 6,
-    fontWeight: '600',
     textAlign: 'center',
   },
 
-  insightsCard: {
-    marginBottom: 24,
+  sideStatsColumn: {
+    width: '48%',
+    justifyContent: 'space-between',
   },
-  insightItem: {
-    paddingVertical: 4,
+  smallStatCard: {
+    borderRadius: 20,
+    paddingVertical: 20,
+    alignItems: 'center',
+    minHeight: 79,
+    justifyContent: 'center',
   },
-  insightTitle: {
-    fontSize: 15,
+  pendingCard: {
+    backgroundColor: '#fef3c7',
+  },
+  progressCard: {
+    backgroundColor: '#dbeafe',
+  },
+  smallStatValue: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
+    color: '#111827',
   },
-  insightChipWrap: {
-    marginTop: 2,
-  },
-  insightValue: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: COLORS.primaryDark,
-  },
-  insightSubtext: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 14,
+  smallStatLabel: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '700',
+    marginTop: 4,
   },
 
-  progressCardsWrap: {
-    gap: 14,
+  bottomStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  progressGradientCard: {
-    borderRadius: RADIUS.xl,
-    padding: 22,
-    ...SHADOW.card,
+  bottomStatCard: {
+    width: '31%',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    alignItems: 'center',
   },
-  gradientCardTitle: {
-    color: COLORS.textLight,
-    fontSize: 16,
+  acceptedCard: {
+    backgroundColor: '#fce7f3',
+  },
+  resolvedCard: {
+    backgroundColor: '#dcfce7',
+  },
+  cancelledCard: {
+    backgroundColor: '#fee2e2',
+  },
+  bottomStatValue: {
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#111827',
   },
-  gradientCardCount: {
-    color: COLORS.textLight,
-    fontSize: 34,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  gradientCardSubtext: {
-    color: '#FFF7ED',
+  bottomStatLabel: {
     fontSize: 12,
-    marginTop: 6,
+    color: '#374151',
+    fontWeight: '700',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+
+  activeWrap: {
+    marginBottom: 20,
+  },
+  activeCard: {
+    borderRadius: 22,
+    padding: 18,
+  },
+  activeTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  activeType: {
+    flex: 1,
+    color: '#60a5fa',
+    fontSize: 14,
+    fontWeight: 'bold',
+    paddingRight: 10,
+  },
+  activeDescription: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 10,
+    lineHeight: 26,
+  },
+  activeLocation: {
+    color: '#d1d5db',
+    fontSize: 13,
+    marginTop: 8,
     lineHeight: 18,
+  },
+  activeBottomRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  trackText: {
+    color: '#c084fc',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  emptyActiveCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  emptyActiveTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  emptyActiveSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  quickActionWrap: {
+    width: '48%',
+  },
+  quickActionCard: {
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
+    minHeight: 128,
+  },
+  quickActionBlue: {
+    backgroundColor: '#dbeafe',
+  },
+  quickActionPurple: {
+    backgroundColor: '#ede9fe',
+  },
+  quickActionEmoji: {
+    fontSize: 28,
+    marginBottom: 10,
+  },
+  quickActionTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  quickActionSubtitle: {
+    fontSize: 12,
+    color: '#4b5563',
+    marginTop: 5,
+    lineHeight: 18,
+  },
+
+  emptyCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+
+  requestWrap: {
+    marginBottom: 14,
+  },
+  requestCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+
+  requestTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  requestType: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0d6efd',
+    paddingRight: 10,
+  },
+
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  priorityBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+
+  requestDescription: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 10,
+    lineHeight: 22,
+  },
+  requestLocation: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+
+  requestBottomRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  viewDetailsText: {
+    color: '#7c3aed',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
