@@ -41,7 +41,9 @@ export default function EmergencyDetailsScreen({ route }) {
     }, 5000);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, []);
 
@@ -56,7 +58,9 @@ export default function EmergencyDetailsScreen({ route }) {
 
   const fetchProviderLocation = async () => {
     try {
-      if (!emergency?.id) return;
+      if (!emergency?.id) {
+        return;
+      }
 
       const response = await fetch(`${API_BASE_URL}/provider-location/${emergency.id}`);
       const data = await response.json();
@@ -120,20 +124,24 @@ export default function EmergencyDetailsScreen({ route }) {
 
   const getPriorityChipType = (value) => {
     const p = String(value || '').toLowerCase();
+
     if (p === 'low') return 'default';
     if (p === 'medium') return 'info';
     if (p === 'high') return 'warning';
     if (p === 'critical') return 'danger';
+
     return 'default';
   };
 
   const getStatusChipType = (value) => {
     const s = String(value || '').toLowerCase();
+
     if (s === 'pending') return 'warning';
     if (s === 'accepted') return 'purple';
     if (s === 'in progress') return 'info';
     if (s === 'resolved') return 'success';
     if (s === 'cancelled') return 'danger';
+
     return 'default';
   };
 
@@ -192,7 +200,9 @@ export default function EmergencyDetailsScreen({ route }) {
   const longitude = Number(emergency?.longitude);
 
   const routeCoordinates = useMemo(() => {
-    if (!providerLocation) return [];
+    if (!providerLocation) {
+      return [];
+    }
 
     const startLat = Number(providerLocation.latitude);
     const startLng = Number(providerLocation.longitude);
@@ -241,7 +251,7 @@ export default function EmergencyDetailsScreen({ route }) {
       >
         <Text style={styles.heroTitle}>Emergency Details</Text>
         <Text style={styles.heroSubtitle}>
-          View complete request information, live tracking, and response updates.
+          View request information, status, and live tracking.
         </Text>
 
         <View style={styles.heroChipRow}>
@@ -259,35 +269,27 @@ export default function EmergencyDetailsScreen({ route }) {
 
       <SectionHeader
         title="Request Information"
-        subtitle="All key emergency details in one place"
+        subtitle="Important details about this emergency"
       />
 
       <AppCard style={styles.detailsCard}>
         <View style={styles.infoBlock}>
           <Text style={styles.label}>Type</Text>
-          <Text style={styles.value}>{emergency.type || '-'}</Text>
+          <Text style={styles.value}>{emergency.type || 'Emergency'}</Text>
         </View>
 
         <View style={styles.infoBlock}>
           <Text style={styles.label}>Description</Text>
-          <Text style={styles.value}>{emergency.description || '-'}</Text>
+          <Text style={styles.value}>
+            {emergency.description || 'No description available'}
+          </Text>
         </View>
 
         <View style={styles.infoBlock}>
           <Text style={styles.label}>Location</Text>
-          <Text style={styles.value}>{emergency.location_text || '-'}</Text>
-        </View>
-
-        <View style={styles.rowInfo}>
-          <View style={styles.halfBlock}>
-            <Text style={styles.label}>Latitude</Text>
-            <Text style={styles.value}>{String(emergency.latitude ?? '-')}</Text>
-          </View>
-
-          <View style={styles.halfBlock}>
-            <Text style={styles.label}>Longitude</Text>
-            <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
-          </View>
+          <Text style={styles.value}>
+            {emergency.location_text || 'Location not available'}
+          </Text>
         </View>
 
         <View style={styles.rowInfo}>
@@ -318,13 +320,27 @@ export default function EmergencyDetailsScreen({ route }) {
             <Text style={styles.acceptedByText}>{acceptedBy}</Text>
           </View>
         ) : null}
+
+        {userRole === 'admin' && (
+          <View style={styles.rowInfo}>
+            <View style={styles.halfBlock}>
+              <Text style={styles.label}>Latitude</Text>
+              <Text style={styles.value}>{String(emergency.latitude ?? '-')}</Text>
+            </View>
+
+            <View style={styles.halfBlock}>
+              <Text style={styles.label}>Longitude</Text>
+              <Text style={styles.value}>{String(emergency.longitude ?? '-')}</Text>
+            </View>
+          </View>
+        )}
       </AppCard>
 
       {hasValidCoords && (
         <>
           <SectionHeader
             title="Live Tracking"
-            subtitle="Track emergency location and provider movement"
+            subtitle="Track emergency and provider location"
           />
 
           <AppCard style={styles.mapCard}>
@@ -388,11 +404,11 @@ export default function EmergencyDetailsScreen({ route }) {
         </>
       )}
 
-      {userRole === 'admin' && (
+      {userRole === 'admin' ? (
         <>
           <SectionHeader
             title="Status Actions"
-            subtitle="Update current emergency progress"
+            subtitle="Update emergency progress"
           />
 
           <AppCard style={styles.actionCard}>
@@ -449,12 +465,10 @@ export default function EmergencyDetailsScreen({ route }) {
             )}
           </AppCard>
         </>
-      )}
-
-      {userRole !== 'admin' && (
+      ) : (
         <AppCard variant="purple" style={styles.noteCard}>
           <Text style={styles.noteText}>
-            Only admin can update emergency status.
+            You can track this request here. Status updates are handled by admin.
           </Text>
         </AppCard>
       )}
@@ -620,5 +634,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '600',
+    lineHeight: 20,
   },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import HomeScreen from '../screens/HomeScreen';
@@ -10,12 +10,33 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
+function TabIcon({ focused, name }) {
+  return (
+    <View style={[styles.iconContainer, focused && styles.activeIconContainer]}>
+      <Ionicons
+        name={name}
+        size={22}
+        color={focused ? '#ffffff' : '#6b7280'}
+      />
+    </View>
+  );
+}
+
+function CenterTabIcon({ focused }) {
+  return (
+    <View style={[styles.centerButton, focused && styles.centerButtonActive]}>
+      <Ionicons name="grid" size={26} color="#ffffff" />
+    </View>
+  );
+}
+
 export default function UserBottomTabs({ onLogout }) {
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: styles.tabBar,
       }}
     >
@@ -24,11 +45,7 @@ export default function UserBottomTabs({ onLogout }) {
         children={(props) => <HomeScreen {...props} onLogout={onLogout} />}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="home"
-              size={24}
-              color={focused ? '#0d6efd' : '#888'}
-            />
+            <TabIcon focused={focused} name="home" />
           ),
         }}
       />
@@ -38,11 +55,7 @@ export default function UserBottomTabs({ onLogout }) {
         component={HistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="time"
-              size={24}
-              color={focused ? '#0d6efd' : '#888'}
-            />
+            <TabIcon focused={focused} name="time" />
           ),
         }}
       />
@@ -51,10 +64,8 @@ export default function UserBottomTabs({ onLogout }) {
         name="DashboardTab"
         component={DashboardScreen}
         options={{
-          tabBarIcon: () => (
-            <View style={styles.centerButton}>
-              <Ionicons name="grid" size={26} color="#fff" />
-            </View>
+          tabBarIcon: ({ focused }) => (
+            <CenterTabIcon focused={focused} />
           ),
         }}
       />
@@ -64,11 +75,7 @@ export default function UserBottomTabs({ onLogout }) {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <Ionicons
-              name="person"
-              size={24}
-              color={focused ? '#0d6efd' : '#888'}
-            />
+            <TabIcon focused={focused} name="person" />
           ),
         }}
       />
@@ -79,29 +86,52 @@ export default function UserBottomTabs({ onLogout }) {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 12,
     left: 16,
     right: 16,
-    elevation: 10,
-    backgroundColor: '#fff',
-    borderRadius: 28,
+    bottom: 14,
     height: 78,
-    paddingBottom: 10,
-    paddingTop: 10,
+    borderRadius: 26,
+    backgroundColor: '#ffffff',
     borderTopWidth: 0,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  centerButton: {
+
+  iconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+
+  activeIconContainer: {
     backgroundColor: '#0d6efd',
+  },
+
+  centerButton: {
     width: 62,
     height: 62,
     borderRadius: 31,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#7c3aed',
     marginTop: -18,
-    shadowColor: '#0d6efd',
+    shadowColor: '#7c3aed',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+
+  centerButtonActive: {
+    backgroundColor: '#0d6efd',
+    shadowColor: '#0d6efd',
   },
 });
