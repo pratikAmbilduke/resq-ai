@@ -14,11 +14,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
-import { COLORS, GRADIENTS, SPACING, RADIUS, SHADOW } from '../theme';
-import AppCard from '../components/AppCard';
-import AppChip from '../components/AppChip';
-import SectionHeader from '../components/SectionHeader';
-
 export default function HistoryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
@@ -53,7 +48,10 @@ export default function HistoryScreen({ navigation }) {
         return;
       }
 
-      const sortedData = [...data].sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0));
+      const sortedData = [...data].sort(
+        (a, b) => Number(b?.id || 0) - Number(a?.id || 0)
+      );
+
       setRequests(sortedData);
     } catch (error) {
       console.log('History load error:', error);
@@ -105,26 +103,71 @@ export default function HistoryScreen({ navigation }) {
     };
   }, [requests]);
 
-  const getStatusChipType = (status) => {
+  const getStatusColors = (status) => {
     const value = String(status || '').toLowerCase();
 
-    if (value === 'pending') return 'warning';
-    if (value === 'in progress') return 'info';
-    if (value === 'resolved') return 'success';
-    if (value === 'cancelled') return 'danger';
+    if (value === 'pending') {
+      return {
+        bg: '#FEF3C7',
+        text: '#B45309',
+      };
+    }
 
-    return 'default';
+    if (value === 'in progress') {
+      return {
+        bg: '#DBEAFE',
+        text: '#1D4ED8',
+      };
+    }
+
+    if (value === 'resolved') {
+      return {
+        bg: '#DCFCE7',
+        text: '#15803D',
+      };
+    }
+
+    if (value === 'cancelled') {
+      return {
+        bg: '#FEE2E2',
+        text: '#B91C1C',
+      };
+    }
+
+    return {
+      bg: '#E5E7EB',
+      text: '#374151',
+    };
   };
 
-  const getPriorityChipType = (priority) => {
+  const getPriorityColors = (priority) => {
     const value = String(priority || '').toLowerCase();
 
-    if (value === 'low') return 'default';
-    if (value === 'medium') return 'info';
-    if (value === 'high') return 'warning';
-    if (value === 'critical') return 'danger';
+    if (value === 'critical') {
+      return {
+        bg: '#FEE2E2',
+        text: '#B91C1C',
+      };
+    }
 
-    return 'default';
+    if (value === 'high') {
+      return {
+        bg: '#FFEDD5',
+        text: '#C2410C',
+      };
+    }
+
+    if (value === 'medium') {
+      return {
+        bg: '#DBEAFE',
+        text: '#1D4ED8',
+      };
+    }
+
+    return {
+      bg: '#E5E7EB',
+      text: '#374151',
+    };
   };
 
   const filteredRequests = useMemo(() => {
@@ -161,20 +204,12 @@ export default function HistoryScreen({ navigation }) {
     });
   }, [requests, searchText, selectedFilter]);
 
-  const filterButtons = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'in progress', label: 'Progress' },
-    { key: 'resolved', label: 'Resolved' },
-    { key: 'cancelled', label: 'Cancelled' },
-  ];
-
   if (loading) {
     return (
       <ActivityIndicator
-        style={{ flex: 1, backgroundColor: COLORS.background }}
+        style={{ flex: 1, backgroundColor: '#f3f5f7' }}
         size="large"
-        color={COLORS.primary}
+        color="#0d6efd"
       />
     );
   }
@@ -183,135 +218,224 @@ export default function HistoryScreen({ navigation }) {
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <LinearGradient
-        colors={GRADIENTS.greenBlue}
+        colors={['#10b981', '#0d6efd']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroCard}
       >
-        <Text style={styles.heroTitle}>Request History</Text>
+        <Text style={styles.heroTitle}>Emergency History</Text>
         <Text style={styles.heroSubtitle}>
-          Review all your previous emergency requests and track their final status.
+          Track all your past requests and monitor their final status.
         </Text>
-
-        <View style={styles.heroChipRow}>
-          <AppChip label={`${counts.total} Total`} type="info" />
-          <View style={{ width: 8 }} />
-          <AppChip label={`${counts.resolved} Resolved`} type="success" />
-        </View>
       </LinearGradient>
 
-      <SectionHeader
-        title="Overview"
-        subtitle="Quick summary of your emergency request history"
-      />
-
       <View style={styles.summaryRow}>
-        <AppCard variant="orange" style={styles.summaryCard}>
+        <View style={[styles.summaryCard, styles.totalCard]}>
+          <Text style={styles.summaryCount}>{counts.total}</Text>
+          <Text style={styles.summaryLabel}>Total</Text>
+        </View>
+
+        <View style={[styles.summaryCard, styles.pendingCard]}>
           <Text style={styles.summaryCount}>{counts.pending}</Text>
           <Text style={styles.summaryLabel}>Pending</Text>
-        </AppCard>
-
-        <AppCard variant="blue" style={styles.summaryCard}>
-          <Text style={styles.summaryCount}>{counts.progress}</Text>
-          <Text style={styles.summaryLabel}>Progress</Text>
-        </AppCard>
-
-        <AppCard variant="green" style={styles.summaryCard}>
-          <Text style={styles.summaryCount}>{counts.resolved}</Text>
-          <Text style={styles.summaryLabel}>Resolved</Text>
-        </AppCard>
+        </View>
       </View>
 
-      <AppCard variant="purple" style={styles.searchCard}>
-        <Text style={styles.searchLabel}>Search Requests</Text>
+      <View style={styles.summaryRow}>
+        <View style={[styles.summaryCard, styles.progressCard]}>
+          <Text style={styles.summaryCount}>{counts.progress}</Text>
+          <Text style={styles.summaryLabel}>Progress</Text>
+        </View>
+
+        <View style={[styles.summaryCard, styles.resolvedCard]}>
+          <Text style={styles.summaryCount}>{counts.resolved}</Text>
+          <Text style={styles.summaryLabel}>Resolved</Text>
+        </View>
+      </View>
+
+      <View style={styles.searchCard}>
+        <Text style={styles.sectionTitle}>Search Requests</Text>
+
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by type, location, status, priority"
-          placeholderTextColor="#9CA3AF"
+          placeholder="Search by type, description, location, status"
+          placeholderTextColor="#9ca3af"
           value={searchText}
           onChangeText={setSearchText}
         />
 
-        <View style={styles.filterRow}>
-          {filterButtons.map((item) => {
-            const active = selectedFilter === item.key;
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+        >
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedFilter === 'all' && styles.filterChipActive,
+            ]}
+            onPress={() => setSelectedFilter('all')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === 'all' && styles.filterChipTextActive,
+              ]}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
 
-            return (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.filterButton, active && styles.activeFilterButton]}
-                onPress={() => setSelectedFilter(item.key)}
-                activeOpacity={0.9}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    active && styles.activeFilterButtonText,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </AppCard>
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedFilter === 'pending' && styles.filterChipActive,
+            ]}
+            onPress={() => setSelectedFilter('pending')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === 'pending' && styles.filterChipTextActive,
+              ]}
+            >
+              Pending
+            </Text>
+          </TouchableOpacity>
 
-      <SectionHeader
-        title="All Requests"
-        subtitle="Tap any request to open full details"
-      />
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedFilter === 'in progress' && styles.filterChipActive,
+            ]}
+            onPress={() => setSelectedFilter('in progress')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === 'in progress' && styles.filterChipTextActive,
+              ]}
+            >
+              Progress
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedFilter === 'resolved' && styles.filterChipActive,
+            ]}
+            onPress={() => setSelectedFilter('resolved')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === 'resolved' && styles.filterChipTextActive,
+              ]}
+            >
+              Resolved
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              selectedFilter === 'cancelled' && styles.filterChipActive,
+            ]}
+            onPress={() => setSelectedFilter('cancelled')}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                selectedFilter === 'cancelled' && styles.filterChipTextActive,
+              ]}
+            >
+              Cancelled
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      <Text style={styles.sectionTitle}>All Requests</Text>
 
       {filteredRequests.length === 0 ? (
-        <AppCard variant="pink" style={styles.emptyCard}>
+        <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No requests found</Text>
           <Text style={styles.emptySubtitle}>
-            Try another search or filter to view your request history.
+            Try changing your search or filter.
           </Text>
-        </AppCard>
+        </View>
       ) : (
-        filteredRequests.map((item, index) => (
-          <TouchableOpacity
-            key={String(item?.id ?? index)}
-            activeOpacity={0.92}
-            onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
-            style={styles.requestWrap}
-          >
-            <AppCard style={styles.requestCard}>
-              <View style={styles.cardTopRow}>
-                <Text style={styles.requestType}>
-                  {String(item?.type || 'Emergency').toUpperCase()}
+        filteredRequests.map((item, index) => {
+          const statusColors = getStatusColors(item?.status);
+          const priorityColors = getPriorityColors(item?.priority);
+
+          return (
+            <TouchableOpacity
+              key={String(item?.id ?? index)}
+              activeOpacity={0.92}
+              onPress={() =>
+                navigation.navigate('EmergencyDetails', { emergency: item })
+              }
+              style={styles.requestWrap}
+            >
+              <View style={styles.requestCard}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.requestType}>
+                    {String(item?.type || 'Emergency').toUpperCase()}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.priorityBadge,
+                      { backgroundColor: priorityColors.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.priorityBadgeText,
+                        { color: priorityColors.text },
+                      ]}
+                    >
+                      {String(item?.priority || 'medium').toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.requestDescription}>
+                  {item?.description || 'No description available'}
                 </Text>
 
-                <View style={styles.cardChipsRight}>
-                  <AppChip
-                    label={String(item?.priority || 'medium').toUpperCase()}
-                    type={getPriorityChipType(item?.priority)}
-                  />
+                <Text style={styles.requestLocation}>
+                  📍 {item?.location_text || 'Location not available'}
+                </Text>
+
+                <View style={styles.cardBottomRow}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: statusColors.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        { color: statusColors.text },
+                      ]}
+                    >
+                      {String(item?.status || 'unknown').toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.viewText}>View Details ›</Text>
                 </View>
               </View>
-
-              <Text style={styles.requestDescription}>
-                {item?.description || 'No description available'}
-              </Text>
-
-              <Text style={styles.requestLocation}>
-                {item?.location_text || 'No location available'}
-              </Text>
-
-              <View style={styles.bottomMetaRow}>
-                <AppChip
-                  label={String(item?.status || 'unknown').toUpperCase()}
-                  type={getStatusChipType(item?.status)}
-                />
-
-                <Text style={styles.viewDetailsText}>View details ›</Text>
-              </View>
-            </AppCard>
-          </TouchableOpacity>
-        ))
+            </TouchableOpacity>
+          );
+        })
       )}
     </ScrollView>
   );
@@ -319,164 +443,204 @@ export default function HistoryScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: 140,
-    backgroundColor: COLORS.background,
+    padding: 18,
+    paddingBottom: 120,
+    backgroundColor: '#f3f5f7',
     flexGrow: 1,
   },
 
   heroCard: {
-    borderRadius: RADIUS.xl,
-    padding: 24,
-    marginBottom: 24,
-    ...SHADOW.card,
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
   },
   heroTitle: {
-    color: COLORS.textLight,
+    color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
   },
   heroSubtitle: {
-    color: '#DCFCE7',
+    color: '#e5f9f1',
     fontSize: 14,
     marginTop: 8,
-    lineHeight: 21,
-  },
-  heroChipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
+    lineHeight: 20,
   },
 
   summaryRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 22,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   summaryCard: {
-    flex: 1,
+    width: '48%',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 104,
+  },
+  totalCard: {
+    backgroundColor: '#ede9fe',
+  },
+  pendingCard: {
+    backgroundColor: '#fef3c7',
+  },
+  progressCard: {
+    backgroundColor: '#dbeafe',
+  },
+  resolvedCard: {
+    backgroundColor: '#dcfce7',
   },
   summaryCount: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#111827',
   },
   summaryLabel: {
     fontSize: 13,
+    color: '#374151',
+    fontWeight: '700',
     marginTop: 6,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textAlign: 'center',
   },
 
   searchCard: {
-    marginBottom: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  searchLabel: {
-    fontSize: 15,
+  sectionTitle: {
+    fontSize: 19,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    marginBottom: 10,
+    color: '#111827',
+    marginBottom: 12,
   },
   searchInput: {
-    borderWidth: 1.5,
-    borderColor: '#D7E3FF',
-    borderRadius: RADIUS.md,
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: COLORS.card,
-    color: COLORS.textPrimary,
-    fontSize: 15,
+    paddingVertical: 13,
+    fontSize: 14,
+    color: '#111827',
   },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 14,
+
+  filterContainer: {
+    paddingTop: 14,
+    paddingBottom: 2,
   },
-  filterButton: {
-    backgroundColor: '#EEF2FF',
+  filterChip: {
+    backgroundColor: '#eef2ff',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
+    marginRight: 10,
   },
-  activeFilterButton: {
-    backgroundColor: COLORS.primary,
+  filterChipActive: {
+    backgroundColor: '#0d6efd',
   },
-  filterButtonText: {
-    color: COLORS.primaryDark,
-    fontSize: 13,
+  filterChipText: {
+    color: '#1e40af',
     fontWeight: '700',
+    fontSize: 13,
   },
-  activeFilterButtonText: {
-    color: COLORS.textLight,
+  filterChipTextActive: {
+    color: '#ffffff',
   },
 
   emptyCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
-    paddingVertical: 28,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    color: '#111827',
   },
   emptySubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
     marginTop: 6,
     textAlign: 'center',
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
   },
 
   requestWrap: {
     marginBottom: 14,
   },
   requestCard: {
-    padding: 18,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
+
   cardTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 10,
   },
   requestType: {
     flex: 1,
-    color: COLORS.primaryDark,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0d6efd',
+  },
+
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  priorityBadgeText: {
+    fontSize: 11,
     fontWeight: 'bold',
   },
-  cardChipsRight: {
-    alignItems: 'flex-end',
-  },
+
   requestDescription: {
-    color: COLORS.textPrimary,
     fontSize: 17,
     fontWeight: '700',
-    marginTop: 12,
+    color: '#111827',
+    marginTop: 10,
     lineHeight: 22,
   },
   requestLocation: {
-    color: COLORS.textSecondary,
     fontSize: 13,
+    color: '#6b7280',
     marginTop: 8,
     lineHeight: 18,
   },
-  bottomMetaRow: {
+
+  cardBottomRow: {
+    marginTop: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    gap: 10,
   },
-  viewDetailsText: {
-    color: COLORS.secondary,
-    fontSize: 13,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  viewText: {
+    color: '#7c3aed',
     fontWeight: '700',
+    fontSize: 13,
   },
 });
