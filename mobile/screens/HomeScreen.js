@@ -8,6 +8,8 @@ import {
   Alert,
   Linking,
   Image,
+  Animated,
+  Easing,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,6 +33,7 @@ export default function HomeScreen({ navigation, onLogout }) {
   const [resolvedCount, setResolvedCount] = useState(0);
 
   const intervalRef = useRef(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const clearPolling = () => {
     if (intervalRef.current) {
@@ -39,14 +42,36 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
+  const startSosAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.08,
+          duration: 800,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
   const sendLocation = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) return;
+      if (!userId) {
+        return;
+      }
 
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== 'granted') {
+        console.log('Location permission denied');
         return;
       }
 
@@ -61,6 +86,8 @@ export default function HomeScreen({ navigation, onLogout }) {
           longitude: location.coords.longitude,
         }),
       });
+
+      console.log('Location sent');
     } catch (error) {
       console.log('Location Error:', error);
     }
@@ -140,6 +167,14 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
   };
 
+  useEffect(() => {
+    startSosAnimation();
+
+    return () => {
+      clearPolling();
+    };
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadHomeData();
@@ -156,12 +191,6 @@ export default function HomeScreen({ navigation, onLogout }) {
       };
     }, [])
   );
-
-  useEffect(() => {
-    return () => {
-      clearPolling();
-    };
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -230,10 +259,7 @@ export default function HomeScreen({ navigation, onLogout }) {
     }
 
     return (
-      <LinearGradient
-        colors={GRADIENTS.primary}
-        style={styles.profilePlaceholder}
-      >
+      <LinearGradient colors={GRADIENTS.primary} style={styles.profilePlaceholder}>
         <Text style={styles.profilePlaceholderText}>
           {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
         </Text>
@@ -289,7 +315,7 @@ export default function HomeScreen({ navigation, onLogout }) {
           activeOpacity={0.9}
         >
           <View style={styles.adminCardText}>
-            <Text style={styles.primaryAdminTitle}>🛠 Request Management</Text>
+            <Text style={styles.primaryAdminTitle}>Request Management</Text>
             <Text style={styles.primaryAdminSubtitle}>
               Open dashboard, priorities, and request actions
             </Text>
@@ -303,7 +329,7 @@ export default function HomeScreen({ navigation, onLogout }) {
           activeOpacity={0.9}
         >
           <View style={styles.adminCardText}>
-            <Text style={styles.secondaryAdminTitle}>📍 Live Map</Text>
+            <Text style={styles.secondaryAdminTitle}>Live Map</Text>
             <Text style={styles.secondaryAdminSubtitle}>
               View emergency locations and providers
             </Text>
@@ -351,7 +377,7 @@ export default function HomeScreen({ navigation, onLogout }) {
 
         <View style={styles.heroChipsRow}>
           <AppChip label="Live Tracking" type="info" />
-          <View style={{ width: 8 }} />
+          <View style={styles.heroChipSpacer} />
           <AppChip label="Fast Response" type="purple" />
         </View>
       </LinearGradient>
@@ -363,18 +389,21 @@ export default function HomeScreen({ navigation, onLogout }) {
         />
 
         <TouchableOpacity
-          style={styles.sosButton}
+          activeOpacity={0.85}
           onPress={() => navigation.navigate('Emergency')}
-          activeOpacity={0.9}
         >
-          <LinearGradient
-            colors={GRADIENTS.sunset}
-            style={styles.sosOuterGradient}
+          <Animated.View
+            style={[
+              styles.sosOuter,
+              {
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
           >
-            <View style={styles.sosInnerRing}>
+            <View style={styles.sosInner}>
               <Text style={styles.sosText}>SOS</Text>
             </View>
-          </LinearGradient>
+          </Animated.View>
         </TouchableOpacity>
       </View>
 
@@ -416,7 +445,7 @@ export default function HomeScreen({ navigation, onLogout }) {
           style={styles.emergencyGradient}
         >
           <View style={styles.emergencyOptionsTextWrap}>
-            <Text style={styles.emergencyOptionsTitle}>🚨 Emergency Call Options</Text>
+            <Text style={styles.emergencyOptionsTitle}>Emergency Call Options</Text>
             <Text style={styles.emergencyOptionsSubtitle}>
               Ambulance, police, fire and 112 quick access
             </Text>
@@ -459,7 +488,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       >
         <AppCard style={styles.serviceCard}>
           <View style={styles.serviceTextWrap}>
-            <Text style={styles.serviceTitle}>📜 History</Text>
+            <Text style={styles.serviceTitle}>History</Text>
             <Text style={styles.serviceSubtitle}>
               See all previous emergency requests
             </Text>
@@ -475,7 +504,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       >
         <AppCard style={styles.serviceCard}>
           <View style={styles.serviceTextWrap}>
-            <Text style={styles.serviceTitle}>📊 Dashboard</Text>
+            <Text style={styles.serviceTitle}>Dashboard</Text>
             <Text style={styles.serviceSubtitle}>
               Track request updates and progress
             </Text>
@@ -491,7 +520,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       >
         <AppCard style={styles.serviceCard}>
           <View style={styles.serviceTextWrap}>
-            <Text style={styles.serviceTitle}>👤 Profile</Text>
+            <Text style={styles.serviceTitle}>Profile</Text>
             <Text style={styles.serviceSubtitle}>
               Manage medical and contact details
             </Text>
@@ -605,35 +634,41 @@ const styles = StyleSheet.create({
     marginTop: 14,
     alignItems: 'center',
   },
+  heroChipSpacer: {
+    width: 8,
+  },
 
   sosSection: {
     marginBottom: 28,
     alignItems: 'center',
   },
-  sosButton: {
-    marginTop: 8,
-  },
-  sosOuterGradient: {
-    width: 196,
-    height: 196,
-    borderRadius: 98,
+  sosOuter: {
+    marginTop: 20,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255, 59, 48, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOW.card,
+    shadowColor: '#ff3b30',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 15,
   },
-  sosInnerRing: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+  sosInner: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: '#ff3b30',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sosText: {
-    color: COLORS.textLight,
-    fontSize: 40,
+    color: '#fff',
+    fontSize: 42,
     fontWeight: 'bold',
-    letterSpacing: 1,
+    letterSpacing: 2,
   },
 
   quickActionRow: {
