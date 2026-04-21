@@ -37,15 +37,68 @@ export default function AdminScreen({ navigation }) {
 
   const intervalRef = useRef(null);
   const firstLoadDoneRef = useRef(false);
-  const latestSeenRequestIdRef = useRef(null);
+  const latestKnownRequestIdRef = useRef(null);
+
   const slideAnim = useRef(new Animated.Value(420)).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const clearPolling = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+  };
+
+  const animatePopupIn = () => {
+    slideAnim.setValue(420);
+    fadeAnim.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const animatePopupOut = (onDone) => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 420,
+        duration: 260,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (onDone) {
+        onDone();
+      }
+    });
+  };
+
+  const openPopup = (requestItem) => {
+    setPopupRequest(requestItem);
+    setPopupVisible(true);
+    animatePopupIn();
+  };
+
+  const closePopup = () => {
+    animatePopupOut(() => {
+      setPopupVisible(false);
+      setPopupRequest(null);
+    });
   };
 
   const calculateCounts = (data) => {
@@ -72,103 +125,56 @@ export default function AdminScreen({ navigation }) {
     setTotalRequests(data.length);
   };
 
-  const openPopup = (requestItem) => {
-    setPopupRequest(requestItem);
-    setPopupVisible(true);
+  const previousCountRef = useRef(0);
 
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+const loadAdminData = async () => {
+  try {
+    const userId = await AsyncStorage.getItem('userId');
 
-  const closePopup = () => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 420,
-        duration: 250,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setPopupVisible(false);
-      setPopupRequest(null);
-    });
-  };
+    if (!userId) return;
 
-  const loadAdminData = async () => {
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      const storedName = await AsyncStorage.getItem('userName');
+    const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
+    const data = await response.json();
 
-      setAdminName(storedName || '');
-      setAdminUserId(userId || '');
+    console.log("API DATA:", data);
 
-      if (!userId) {
-        setLoading(false);
-        setRequests([]);
-        calculateCounts([]);
-        return;
-      }
+    if (!Array.isArray(data)) return;
 
-      const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
-      const data = await response.json();
+    const sortedData = [...data].sort((a, b) => Number(b.id) - Number(a.id));
 
-      if (!Array.isArray(data)) {
-        console.log('Admin API response:', data);
-        setRequests([]);
-        calculateCounts([]);
-        setLoading(false);
-        return;
-      }
+    setRequests(sortedData);
+    calculateCounts(sortedData);
 
-      const sortedData = [...data].sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0));
+    const currentCount = sortedData.length;
+    const previousCount = previousCountRef.current;
 
-      setRequests(sortedData);
-      calculateCounts(sortedData);
-
-      const newestRequest = sortedData[0] || null;
-      const newestRequestId = newestRequest ? Number(newestRequest.id || 0) : null;
-
-      if (!firstLoadDoneRef.current) {
-        latestSeenRequestIdRef.current = newestRequestId;
-        firstLoadDoneRef.current = true;
-      } else if (
-        newestRequest &&
-        newestRequestId &&
-        latestSeenRequestIdRef.current &&
-        newestRequestId > latestSeenRequestIdRef.current &&
-        String(newestRequest?.status || '').toLowerCase() === 'pending'
-      ) {
-        latestSeenRequestIdRef.current = newestRequestId;
-        openPopup(newestRequest);
-      } else if (
-        newestRequestId &&
-        (!latestSeenRequestIdRef.current || newestRequestId > latestSeenRequestIdRef.current)
-      ) {
-        latestSeenRequestIdRef.current = newestRequestId;
-      }
-    } catch (error) {
-      console.log('Admin load error:', error);
-      Alert.alert('Error', 'Failed to load admin dashboard');
-    } finally {
-      setLoading(false);
+    // 👉 FIRST LOAD (DON'T SHOW POPUP)
+    if (previousCount === 0) {
+      previousCountRef.current = currentCount;
+      return;
     }
-  };
+
+    // 👉 NEW REQUEST DETECTED
+    if (currentCount > previousCount) {
+      const newRequest = sortedData[0];
+
+      if (newRequest && String(newRequest.status).toLowerCase() === 'pending') {
+        console.log("🔥 NEW REQUEST DETECTED");
+
+        if (!popupVisible) {
+          openPopup(newRequest);
+        }
+      }
+    }
+
+    previousCountRef.current = currentCount;
+
+  } catch (error) {
+    console.log("ERROR:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useFocusEffect(
     useCallback(() => {
@@ -177,12 +183,12 @@ export default function AdminScreen({ navigation }) {
       clearPolling();
       intervalRef.current = setInterval(() => {
         loadAdminData();
-      }, 5000);
+      }, 3000);
 
       return () => {
         clearPolling();
       };
-    }, [])
+    }, [popupVisible])
   );
 
   useEffect(() => {
@@ -339,9 +345,7 @@ export default function AdminScreen({ navigation }) {
         `${API_BASE_URL}/admin/emergency/${emergencyId}/priority/${adminUserId}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ priority }),
         }
       );
@@ -379,9 +383,7 @@ export default function AdminScreen({ navigation }) {
         `${API_BASE_URL}/emergency/${requestItem.id}/status`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: 'accepted',
             accepted_by: adminName || 'Admin',
@@ -396,7 +398,7 @@ export default function AdminScreen({ navigation }) {
         return;
       }
 
-      Alert.alert('Success', 'Request accepted successfully');
+      Alert.alert('Success', 'Request accepted');
       closePopup();
       loadAdminData();
     } catch (error) {
@@ -620,7 +622,7 @@ export default function AdminScreen({ navigation }) {
                   onPress={() => handleSetPriority(item.id, 'high')}
                 >
                   <Text style={styles.priorityButtonText}>High</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>     
 
                 <TouchableOpacity
                   style={[styles.priorityButton, styles.criticalButton]}
@@ -649,22 +651,22 @@ export default function AdminScreen({ navigation }) {
       >
         <Animated.View
           style={[
-            styles.modalOverlay,
+            styles.overlay,
             {
-              opacity: overlayAnim,
+              opacity: fadeAnim,
             },
           ]}
-        >
-          <TouchableOpacity
-            style={styles.overlayTouch}
-            activeOpacity={1}
-            onPress={closePopup}
-          />
-        </Animated.View>
+        />
+
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.overlayTouch}
+          onPress={closePopup}
+        />
 
         <Animated.View
           style={[
-            styles.popupSheet,
+            styles.popupContainer,
             {
               transform: [{ translateY: slideAnim }],
             },
@@ -672,18 +674,16 @@ export default function AdminScreen({ navigation }) {
         >
           <LinearGradient
             colors={['#ff416c', '#ff4b2b']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
             style={styles.popupHeader}
           >
             <Text style={styles.popupHeaderTitle}>🚨 New Emergency Request</Text>
             <Text style={styles.popupHeaderSubtitle}>
-              A new user request needs your attention
+              A new user request needs action
             </Text>
           </LinearGradient>
 
           {popupRequest ? (
-            <View style={styles.popupContent}>
+            <View style={styles.popupBody}>
               <View style={styles.popupTopRow}>
                 <Text style={styles.popupType}>
                   {String(popupRequest?.type || 'Emergency').toUpperCase()}
@@ -692,13 +692,17 @@ export default function AdminScreen({ navigation }) {
                 <View
                   style={[
                     styles.popupPriorityBadge,
-                    { backgroundColor: getPriorityBackground(popupRequest?.priority) },
+                    {
+                      backgroundColor: getPriorityBackground(popupRequest?.priority),
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.popupPriorityText,
-                      { color: getPriorityColor(popupRequest?.priority) },
+                      {
+                        color: getPriorityColor(popupRequest?.priority),
+                      },
                     ]}
                   >
                     {String(popupRequest?.priority || 'medium').toUpperCase()}
@@ -714,53 +718,55 @@ export default function AdminScreen({ navigation }) {
                 📍 {popupRequest?.location_text || 'Location not available'}
               </Text>
 
-              <View style={styles.popupStatusWrap}>
-                <View
+              <View
+                style={[
+                  styles.popupStatusBadge,
+                  {
+                    borderColor: getStatusColor(popupRequest?.status),
+                  },
+                ]}
+              >
+                <Text
                   style={[
-                    styles.popupStatusBadge,
-                    { borderColor: getStatusColor(popupRequest?.status) },
+                    styles.popupStatusText,
+                    {
+                      color: getStatusColor(popupRequest?.status),
+                    },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.popupStatusText,
-                      { color: getStatusColor(popupRequest?.status) },
-                    ]}
-                  >
-                    {String(popupRequest?.status || 'pending').toUpperCase()}
-                  </Text>
-                </View>
+                  {String(popupRequest?.status || 'pending').toUpperCase()}
+                </Text>
               </View>
 
               <View style={styles.popupButtonRow}>
                 <TouchableOpacity
-                  style={[styles.popupActionButton, styles.popupDismissButton]}
+                  style={[styles.popupButton, styles.dismissButton]}
                   onPress={closePopup}
                   activeOpacity={0.9}
                 >
-                  <Text style={styles.popupDismissText}>Dismiss</Text>
+                  <Text style={styles.dismissButtonText}>Dismiss</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.popupActionButton, styles.popupViewButton]}
+                  style={[styles.popupButton, styles.viewButton]}
                   onPress={() => {
-                    const selected = popupRequest;
+                    const selectedRequest = popupRequest;
                     closePopup();
                     setTimeout(() => {
-                      navigation.navigate('EmergencyDetails', { emergency: selected });
-                    }, 220);
+                      navigation.navigate('EmergencyDetails', { emergency: selectedRequest });
+                    }, 300);
                   }}
                   activeOpacity={0.9}
                 >
-                  <Text style={styles.popupViewText}>View</Text>
+                  <Text style={styles.viewButtonText}>View</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.popupActionButton, styles.popupAcceptButton]}
+                  style={[styles.popupButton, styles.acceptButton]}
                   onPress={() => handleAcceptRequest(popupRequest)}
                   activeOpacity={0.9}
                 >
-                  <Text style={styles.popupAcceptText}>Accept</Text>
+                  <Text style={styles.acceptButtonText}>Accept</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -943,6 +949,7 @@ const styles = StyleSheet.create({
     color: '#0d6efd',
     paddingRight: 10,
   },
+
   priorityBadge: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1050,20 +1057,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  modalOverlay: {
+  overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    backgroundColor: '#111827',
   },
   overlayTouch: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
 
-  popupSheet: {
+  popupContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -1083,9 +1090,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  popupContent: {
+  popupBody: {
     padding: 20,
-    paddingBottom: 28,
+    paddingBottom: 30,
   },
   popupTopRow: {
     flexDirection: 'row',
@@ -1121,15 +1128,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 18,
   },
-  popupStatusWrap: {
-    marginTop: 14,
-  },
   popupStatusBadge: {
     alignSelf: 'flex-start',
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
+    marginTop: 14,
   },
   popupStatusText: {
     fontSize: 12,
@@ -1139,36 +1144,36 @@ const styles = StyleSheet.create({
   popupButtonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 22,
   },
-  popupActionButton: {
+  popupButton: {
     flex: 1,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     marginHorizontal: 4,
   },
-  popupDismissButton: {
+  dismissButton: {
     backgroundColor: '#e5e7eb',
   },
-  popupViewButton: {
+  viewButton: {
     backgroundColor: '#dbeafe',
   },
-  popupAcceptButton: {
+  acceptButton: {
     backgroundColor: '#22c55e',
   },
-  popupDismissText: {
+  dismissButtonText: {
     color: '#374151',
     fontWeight: 'bold',
     fontSize: 14,
   },
-  popupViewText: {
+  viewButtonText: {
     color: '#1d4ed8',
     fontWeight: 'bold',
     fontSize: 14,
   },
-  popupAcceptText: {
-    color: '#ffffff',
+  acceptButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
   },

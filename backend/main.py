@@ -1,9 +1,11 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
 import hashlib
 from typing import Optional
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
 
@@ -108,7 +110,8 @@ def debug_priority_value(emergency_id: int):
         return {
             "id": emergency.id,
             "type": emergency.type,
-            "priority": emergency.priority
+            "priority": emergency.priority,
+            "created_at": emergency.created_at,
         }
     except Exception as e:
         print("Debug Priority Value Error:", e)
@@ -201,7 +204,8 @@ def create_emergency(req: EmergencyRequest):
             user_id=req.user_id,
             status="pending",
             accepted_by=None,
-            priority="medium"
+            priority="medium",
+            created_at=datetime.utcnow(),
         )
 
         db.add(emergency)
@@ -220,7 +224,8 @@ def create_emergency(req: EmergencyRequest):
                 "status": emergency.status,
                 "priority": emergency.priority,
                 "user_id": emergency.user_id,
-                "accepted_by": emergency.accepted_by
+                "accepted_by": emergency.accepted_by,
+                "created_at": emergency.created_at,
             }
         }
 
@@ -238,7 +243,7 @@ def get_user_emergencies(user_id: int):
         emergencies = (
             db.query(EmergencyModel)
             .filter(EmergencyModel.user_id == user_id)
-            .order_by(EmergencyModel.id.desc())
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
             .all()
         )
 
@@ -253,7 +258,8 @@ def get_user_emergencies(user_id: int):
                 "status": e.status,
                 "priority": e.priority,
                 "user_id": e.user_id,
-                "accepted_by": e.accepted_by
+                "accepted_by": e.accepted_by,
+                "created_at": e.created_at,
             }
             for e in emergencies
         ]
@@ -274,7 +280,11 @@ def get_all_emergencies(user_id: int):
         if not user or user.role != "admin":
             return {"error": "Access denied"}
 
-        emergencies = db.query(EmergencyModel).order_by(EmergencyModel.id.desc()).all()
+        emergencies = (
+            db.query(EmergencyModel)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
 
         return [
             {
@@ -287,13 +297,54 @@ def get_all_emergencies(user_id: int):
                 "status": e.status,
                 "priority": e.priority,
                 "user_id": e.user_id,
-                "accepted_by": e.accepted_by
+                "accepted_by": e.accepted_by,
+                "created_at": e.created_at,
             }
             for e in emergencies
         ]
 
     except Exception as e:
         print("Admin Error:", e)
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
+@app.get("/admin/new-emergencies/{last_id}/{user_id}")
+def get_new_emergencies(last_id: int, user_id: int):
+    db: Session = get_db()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+        if not user or user.role != "admin":
+            return {"error": "Access denied"}
+
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(EmergencyModel.id > last_id)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
+
+        return [
+            {
+                "id": e.id,
+                "type": e.type,
+                "description": e.description,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "location_text": e.location_text,
+                "status": e.status,
+                "priority": e.priority,
+                "user_id": e.user_id,
+                "accepted_by": e.accepted_by,
+                "created_at": e.created_at,
+            }
+            for e in emergencies
+        ]
+
+    except Exception as e:
+        print("New Emergencies Error:", e)
         return {"error": str(e)}
     finally:
         db.close()
@@ -334,7 +385,8 @@ def update_status(emergency_id: int, req: StatusUpdateRequest):
                 "id": emergency.id,
                 "status": emergency.status,
                 "priority": emergency.priority,
-                "accepted_by": emergency.accepted_by
+                "accepted_by": emergency.accepted_by,
+                "created_at": emergency.created_at,
             }
         }
 
@@ -373,7 +425,8 @@ def update_priority(emergency_id: int, admin_user_id: int, req: PriorityUpdateRe
             "message": "Priority updated successfully",
             "data": {
                 "id": emergency.id,
-                "priority": emergency.priority
+                "priority": emergency.priority,
+                "created_at": emergency.created_at,
             }
         }
 
@@ -560,7 +613,7 @@ def get_all_locations():
                 EmergencyModel.latitude.isnot(None),
                 EmergencyModel.longitude.isnot(None)
             )
-            .order_by(EmergencyModel.id.desc())
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
             .all()
         )
 
@@ -573,7 +626,8 @@ def get_all_locations():
                 "description": e.description,
                 "location_text": e.location_text,
                 "accepted_by": e.accepted_by,
-                "priority": e.priority
+                "priority": e.priority,
+                "created_at": e.created_at,
             }
             for e in emergencies
         ]
