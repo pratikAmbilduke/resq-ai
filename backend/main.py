@@ -1,3 +1,4 @@
+print("CHECK created_at:", hasattr(EmergencyModel, "created_at"))
 from datetime import datetime
 import hashlib
 from typing import Optional
