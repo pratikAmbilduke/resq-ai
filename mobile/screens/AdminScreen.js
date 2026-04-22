@@ -62,6 +62,23 @@ export default function AdminScreen({ navigation }) {
     }
   }, []);
 
+  const parseResponse = async (response) => {
+    const text = await response.text();
+    let data = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (error) {
+      data = { raw: text };
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      data,
+    };
+  };
+
   const normalizeRequest = useCallback((item) => {
     if (!item) return null;
 
@@ -107,11 +124,9 @@ export default function AdminScreen({ navigation }) {
 
   const setRequestsAndCounts = useCallback(
     (incoming) => {
-      const normalized = incoming
-        .map((item) => normalizeRequest(item))
-        .filter(Boolean);
-
+      const normalized = incoming.map((item) => normalizeRequest(item)).filter(Boolean);
       const sorted = sortRequests(normalized);
+
       setRequests(sorted);
       calculateCounts(sorted);
 
@@ -263,9 +278,7 @@ export default function AdminScreen({ navigation }) {
           useNativeDriver: true,
         }),
       ]).start(() => {
-        if (onDone) {
-          onDone();
-        }
+        if (onDone) onDone();
       });
     },
     [dragY, fadeAnim, slideAnim]
@@ -276,6 +289,7 @@ export default function AdminScreen({ navigation }) {
       setPopupVisible(false);
       setPopupRequest(null);
       activePopupIdRef.current = null;
+
       setTimeout(() => {
         showNextPopupFromQueue();
       }, 120);
@@ -334,8 +348,7 @@ export default function AdminScreen({ navigation }) {
         }
       });
 
-      const merged = Array.from(map.values());
-      return sortRequests(merged);
+      return sortRequests(Array.from(map.values()));
     },
     [normalizeRequest, sortRequests]
   );
@@ -356,15 +369,19 @@ export default function AdminScreen({ navigation }) {
         }
 
         const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
-        const data = await response.json();
+        const parsed = await parseResponse(response);
 
-        if (!Array.isArray(data)) {
-          setRequests([]);
-          calculateCounts([]);
+        if (!parsed.ok) {
+          console.log('Admin list fetch failed:', parsed.status, parsed.data);
+          if (!silent) {
+            Alert.alert('Error', 'Failed to load admin requests');
+          }
           return;
         }
 
-        const sorted = setRequestsAndCounts(data);
+        const list = Array.isArray(parsed.data) ? parsed.data : [];
+
+        const sorted = setRequestsAndCounts(list);
 
         if (!firstLoadDoneRef.current) {
           firstLoadDoneRef.current = true;
@@ -374,6 +391,9 @@ export default function AdminScreen({ navigation }) {
         }
       } catch (error) {
         console.log('Load admin data error:', error);
+        if (!silent) {
+          Alert.alert('Error', 'Unable to load admin data');
+        }
       } finally {
         if (!silent) {
           setLoading(false);
@@ -400,14 +420,18 @@ export default function AdminScreen({ navigation }) {
       const response = await fetch(
         `${API_BASE_URL}/admin/new-emergencies/${lastId}/${userId}`
       );
+      const parsed = await parseResponse(response);
 
-      const data = await response.json();
-
-      if (!Array.isArray(data) || data.length === 0) {
+      if (!parsed.ok) {
+        console.log('Polling failed:', parsed.status, parsed.data);
         return;
       }
 
-      const normalizedNewItems = data
+      if (!Array.isArray(parsed.data) || parsed.data.length === 0) {
+        return;
+      }
+
+      const normalizedNewItems = parsed.data
         .map((item) => normalizeRequest(item))
         .filter(Boolean)
         .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
@@ -478,7 +502,10 @@ export default function AdminScreen({ navigation }) {
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dy) > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        return (
+          Math.abs(gestureState.dy) > 8 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
+        );
       },
       onPanResponderMove: (_, gestureState) => {
         if (gestureState.dy > 0) {
@@ -601,6 +628,11 @@ export default function AdminScreen({ navigation }) {
     });
   }, [requests, searchText, selectedFilter, adminName]);
 
+  // ---------------------------------------------------------
+  // DELETE FIX:
+  // Show success only after backend confirms actual delete.
+  // Then refresh from server.
+  // ---------------------------------------------------------
   const handleDeleteRequest = async (emergencyId) => {
     try {
       if (!adminUserId) {
@@ -622,16 +654,25 @@ export default function AdminScreen({ navigation }) {
                   `${API_BASE_URL}/admin/emergency/${emergencyId}/${adminUserId}`,
                   {
                     method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
                   }
                 );
 
-                const data = await response.json();
+                const parsed = await parseResponse(response);
 
-                if (data?.error) {
-                  Alert.alert('Error', data.error);
+                if (!parsed.ok || !parsed.data?.success) {
+                  const message =
+                    parsed?.data?.detail ||
+                    parsed?.data?.error ||
+                    parsed?.data?.message ||
+                    'Failed to delete request';
+                  Alert.alert('Error', message);
                   return;
                 }
 
+                // Remove from local UI only after backend confirms success
                 setRequests((prev) => {
                   const updated = prev.filter(
                     (item) => Number(item?.id) !== Number(emergencyId)
@@ -648,8 +689,8 @@ export default function AdminScreen({ navigation }) {
                   closePopup();
                 }
 
-                Alert.alert('Success', 'Request deleted successfully');
-                loadAdminData({ silent: true });
+                await loadAdminData({ silent: true });
+                Alert.alert('Success', parsed.data.message || 'Request deleted successfully');
               } catch (error) {
                 console.log('Delete request error:', error);
                 Alert.alert('Error', 'Failed to delete request');
@@ -663,6 +704,11 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
+  // ---------------------------------------------------------
+  // PRIORITY FIX:
+  // Wait for backend success, then update local state using
+  // backend response, then refresh again from server.
+  // ---------------------------------------------------------
   const handleSetPriority = async (emergencyId, priority) => {
     try {
       if (!adminUserId) {
@@ -679,29 +725,53 @@ export default function AdminScreen({ navigation }) {
         }
       );
 
-      const data = await response.json();
+      const parsed = await parseResponse(response);
 
-      if (data?.error) {
-        Alert.alert('Error', data.error);
+      if (!parsed.ok || !parsed.data?.success) {
+        const message =
+          parsed?.data?.detail ||
+          parsed?.data?.error ||
+          parsed?.data?.message ||
+          'Failed to update priority';
+        Alert.alert('Error', message);
         return;
       }
 
-      setRequests((prev) => {
-        const updated = prev.map((item) =>
-          Number(item?.id) === Number(emergencyId)
-            ? { ...item, priority }
-            : item
-        );
-        calculateCounts(updated);
-        return updated;
-      });
+      const updatedEmergency = parsed?.data?.emergency;
 
-      if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
-        setPopupRequest((prev) => (prev ? { ...prev, priority } : prev));
+      if (updatedEmergency?.id) {
+        setRequests((prev) => {
+          const updated = prev.map((item) =>
+            Number(item?.id) === Number(updatedEmergency.id)
+              ? { ...item, ...updatedEmergency }
+              : item
+          );
+          calculateCounts(updated);
+          return updated;
+        });
+
+        if (popupRequest && Number(popupRequest?.id) === Number(updatedEmergency.id)) {
+          setPopupRequest((prev) => (prev ? { ...prev, ...updatedEmergency } : prev));
+        }
+      } else {
+        // fallback local update
+        setRequests((prev) => {
+          const updated = prev.map((item) =>
+            Number(item?.id) === Number(emergencyId)
+              ? { ...item, priority }
+              : item
+          );
+          calculateCounts(updated);
+          return updated;
+        });
+
+        if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
+          setPopupRequest((prev) => (prev ? { ...prev, priority } : prev));
+        }
       }
 
-      Alert.alert('Success', `Priority updated to ${priority}`);
-      loadAdminData({ silent: true });
+      await loadAdminData({ silent: true });
+      Alert.alert('Success', parsed.data.message || `Priority updated to ${priority}`);
     } catch (error) {
       console.log('Priority update error:', error);
       Alert.alert('Error', 'Failed to update priority');
@@ -722,58 +792,47 @@ export default function AdminScreen({ navigation }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: nextStatus,
-            accepted_by:
-              nextStatus === 'pending'
-                ? null
-                : adminName || 'Admin',
+            accepted_by: nextStatus === 'pending' ? null : adminName || 'Admin',
           }),
         }
       );
 
-      const data = await response.json();
+      const parsed = await parseResponse(response);
 
-      if (data?.error) {
-        Alert.alert('Error', data.error);
+      if (!parsed.ok || !parsed.data?.success) {
+        const message =
+          parsed?.data?.detail ||
+          parsed?.data?.error ||
+          parsed?.data?.message ||
+          'Failed to update request status';
+        Alert.alert('Error', message);
         return false;
       }
 
-      setRequests((prev) => {
-        const updated = prev.map((item) =>
-          Number(item?.id) === Number(requestItem.id)
-            ? {
-                ...item,
-                status: nextStatus,
-                accepted_by:
-                  nextStatus === 'pending'
-                    ? ''
-                    : adminName || 'Admin',
-              }
-            : item
-        );
-        calculateCounts(updated);
-        return updated;
-      });
+      const updatedEmergency = parsed?.data?.emergency;
 
-      if (popupRequest && Number(popupRequest?.id) === Number(requestItem.id)) {
-        setPopupRequest((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: nextStatus,
-                accepted_by:
-                  nextStatus === 'pending'
-                    ? ''
-                    : adminName || 'Admin',
-              }
-            : prev
-        );
-      }
+      if (updatedEmergency?.id) {
+        setRequests((prev) => {
+          const updated = prev.map((item) =>
+            Number(item?.id) === Number(updatedEmergency.id)
+              ? { ...item, ...updatedEmergency }
+              : item
+          );
+          calculateCounts(updated);
+          return updated;
+        });
 
-      if (showSuccess) {
-        Alert.alert('Success', `Request marked as ${nextStatus}`);
+        if (popupRequest && Number(popupRequest?.id) === Number(updatedEmergency.id)) {
+          setPopupRequest((prev) => (prev ? { ...prev, ...updatedEmergency } : prev));
+        }
       }
 
       await loadAdminData({ silent: true });
+
+      if (showSuccess) {
+        Alert.alert('Success', parsed.data.message || `Request marked as ${nextStatus}`);
+      }
+
       return true;
     } catch (error) {
       console.log('Update request status error:', error);
