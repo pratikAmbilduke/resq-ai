@@ -1,4 +1,3 @@
-print("CHECK created_at:", hasattr(EmergencyModel, "created_at"))
 from datetime import datetime
 import hashlib
 from typing import Optional
@@ -9,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
+print("CHECK created_at:", hasattr(EmergencyModel, "created_at"))
 
 app = FastAPI()
 
