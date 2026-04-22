@@ -11,13 +11,18 @@ import {
   Modal,
   Animated,
   Easing,
+  Vibration,
+  PanResponder,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Audio } from 'expo-av';
 import API_BASE_URL from '../config';
 
 const POLLING_INTERVAL = 3000;
+const SWIPE_CLOSE_THRESHOLD = 120;
+const SWIPE_CLOSE_VELOCITY = 1.1;
 
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -44,9 +49,11 @@ export default function AdminScreen({ navigation }) {
   const activePopupIdRef = useRef(null);
   const isScreenActiveRef = useRef(false);
   const isFetchingNewRef = useRef(false);
+  const popupSoundRef = useRef(null);
 
   const slideAnim = useRef(new Animated.Value(420)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
 
   const clearPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -122,7 +129,56 @@ export default function AdminScreen({ navigation }) {
     [calculateCounts, normalizeRequest, sortRequests]
   );
 
+  const cleanupPopupSound = useCallback(async () => {
+    try {
+      if (popupSoundRef.current) {
+        await popupSoundRef.current.unloadAsync();
+        popupSoundRef.current = null;
+      }
+    } catch (error) {
+      console.log('Cleanup popup sound error:', error);
+    }
+  }, []);
+
+  const playPopupAlert = useCallback(async () => {
+    try {
+      Vibration.vibrate([0, 180, 120, 220]);
+
+      await cleanupPopupSound();
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        {
+          uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
+        },
+        {
+          shouldPlay: true,
+          volume: 1.0,
+          isLooping: false,
+        }
+      );
+
+      popupSoundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status?.didJustFinish) {
+          cleanupPopupSound();
+        }
+      });
+    } catch (error) {
+      console.log('Popup sound play error:', error);
+    }
+  }, [cleanupPopupSound]);
+
   const animatePopupIn = useCallback(() => {
+    dragY.setValue(0);
     slideAnim.setValue(420);
     fadeAnim.setValue(0);
 
@@ -139,7 +195,16 @@ export default function AdminScreen({ navigation }) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, [dragY, fadeAnim, slideAnim]);
+
+  const resetDragPosition = useCallback(() => {
+    Animated.spring(dragY, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 4,
+      speed: 14,
+    }).start();
+  }, [dragY]);
 
   const showNextPopupFromQueue = useCallback(() => {
     if (popupVisible) return;
@@ -152,7 +217,8 @@ export default function AdminScreen({ navigation }) {
     setPopupRequest(nextRequest);
     setPopupVisible(true);
     animatePopupIn();
-  }, [animatePopupIn, popupVisible]);
+    playPopupAlert();
+  }, [animatePopupIn, playPopupAlert, popupVisible]);
 
   const enqueuePopupRequest = useCallback(
     (requestItem) => {
@@ -162,7 +228,6 @@ export default function AdminScreen({ navigation }) {
       const requestStatus = String(requestItem?.status || '').toLowerCase();
 
       if (requestStatus !== 'pending') return;
-
       if (activePopupIdRef.current === requestId) return;
 
       const alreadyQueued = popupQueueRef.current.some(
@@ -191,13 +256,19 @@ export default function AdminScreen({ navigation }) {
           duration: 180,
           useNativeDriver: true,
         }),
+        Animated.timing(dragY, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
       ]).start(() => {
         if (onDone) {
           onDone();
         }
       });
     },
-    [fadeAnim, slideAnim]
+    [dragY, fadeAnim, slideAnim]
   );
 
   const closePopup = useCallback(() => {
@@ -394,14 +465,41 @@ export default function AdminScreen({ navigation }) {
     return () => {
       isScreenActiveRef.current = false;
       clearPolling();
+      cleanupPopupSound();
     };
-  }, [clearPolling]);
+  }, [clearPolling, cleanupPopupSound]);
 
   useEffect(() => {
     if (popupVisible && popupRequest?.id) {
       activePopupIdRef.current = Number(popupRequest.id);
     }
   }, [popupRequest, popupVisible]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          dragY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (
+          gestureState.dy > SWIPE_CLOSE_THRESHOLD ||
+          gestureState.vy > SWIPE_CLOSE_VELOCITY
+        ) {
+          closePopup();
+        } else {
+          resetDragPosition();
+        }
+      },
+      onPanResponderTerminate: () => {
+        resetDragPosition();
+      },
+    })
+  ).current;
 
   const getStatusColor = (status) => {
     const s = String(status || '').toLowerCase();
@@ -599,9 +697,7 @@ export default function AdminScreen({ navigation }) {
       });
 
       if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
-        setPopupRequest((prev) =>
-          prev ? { ...prev, priority } : prev
-        );
+        setPopupRequest((prev) => (prev ? { ...prev, priority } : prev));
       }
 
       Alert.alert('Success', `Priority updated to ${priority}`);
@@ -1016,75 +1112,105 @@ export default function AdminScreen({ navigation }) {
           style={[
             styles.popupContainer,
             {
-              transform: [{ translateY: slideAnim }],
+              transform: [{ translateY: Animated.add(slideAnim, dragY) }],
             },
           ]}
+          {...panResponder.panHandlers}
         >
+          <View style={styles.dragHandleWrap}>
+            <View style={styles.dragHandle} />
+          </View>
+
           <LinearGradient
-            colors={['#ff416c', '#ff4b2b']}
+            colors={['#fc8019', '#ff5f1f']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.popupHeader}
           >
-            <Text style={styles.popupHeaderTitle}>🚨 New Emergency Request</Text>
-            <Text style={styles.popupHeaderSubtitle}>
-              A new user request needs action
-            </Text>
+            <View style={styles.popupHeaderRow}>
+              <View style={styles.popupHeaderLeft}>
+                <Text style={styles.popupHeaderEyebrow}>NEW ORDER ALERT</Text>
+                <Text style={styles.popupHeaderTitle}>🚨 New Emergency Request</Text>
+                <Text style={styles.popupHeaderSubtitle}>
+                  A new request just arrived. Take action quickly.
+                </Text>
+              </View>
+
+              <View style={styles.popupPingBadge}>
+                <Text style={styles.popupPingText}>LIVE</Text>
+              </View>
+            </View>
           </LinearGradient>
 
           {popupRequest ? (
             <View style={styles.popupBody}>
-              <View style={styles.popupTopRow}>
-                <Text style={styles.popupType}>
-                  {String(popupRequest?.type || 'Emergency').toUpperCase()}
-                </Text>
+              <View style={styles.popupInfoCard}>
+                <View style={styles.popupTopRow}>
+                  <Text style={styles.popupType}>
+                    {String(popupRequest?.type || 'Emergency').toUpperCase()}
+                  </Text>
 
-                <View
-                  style={[
-                    styles.popupPriorityBadge,
-                    {
-                      backgroundColor: getPriorityBackground(popupRequest?.priority),
-                    },
-                  ]}
-                >
-                  <Text
+                  <View
                     style={[
-                      styles.popupPriorityText,
+                      styles.popupPriorityBadge,
                       {
-                        color: getPriorityColor(popupRequest?.priority),
+                        backgroundColor: getPriorityBackground(popupRequest?.priority),
                       },
                     ]}
                   >
-                    {String(popupRequest?.priority || 'medium').toUpperCase()}
+                    <Text
+                      style={[
+                        styles.popupPriorityText,
+                        {
+                          color: getPriorityColor(popupRequest?.priority),
+                        },
+                      ]}
+                    >
+                      {String(popupRequest?.priority || 'medium').toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.popupLabel}>Description</Text>
+                <Text style={styles.popupDescription}>
+                  {popupRequest?.description || 'No description available'}
+                </Text>
+
+                <Text style={styles.popupLabel}>Location</Text>
+                <Text style={styles.popupLocation}>
+                  📍 {popupRequest?.location_text || 'Location not available'}
+                </Text>
+
+                <View style={styles.popupMetaRow}>
+                  <View
+                    style={[
+                      styles.popupStatusBadge,
+                      {
+                        borderColor: getStatusColor(popupRequest?.status),
+                        backgroundColor: getStatusBackground(popupRequest?.status),
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.popupStatusText,
+                        {
+                          color: getStatusColor(popupRequest?.status),
+                        },
+                      ]}
+                    >
+                      {String(popupRequest?.status || 'pending').toUpperCase()}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.popupIdText}>
+                    Request #{String(popupRequest?.id || '')}
                   </Text>
                 </View>
               </View>
 
-              <Text style={styles.popupDescription}>
-                {popupRequest?.description || 'No description available'}
-              </Text>
-
-              <Text style={styles.popupLocation}>
-                📍 {popupRequest?.location_text || 'Location not available'}
-              </Text>
-
-              <View
-                style={[
-                  styles.popupStatusBadge,
-                  {
-                    borderColor: getStatusColor(popupRequest?.status),
-                    backgroundColor: getStatusBackground(popupRequest?.status),
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.popupStatusText,
-                    {
-                      color: getStatusColor(popupRequest?.status),
-                    },
-                  ]}
-                >
-                  {String(popupRequest?.status || 'pending').toUpperCase()}
-                </Text>
+              <View style={styles.popupHintRow}>
+                <Text style={styles.popupHintText}>Swipe down to dismiss</Text>
               </View>
 
               <View style={styles.popupButtonRow}>
@@ -1466,29 +1592,78 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     overflow: 'hidden',
   },
+  dragHandleWrap: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
+    backgroundColor: '#ffffff',
+  },
+  dragHandle: {
+    width: 52,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#d1d5db',
+  },
+
   popupHeader: {
     paddingHorizontal: 20,
     paddingVertical: 18,
   },
+  popupHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  popupHeaderLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  popupHeaderEyebrow: {
+    color: '#fff7ed',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
   popupHeaderTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: 'bold',
   },
   popupHeaderSubtitle: {
-    color: '#ffe4e6',
+    color: '#fff7ed',
     fontSize: 13,
     marginTop: 6,
+    lineHeight: 18,
+  },
+  popupPingBadge: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  popupPingText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   popupBody: {
-    padding: 20,
+    padding: 18,
     paddingBottom: 30,
+    backgroundColor: '#fff',
+  },
+  popupInfoCard: {
+    backgroundColor: '#fffaf5',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
   },
   popupTopRow: {
     flexDirection: 'row',
@@ -1511,18 +1686,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
   },
+  popupLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#6b7280',
+    marginTop: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
   popupDescription: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginTop: 14,
+    marginTop: 6,
     lineHeight: 24,
   },
   popupLocation: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginTop: 8,
-    lineHeight: 18,
+    fontSize: 14,
+    color: '#374151',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  popupMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    flexWrap: 'wrap',
   },
   popupStatusBadge: {
     alignSelf: 'flex-start',
@@ -1530,22 +1720,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    marginTop: 14,
+    marginRight: 10,
   },
   popupStatusText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
+  popupIdText: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+
+  popupHintRow: {
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  popupHintText: {
+    color: '#9ca3af',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   popupButtonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 22,
+    marginTop: 20,
   },
   popupButton: {
     flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 15,
     alignItems: 'center',
     marginHorizontal: 4,
   },
