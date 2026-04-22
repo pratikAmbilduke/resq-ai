@@ -205,7 +205,7 @@ def create_emergency(req: EmergencyRequest):
             status="pending",
             accepted_by=None,
             priority="medium",
-            created_at=datetime.utcnow(),
+            created_at=datetime.utcnow()   # ✅ REQUIRED
         )
 
         db.add(emergency)
@@ -225,7 +225,7 @@ def create_emergency(req: EmergencyRequest):
                 "priority": emergency.priority,
                 "user_id": emergency.user_id,
                 "accepted_by": emergency.accepted_by,
-                "created_at": emergency.created_at,
+                "created_at": emergency.created_at
             }
         }
 

@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -31,10 +32,14 @@ class EmergencyModel(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     location_text = Column(String, nullable=False)
+
     status = Column(String, default="pending")
     user_id = Column(Integer, nullable=False)
     accepted_by = Column(String, nullable=True)
     priority = Column(String, default="medium")
+
+    # ✅ FIX ADDED
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class ProfileModel(Base):
