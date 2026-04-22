@@ -23,7 +23,7 @@ export default function EmergencyScreen({ navigation }) {
   const [locationInfo, setLocationInfo] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
 
-  // 📍 Get Location
+  // 📍 LOCATION
   const fetchCurrentLocation = async () => {
     try {
       setFetchingLocation(true);
@@ -35,25 +35,15 @@ export default function EmergencyScreen({ navigation }) {
       }
 
       const current = await Location.getCurrentPositionAsync({});
-      const latitude = current.coords.latitude;
-      const longitude = current.coords.longitude;
+      const { latitude, longitude } = current.coords;
 
-      const geo = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
 
       let locationText = 'Auto captured location';
 
       if (geo.length > 0) {
-        const place = geo[0];
-        locationText = [
-          place.name,
-          place.street,
-          place.city,
-          place.region,
-          place.country,
-        ]
+        const p = geo[0];
+        locationText = [p.name, p.street, p.city, p.region, p.country]
           .filter(Boolean)
           .join(', ');
       }
@@ -66,26 +56,19 @@ export default function EmergencyScreen({ navigation }) {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Failed to get location');
     } finally {
       setFetchingLocation(false);
     }
   };
 
-  // 🚨 Send Emergency
+  // 🚨 SEND
   const sendEmergency = async () => {
+    if (!description.trim()) return Alert.alert('Enter description');
+    if (!locationInfo) return Alert.alert('Get location first');
+
     try {
-      if (!description.trim()) {
-        Alert.alert('Please enter description');
-        return;
-      }
-
-      if (!locationInfo) {
-        Alert.alert('Please get location first');
-        return;
-      }
-
       setLoading(true);
 
       const userId = await AsyncStorage.getItem('userId');
@@ -105,18 +88,12 @@ export default function EmergencyScreen({ navigation }) {
 
       const data = await res.json();
 
-      if (data.error) {
-        Alert.alert(data.error);
-        return;
-      }
+      if (data.error) return Alert.alert(data.error);
 
-      Alert.alert('Success 🚨', 'Emergency Sent');
-
-      // ⚠️ IMPORTANT: match your navigation name
+      Alert.alert('🚨 Emergency Sent Successfully');
       navigation.navigate('HistoryTab');
-
       setDescription('');
-    } catch (err) {
+    } catch {
       Alert.alert('Error sending emergency');
     } finally {
       setLoading(false);
@@ -125,72 +102,56 @@ export default function EmergencyScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      
+
       {/* HEADER */}
-      <LinearGradient
-        colors={['#ff416c', '#ff4b2b']}
-        style={styles.header}
-      >
-        <Text style={styles.headerTitle}>🚨 Emergency</Text>
-        <Text style={styles.headerSub}>
-          Send help request instantly
-        </Text>
+      <LinearGradient colors={['#ff3b30', '#ff6b6b']} style={styles.header}>
+        <Text style={styles.headerTitle}>Emergency Request</Text>
+        <Text style={styles.headerSub}>Quick help is just one tap away</Text>
       </LinearGradient>
 
       {/* TYPE */}
-      <Text style={styles.label}>Select Type</Text>
+      <Text style={styles.label}>Emergency Type</Text>
       <View style={styles.typeRow}>
-        <TouchableOpacity
-          style={[
-            styles.typeCard,
-            type === 'medical' && styles.activeType,
-          ]}
-          onPress={() => setType('medical')}
-        >
-          <Text style={styles.icon}>🏥</Text>
-          <Text style={styles.typeText}>Medical</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.typeCard,
-            type === 'accident' && styles.activeType,
-          ]}
-          onPress={() => setType('accident')}
-        >
-          <Text style={styles.icon}>🚗</Text>
-          <Text style={styles.typeText}>Accident</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.typeCard,
-            type === 'fire' && styles.activeType,
-          ]}
-          onPress={() => setType('fire')}
-        >
-          <Text style={styles.icon}>🔥</Text>
-          <Text style={styles.typeText}>Fire</Text>
-        </TouchableOpacity>
+        {[
+          { key: 'medical', icon: '🏥', label: 'Medical' },
+          { key: 'accident', icon: '🚗', label: 'Accident' },
+          { key: 'fire', icon: '🔥', label: 'Fire' },
+        ].map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            style={[
+              styles.typeCard,
+              type === item.key && styles.activeType,
+            ]}
+            onPress={() => setType(item.key)}
+          >
+            <Text style={styles.icon}>{item.icon}</Text>
+            <Text
+              style={[
+                styles.typeText,
+                type === item.key && { color: '#fff' },
+              ]}
+            >
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* DESCRIPTION */}
-      <Text style={styles.label}>Description</Text>
+      <Text style={styles.label}>Describe Situation</Text>
       <TextInput
         style={styles.input}
-        placeholder="Describe emergency..."
+        placeholder="Explain what happened..."
         multiline
         value={description}
         onChangeText={setDescription}
       />
 
       {/* LOCATION BUTTON */}
-      <TouchableOpacity
-        style={styles.locationBtn}
-        onPress={fetchCurrentLocation}
-      >
+      <TouchableOpacity style={styles.locationBtn} onPress={fetchCurrentLocation}>
         <Text style={styles.locationText}>
-          {fetchingLocation ? 'Fetching...' : '📍 Get Location'}
+          {fetchingLocation ? 'Fetching location...' : '📍 Detect My Location'}
         </Text>
       </TouchableOpacity>
 
@@ -203,25 +164,23 @@ export default function EmergencyScreen({ navigation }) {
         </View>
       )}
 
-      {/* LOCATION TEXT ONLY */}
+      {/* LOCATION TEXT */}
       {locationInfo && (
         <View style={styles.locationCard}>
-          <Text style={styles.locationTitle}>📍 Location</Text>
-          <Text style={styles.locationValue}>
-            {locationInfo.locationText}
-          </Text>
+          <Text style={styles.locationTitle}>Detected Location</Text>
+          <Text style={styles.locationValue}>{locationInfo.locationText}</Text>
         </View>
       )}
 
-      {/* SEND BUTTON */}
+      {/* SOS BUTTON */}
       <TouchableOpacity style={styles.sosBtn} onPress={sendEmergency}>
         <Text style={styles.sosText}>
-          {loading ? 'Sending...' : 'SEND SOS'}
+          {loading ? 'Sending...' : '🚨 SEND EMERGENCY'}
         </Text>
       </TouchableOpacity>
 
       {(loading || fetchingLocation) && (
-        <ActivityIndicator size="large" color="red" />
+        <ActivityIndicator size="large" color="#ff3b30" style={{ marginTop: 15 }} />
       )}
     </ScrollView>
   );
@@ -230,70 +189,72 @@ export default function EmergencyScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     padding: 18,
-    backgroundColor: '#f3f5f7',
+    backgroundColor: '#f8fafc',
     flexGrow: 1,
   },
 
   header: {
-    padding: 20,
+    padding: 22,
     borderRadius: 20,
     marginBottom: 20,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   headerSub: {
     color: '#fff',
     marginTop: 5,
+    opacity: 0.9,
   },
 
   label: {
-    fontWeight: 'bold',
-    marginTop: 10,
+    fontWeight: '600',
+    marginTop: 15,
     marginBottom: 10,
+    color: '#333',
   },
 
   typeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
   },
 
   typeCard: {
     flex: 1,
-    marginHorizontal: 5,
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 15,
+    padding: 16,
+    borderRadius: 16,
     alignItems: 'center',
+    elevation: 3,
   },
 
   activeType: {
-    backgroundColor: '#0d6efd',
-  },
-
-  typeText: {
-    marginTop: 5,
-    fontWeight: 'bold',
-    color: '#111',
+    backgroundColor: '#ff3b30',
   },
 
   icon: {
-    fontSize: 24,
+    fontSize: 26,
+  },
+
+  typeText: {
+    marginTop: 6,
+    fontWeight: 'bold',
   },
 
   input: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 15,
     minHeight: 100,
+    elevation: 2,
   },
 
   locationBtn: {
-    backgroundColor: '#22c55e',
-    padding: 14,
-    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    padding: 15,
+    borderRadius: 14,
     marginTop: 15,
     alignItems: 'center',
   },
@@ -306,7 +267,7 @@ const styles = StyleSheet.create({
   mapWrap: {
     marginTop: 15,
     height: 200,
-    borderRadius: 15,
+    borderRadius: 16,
     overflow: 'hidden',
   },
 
@@ -317,7 +278,7 @@ const styles = StyleSheet.create({
   locationCard: {
     backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 14,
     marginTop: 15,
   },
 
@@ -333,14 +294,15 @@ const styles = StyleSheet.create({
   sosBtn: {
     backgroundColor: '#ff3b30',
     padding: 18,
-    borderRadius: 15,
-    marginTop: 20,
+    borderRadius: 16,
+    marginTop: 25,
     alignItems: 'center',
+    elevation: 4,
   },
 
   sosText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
   },
 });
