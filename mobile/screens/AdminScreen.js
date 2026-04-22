@@ -17,6 +17,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
 
+const POLLING_INTERVAL = 3000;
+
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
@@ -37,71 +39,42 @@ export default function AdminScreen({ navigation }) {
 
   const intervalRef = useRef(null);
   const firstLoadDoneRef = useRef(false);
-  const latestKnownRequestIdRef = useRef(null);
+  const latestKnownRequestIdRef = useRef(0);
+  const popupQueueRef = useRef([]);
+  const activePopupIdRef = useRef(null);
+  const isScreenActiveRef = useRef(false);
+  const isFetchingNewRef = useRef(false);
 
   const slideAnim = useRef(new Animated.Value(420)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const clearPolling = () => {
+  const clearPolling = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
+  }, []);
 
-  const animatePopupIn = () => {
-    slideAnim.setValue(420);
-    fadeAnim.setValue(0);
+  const normalizeRequest = useCallback((item) => {
+    if (!item) return null;
 
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+    return {
+      ...item,
+      id: Number(item?.id || 0),
+      type: item?.type || 'Emergency',
+      description: item?.description || '',
+      location_text: item?.location_text || '',
+      status: item?.status || 'pending',
+      priority: item?.priority || 'medium',
+      accepted_by: item?.accepted_by || '',
+    };
+  }, []);
 
-  const animatePopupOut = (onDone) => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 420,
-        duration: 260,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      if (onDone) {
-        onDone();
-      }
-    });
-  };
+  const sortRequests = useCallback((list) => {
+    return [...list].sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0));
+  }, []);
 
-  const openPopup = (requestItem) => {
-    setPopupRequest(requestItem);
-    setPopupVisible(true);
-    animatePopupIn();
-  };
-
-  const closePopup = () => {
-    animatePopupOut(() => {
-      setPopupVisible(false);
-      setPopupRequest(null);
-    });
-  };
-
-  const calculateCounts = (data) => {
+  const calculateCounts = useCallback((data) => {
     const pending = data.filter(
       (item) => String(item?.status || '').toLowerCase() === 'pending'
     ).length;
@@ -123,79 +96,312 @@ export default function AdminScreen({ navigation }) {
     setProgressCount(progress);
     setResolvedCount(resolved);
     setTotalRequests(data.length);
-  };
+  }, []);
 
-  const previousCountRef = useRef(0);
+  const setRequestsAndCounts = useCallback(
+    (incoming) => {
+      const normalized = incoming
+        .map((item) => normalizeRequest(item))
+        .filter(Boolean);
 
-const loadAdminData = async () => {
-  try {
-    const userId = await AsyncStorage.getItem('userId');
+      const sorted = sortRequests(normalized);
+      setRequests(sorted);
+      calculateCounts(sorted);
 
-    if (!userId) return;
+      const maxId = sorted.reduce((max, item) => {
+        const currentId = Number(item?.id || 0);
+        return currentId > max ? currentId : max;
+      }, 0);
 
-    const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
-    const data = await response.json();
+      if (maxId > Number(latestKnownRequestIdRef.current || 0)) {
+        latestKnownRequestIdRef.current = maxId;
+      }
 
-    console.log("API DATA:", data);
+      return sorted;
+    },
+    [calculateCounts, normalizeRequest, sortRequests]
+  );
 
-    if (!Array.isArray(data)) return;
+  const animatePopupIn = useCallback(() => {
+    slideAnim.setValue(420);
+    fadeAnim.setValue(0);
 
-    const sortedData = [...data].sort((a, b) => Number(b.id) - Number(a.id));
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
 
-    setRequests(sortedData);
-    calculateCounts(sortedData);
+  const showNextPopupFromQueue = useCallback(() => {
+    if (popupVisible) return;
+    if (popupQueueRef.current.length === 0) return;
 
-    const currentCount = sortedData.length;
-    const previousCount = previousCountRef.current;
+    const nextRequest = popupQueueRef.current.shift();
+    if (!nextRequest) return;
 
-    // 👉 FIRST LOAD (DON'T SHOW POPUP)
-    if (previousCount === 0) {
-      previousCountRef.current = currentCount;
-      return;
-    }
+    activePopupIdRef.current = Number(nextRequest?.id || 0);
+    setPopupRequest(nextRequest);
+    setPopupVisible(true);
+    animatePopupIn();
+  }, [animatePopupIn, popupVisible]);
 
-    // 👉 NEW REQUEST DETECTED
-    if (currentCount > previousCount) {
-      const newRequest = sortedData[0];
+  const enqueuePopupRequest = useCallback(
+    (requestItem) => {
+      if (!requestItem?.id) return;
 
-      if (newRequest && String(newRequest.status).toLowerCase() === 'pending') {
-        console.log("🔥 NEW REQUEST DETECTED");
+      const requestId = Number(requestItem.id);
+      const requestStatus = String(requestItem?.status || '').toLowerCase();
 
-        if (!popupVisible) {
-          openPopup(newRequest);
+      if (requestStatus !== 'pending') return;
+
+      if (activePopupIdRef.current === requestId) return;
+
+      const alreadyQueued = popupQueueRef.current.some(
+        (queued) => Number(queued?.id || 0) === requestId
+      );
+
+      if (alreadyQueued) return;
+
+      popupQueueRef.current.push(requestItem);
+      showNextPopupFromQueue();
+    },
+    [showNextPopupFromQueue]
+  );
+
+  const animatePopupOut = useCallback(
+    (onDone) => {
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 420,
+          duration: 260,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        if (onDone) {
+          onDone();
+        }
+      });
+    },
+    [fadeAnim, slideAnim]
+  );
+
+  const closePopup = useCallback(() => {
+    animatePopupOut(() => {
+      setPopupVisible(false);
+      setPopupRequest(null);
+      activePopupIdRef.current = null;
+      setTimeout(() => {
+        showNextPopupFromQueue();
+      }, 120);
+    });
+  }, [animatePopupOut, showNextPopupFromQueue]);
+
+  const getStoredAdminIdentity = useCallback(async () => {
+    const [
+      userId,
+      adminStoredName,
+      userName,
+      name,
+      fullName,
+      username,
+    ] = await Promise.all([
+      AsyncStorage.getItem('userId'),
+      AsyncStorage.getItem('adminName'),
+      AsyncStorage.getItem('userName'),
+      AsyncStorage.getItem('name'),
+      AsyncStorage.getItem('fullName'),
+      AsyncStorage.getItem('username'),
+    ]);
+
+    const resolvedName =
+      adminStoredName ||
+      userName ||
+      name ||
+      fullName ||
+      username ||
+      'Admin';
+
+    setAdminUserId(userId || '');
+    setAdminName(resolvedName);
+
+    return {
+      userId: userId || '',
+      adminDisplayName: resolvedName,
+    };
+  }, []);
+
+  const mergeRequests = useCallback(
+    (existingList, incomingList) => {
+      const map = new Map();
+
+      existingList.forEach((item) => {
+        const normalized = normalizeRequest(item);
+        if (normalized?.id) {
+          map.set(Number(normalized.id), normalized);
+        }
+      });
+
+      incomingList.forEach((item) => {
+        const normalized = normalizeRequest(item);
+        if (normalized?.id) {
+          map.set(Number(normalized.id), normalized);
+        }
+      });
+
+      const merged = Array.from(map.values());
+      return sortRequests(merged);
+    },
+    [normalizeRequest, sortRequests]
+  );
+
+  const loadAdminData = useCallback(
+    async ({ silent = false } = {}) => {
+      try {
+        if (!silent) {
+          setLoading(true);
+        }
+
+        const { userId } = await getStoredAdminIdentity();
+
+        if (!userId) {
+          setRequests([]);
+          calculateCounts([]);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          setRequests([]);
+          calculateCounts([]);
+          return;
+        }
+
+        const sorted = setRequestsAndCounts(data);
+
+        if (!firstLoadDoneRef.current) {
+          firstLoadDoneRef.current = true;
+          if (sorted.length > 0) {
+            latestKnownRequestIdRef.current = Number(sorted[0]?.id || 0);
+          }
+        }
+      } catch (error) {
+        console.log('Load admin data error:', error);
+      } finally {
+        if (!silent) {
+          setLoading(false);
         }
       }
+    },
+    [calculateCounts, getStoredAdminIdentity, setRequestsAndCounts]
+  );
+
+  const pollNewEmergencies = useCallback(async () => {
+    if (isFetchingNewRef.current) return;
+    if (!firstLoadDoneRef.current) return;
+    if (!isScreenActiveRef.current) return;
+
+    isFetchingNewRef.current = true;
+
+    try {
+      const { userId } = await getStoredAdminIdentity();
+
+      if (!userId) return;
+
+      const lastId = Number(latestKnownRequestIdRef.current || 0);
+
+      const response = await fetch(
+        `${API_BASE_URL}/admin/new-emergencies/${lastId}/${userId}`
+      );
+
+      const data = await response.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        return;
+      }
+
+      const normalizedNewItems = data
+        .map((item) => normalizeRequest(item))
+        .filter(Boolean)
+        .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
+
+      const highestNewId = normalizedNewItems.reduce((max, item) => {
+        const itemId = Number(item?.id || 0);
+        return itemId > max ? itemId : max;
+      }, lastId);
+
+      latestKnownRequestIdRef.current = highestNewId;
+
+      setRequests((prev) => {
+        const merged = mergeRequests(prev, normalizedNewItems);
+        calculateCounts(merged);
+        return merged;
+      });
+
+      normalizedNewItems.forEach((item) => {
+        if (String(item?.status || '').toLowerCase() === 'pending') {
+          enqueuePopupRequest(item);
+        }
+      });
+    } catch (error) {
+      console.log('Polling new emergencies error:', error);
+    } finally {
+      isFetchingNewRef.current = false;
     }
-
-    previousCountRef.current = currentCount;
-
-  } catch (error) {
-    console.log("ERROR:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  }, [
+    calculateCounts,
+    enqueuePopupRequest,
+    getStoredAdminIdentity,
+    mergeRequests,
+    normalizeRequest,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
+      isScreenActiveRef.current = true;
+
       loadAdminData();
 
       clearPolling();
       intervalRef.current = setInterval(() => {
-        loadAdminData();
-      }, 3000);
+        pollNewEmergencies();
+      }, POLLING_INTERVAL);
 
       return () => {
+        isScreenActiveRef.current = false;
         clearPolling();
       };
-    }, [popupVisible])
+    }, [clearPolling, loadAdminData, pollNewEmergencies])
   );
 
   useEffect(() => {
     return () => {
+      isScreenActiveRef.current = false;
       clearPolling();
     };
-  }, []);
+  }, [clearPolling]);
+
+  useEffect(() => {
+    if (popupVisible && popupRequest?.id) {
+      activePopupIdRef.current = Number(popupRequest.id);
+    }
+  }, [popupRequest, popupVisible]);
 
   const getStatusColor = (status) => {
     const s = String(status || '').toLowerCase();
@@ -205,6 +411,16 @@ const loadAdminData = async () => {
     if (s === 'resolved') return '#16a34a';
     if (s === 'cancelled') return '#dc2626';
     return '#6b7280';
+  };
+
+  const getStatusBackground = (status) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'pending') return '#fff7ed';
+    if (s === 'accepted') return '#f5f3ff';
+    if (s === 'in progress') return '#eff6ff';
+    if (s === 'resolved') return '#f0fdf4';
+    if (s === 'cancelled') return '#fef2f2';
+    return '#f3f4f6';
   };
 
   const getPriorityColor = (priority) => {
@@ -249,7 +465,8 @@ const loadAdminData = async () => {
         description.includes(query) ||
         location.includes(query) ||
         acceptedBy.includes(query) ||
-        priority.includes(query);
+        priority.includes(query) ||
+        status.includes(query);
 
       let matchesFilter = true;
 
@@ -273,8 +490,10 @@ const loadAdminData = async () => {
     });
 
     return result.sort((a, b) => {
-      const priorityA = priorityOrder[String(a?.priority || 'medium').toLowerCase()] || 0;
-      const priorityB = priorityOrder[String(b?.priority || 'medium').toLowerCase()] || 0;
+      const priorityA =
+        priorityOrder[String(a?.priority || 'medium').toLowerCase()] || 0;
+      const priorityB =
+        priorityOrder[String(b?.priority || 'medium').toLowerCase()] || 0;
 
       if (priorityB !== priorityA) {
         return priorityB - priorityA;
@@ -310,17 +529,29 @@ const loadAdminData = async () => {
 
                 const data = await response.json();
 
-                if (data.error) {
+                if (data?.error) {
                   Alert.alert('Error', data.error);
                   return;
                 }
 
-                const updatedRequests = requests.filter((item) => item.id !== emergencyId);
-                setRequests(updatedRequests);
-                calculateCounts(updatedRequests);
+                setRequests((prev) => {
+                  const updated = prev.filter(
+                    (item) => Number(item?.id) !== Number(emergencyId)
+                  );
+                  calculateCounts(updated);
+                  return updated;
+                });
+
+                popupQueueRef.current = popupQueueRef.current.filter(
+                  (item) => Number(item?.id || 0) !== Number(emergencyId)
+                );
+
+                if (Number(activePopupIdRef.current || 0) === Number(emergencyId)) {
+                  closePopup();
+                }
 
                 Alert.alert('Success', 'Request deleted successfully');
-                loadAdminData();
+                loadAdminData({ silent: true });
               } catch (error) {
                 console.log('Delete request error:', error);
                 Alert.alert('Error', 'Failed to delete request');
@@ -352,31 +583,40 @@ const loadAdminData = async () => {
 
       const data = await response.json();
 
-      if (data.error) {
+      if (data?.error) {
         Alert.alert('Error', data.error);
         return;
       }
 
-      const updatedRequests = requests.map((item) =>
-        item.id === emergencyId ? { ...item, priority } : item
-      );
+      setRequests((prev) => {
+        const updated = prev.map((item) =>
+          Number(item?.id) === Number(emergencyId)
+            ? { ...item, priority }
+            : item
+        );
+        calculateCounts(updated);
+        return updated;
+      });
 
-      setRequests(updatedRequests);
-      calculateCounts(updatedRequests);
+      if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
+        setPopupRequest((prev) =>
+          prev ? { ...prev, priority } : prev
+        );
+      }
 
       Alert.alert('Success', `Priority updated to ${priority}`);
-      loadAdminData();
+      loadAdminData({ silent: true });
     } catch (error) {
       console.log('Priority update error:', error);
       Alert.alert('Error', 'Failed to update priority');
     }
   };
 
-  const handleAcceptRequest = async (requestItem) => {
+  const updateRequestStatus = async (requestItem, nextStatus, showSuccess = true) => {
     try {
       if (!requestItem?.id) {
         Alert.alert('Error', 'Invalid request');
-        return;
+        return false;
       }
 
       const response = await fetch(
@@ -385,26 +625,84 @@ const loadAdminData = async () => {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            status: 'accepted',
-            accepted_by: adminName || 'Admin',
+            status: nextStatus,
+            accepted_by:
+              nextStatus === 'pending'
+                ? null
+                : adminName || 'Admin',
           }),
         }
       );
 
       const data = await response.json();
 
-      if (data.error) {
+      if (data?.error) {
         Alert.alert('Error', data.error);
-        return;
+        return false;
       }
 
-      Alert.alert('Success', 'Request accepted');
-      closePopup();
-      loadAdminData();
+      setRequests((prev) => {
+        const updated = prev.map((item) =>
+          Number(item?.id) === Number(requestItem.id)
+            ? {
+                ...item,
+                status: nextStatus,
+                accepted_by:
+                  nextStatus === 'pending'
+                    ? ''
+                    : adminName || 'Admin',
+              }
+            : item
+        );
+        calculateCounts(updated);
+        return updated;
+      });
+
+      if (popupRequest && Number(popupRequest?.id) === Number(requestItem.id)) {
+        setPopupRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: nextStatus,
+                accepted_by:
+                  nextStatus === 'pending'
+                    ? ''
+                    : adminName || 'Admin',
+              }
+            : prev
+        );
+      }
+
+      if (showSuccess) {
+        Alert.alert('Success', `Request marked as ${nextStatus}`);
+      }
+
+      await loadAdminData({ silent: true });
+      return true;
     } catch (error) {
-      console.log('Accept request error:', error);
-      Alert.alert('Error', 'Failed to accept request');
+      console.log('Update request status error:', error);
+      Alert.alert('Error', 'Failed to update request status');
+      return false;
     }
+  };
+
+  const handleAcceptRequest = async (requestItem) => {
+    const success = await updateRequestStatus(requestItem, 'accepted', true);
+    if (success) {
+      closePopup();
+    }
+  };
+
+  const handleMarkInProgress = async (requestItem) => {
+    await updateRequestStatus(requestItem, 'in progress', true);
+  };
+
+  const handleMarkResolved = async (requestItem) => {
+    await updateRequestStatus(requestItem, 'resolved', true);
+  };
+
+  const handleMarkPending = async (requestItem) => {
+    await updateRequestStatus(requestItem, 'pending', true);
   };
 
   const filterOptions = [
@@ -429,7 +727,10 @@ const loadAdminData = async () => {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient
           colors={['#111827', '#7c3aed']}
           start={{ x: 0, y: 0 }}
@@ -526,120 +827,167 @@ const loadAdminData = async () => {
             </Text>
           </View>
         ) : (
-          filteredRequests.map((item, index) => (
-            <View
-              key={String(item?.id ?? index)}
-              style={[
-                styles.requestCard,
-                String(item?.priority || '').toLowerCase() === 'critical' && styles.criticalCard,
-              ]}
-            >
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => navigation.navigate('EmergencyDetails', { emergency: item })}
+          filteredRequests.map((item, index) => {
+            const status = String(item?.status || '').toLowerCase();
+
+            return (
+              <View
+                key={String(item?.id ?? index)}
+                style={[
+                  styles.requestCard,
+                  String(item?.priority || '').toLowerCase() === 'critical' &&
+                    styles.criticalCard,
+                ]}
               >
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.requestType}>
-                    {String(item?.type || 'Emergency').toUpperCase()}
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() =>
+                    navigation.navigate('EmergencyDetails', { emergency: item })
+                  }
+                >
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.requestType}>
+                      {String(item?.type || 'Emergency').toUpperCase()}
+                    </Text>
+
+                    <View
+                      style={[
+                        styles.priorityBadge,
+                        { backgroundColor: getPriorityBackground(item?.priority) },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.priorityBadgeText,
+                          { color: getPriorityColor(item?.priority) },
+                        ]}
+                      >
+                        {String(item?.priority || 'medium').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.requestDescription}>
+                    {item?.description || 'No description'}
                   </Text>
 
-                  <View
-                    style={[
-                      styles.priorityBadge,
-                      { backgroundColor: getPriorityBackground(item?.priority) },
-                    ]}
-                  >
-                    <Text
+                  <Text style={styles.requestLocation}>
+                    📍 {item?.location_text || 'No location available'}
+                  </Text>
+
+                  <View style={styles.metaRow}>
+                    <View
                       style={[
-                        styles.priorityBadgeText,
-                        { color: getPriorityColor(item?.priority) },
+                        styles.statusBadge,
+                        {
+                          borderColor: getStatusColor(item?.status),
+                          backgroundColor: getStatusBackground(item?.status),
+                        },
                       ]}
                     >
-                      {String(item?.priority || 'medium').toUpperCase()}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: getStatusColor(item?.status) },
+                        ]}
+                      >
+                        {String(item?.status || 'unknown').toUpperCase()}
+                      </Text>
+                    </View>
+
+                    {item?.accepted_by ? (
+                      <Text style={styles.acceptedByText}>
+                        Assigned: {item.accepted_by}
+                      </Text>
+                    ) : (
+                      <Text style={styles.notAssignedText}>Not assigned</Text>
+                    )}
                   </View>
-                </View>
 
-                <Text style={styles.requestDescription}>
-                  {item?.description || 'No description'}
-                </Text>
+                  <Text style={styles.viewDetailsText}>Tap to view details</Text>
+                </TouchableOpacity>
 
-                <Text style={styles.requestLocation}>
-                  📍 {item?.location_text || 'No location available'}
-                </Text>
+                <Text style={styles.actionSectionTitle}>Quick Status Actions</Text>
 
-                <View style={styles.metaRow}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        borderColor: getStatusColor(item?.status),
-                        backgroundColor: '#fff',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        { color: getStatusColor(item?.status) },
-                      ]}
+                <View style={styles.statusActionRow}>
+                  {status === 'pending' ? (
+                    <TouchableOpacity
+                      style={[styles.statusActionButton, styles.acceptCardButton]}
+                      onPress={() => handleAcceptRequest(item)}
                     >
-                      {String(item?.status || 'unknown').toUpperCase()}
-                    </Text>
-                  </View>
+                      <Text style={styles.acceptCardButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                  ) : null}
 
-                  {item?.accepted_by ? (
-                    <Text style={styles.acceptedByText}>
-                      Assigned: {item.accepted_by}
-                    </Text>
-                  ) : (
-                    <Text style={styles.notAssignedText}>Not assigned</Text>
-                  )}
+                  {status !== 'in progress' && status !== 'resolved' ? (
+                    <TouchableOpacity
+                      style={[styles.statusActionButton, styles.progressCardButton]}
+                      onPress={() => handleMarkInProgress(item)}
+                    >
+                      <Text style={styles.progressCardButtonText}>In Progress</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {status !== 'resolved' ? (
+                    <TouchableOpacity
+                      style={[styles.statusActionButton, styles.resolveCardButton]}
+                      onPress={() => handleMarkResolved(item)}
+                    >
+                      <Text style={styles.resolveCardButtonText}>Resolve</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {status !== 'pending' ? (
+                    <TouchableOpacity
+                      style={[styles.statusActionButton, styles.pendingCardButton]}
+                      onPress={() => handleMarkPending(item)}
+                    >
+                      <Text style={styles.pendingCardButtonText}>Set Pending</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
 
-                <Text style={styles.viewDetailsText}>Tap to view details</Text>
-              </TouchableOpacity>
+                <Text style={styles.actionSectionTitle}>Set Priority</Text>
 
-              <Text style={styles.actionSectionTitle}>Set Priority</Text>
+                <View style={styles.priorityRow}>
+                  <TouchableOpacity
+                    style={[styles.priorityButton, styles.lowButton]}
+                    onPress={() => handleSetPriority(item.id, 'low')}
+                  >
+                    <Text style={styles.priorityButtonText}>Low</Text>
+                  </TouchableOpacity>
 
-              <View style={styles.priorityRow}>
+                  <TouchableOpacity
+                    style={[styles.priorityButton, styles.mediumButton]}
+                    onPress={() => handleSetPriority(item.id, 'medium')}
+                  >
+                    <Text style={styles.priorityButtonText}>Medium</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.priorityButton, styles.highButton]}
+                    onPress={() => handleSetPriority(item.id, 'high')}
+                  >
+                    <Text style={styles.priorityButtonText}>High</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.priorityButton, styles.criticalButton]}
+                    onPress={() => handleSetPriority(item.id, 'critical')}
+                  >
+                    <Text style={styles.priorityButtonText}>Critical</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
-                  style={[styles.priorityButton, styles.lowButton]}
-                  onPress={() => handleSetPriority(item.id, 'low')}
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteRequest(item.id)}
                 >
-                  <Text style={styles.priorityButtonText}>Low</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.priorityButton, styles.mediumButton]}
-                  onPress={() => handleSetPriority(item.id, 'medium')}
-                >
-                  <Text style={styles.priorityButtonText}>Medium</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.priorityButton, styles.highButton]}
-                  onPress={() => handleSetPriority(item.id, 'high')}
-                >
-                  <Text style={styles.priorityButtonText}>High</Text>
-                </TouchableOpacity>     
-
-                <TouchableOpacity
-                  style={[styles.priorityButton, styles.criticalButton]}
-                  onPress={() => handleSetPriority(item.id, 'critical')}
-                >
-                  <Text style={styles.priorityButtonText}>Critical</Text>
+                  <Text style={styles.deleteButtonText}>Delete Request</Text>
                 </TouchableOpacity>
               </View>
-
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDeleteRequest(item.id)}
-              >
-                <Text style={styles.deleteButtonText}>Delete Request</Text>
-              </TouchableOpacity>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
 
@@ -723,6 +1071,7 @@ const loadAdminData = async () => {
                   styles.popupStatusBadge,
                   {
                     borderColor: getStatusColor(popupRequest?.status),
+                    backgroundColor: getStatusBackground(popupRequest?.status),
                   },
                 ]}
               >
@@ -753,7 +1102,9 @@ const loadAdminData = async () => {
                     const selectedRequest = popupRequest;
                     closePopup();
                     setTimeout(() => {
-                      navigation.navigate('EmergencyDetails', { emergency: selectedRequest });
+                      navigation.navigate('EmergencyDetails', {
+                        emergency: selectedRequest,
+                      });
                     }, 300);
                   }}
                   activeOpacity={0.9}
@@ -1013,6 +1364,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#374151',
+  },
+
+  statusActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  statusActionButton: {
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  acceptCardButton: {
+    backgroundColor: '#dcfce7',
+  },
+  progressCardButton: {
+    backgroundColor: '#dbeafe',
+  },
+  resolveCardButton: {
+    backgroundColor: '#ede9fe',
+  },
+  pendingCardButton: {
+    backgroundColor: '#fef3c7',
+  },
+  acceptCardButtonText: {
+    color: '#15803d',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  progressCardButtonText: {
+    color: '#1d4ed8',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  resolveCardButtonText: {
+    color: '#6d28d9',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  pendingCardButtonText: {
+    color: '#b45309',
+    fontWeight: '700',
+    fontSize: 13,
   },
 
   priorityRow: {
