@@ -10,6 +10,7 @@ import {
   Image,
   Animated,
   Easing,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -34,6 +35,7 @@ export default function HomeScreen({ navigation, onLogout }) {
 
   const intervalRef = useRef(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.82)).current;
 
   const clearPolling = () => {
     if (intervalRef.current) {
@@ -44,19 +46,35 @@ export default function HomeScreen({ navigation, onLogout }) {
 
   const startSosAnimation = () => {
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.08,
-          duration: 800,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.ease,
-          useNativeDriver: true,
-        }),
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.08,
+            duration: 800,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1,
+            duration: 800,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 800,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.78,
+            duration: 800,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+        ]),
       ])
     ).start();
   };
@@ -86,8 +104,6 @@ export default function HomeScreen({ navigation, onLogout }) {
           longitude: location.coords.longitude,
         }),
       });
-
-      console.log('Location sent');
     } catch (error) {
       console.log('Location Error:', error);
     }
@@ -252,6 +268,7 @@ export default function HomeScreen({ navigation, onLogout }) {
   };
 
   const firstName = userName ? userName.split(' ')[0] : 'User';
+  const totalRequests = pendingCount + progressCount + resolvedCount;
 
   const renderProfileImage = () => {
     if (profileImage) {
@@ -273,31 +290,33 @@ export default function HomeScreen({ navigation, onLogout }) {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.profileHeaderLeft}
-            onPress={() => navigation.navigate('ProfileTab')}
-            activeOpacity={0.9}
-          >
-            {renderProfileImage()}
-            <View>
-              <Text style={styles.headerGreeting}>Welcome back</Text>
-              <Text style={styles.headerName}>{firstName}</Text>
-              <Text style={styles.headerRole}>Admin</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
-            <Text style={styles.logoutChipText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
+        <StatusBar barStyle="light-content" />
 
         <LinearGradient
           colors={GRADIENTS.dark}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.heroCardAdmin}
+          style={styles.adminHeroCard}
         >
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.profileHeaderLeft}
+              onPress={() => navigation.navigate('ProfileTab')}
+              activeOpacity={0.9}
+            >
+              {renderProfileImage()}
+              <View>
+                <Text style={styles.headerGreetingLight}>Welcome back</Text>
+                <Text style={styles.headerNameLight}>{firstName}</Text>
+                <Text style={styles.headerRoleLight}>Admin</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutChipDark} onPress={handleLogout}>
+              <Text style={styles.logoutChipText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.heroTitle}>Control Center</Text>
           <Text style={styles.heroSubtitleAdmin}>
             Manage requests, priorities, and live operations from one place.
@@ -312,21 +331,28 @@ export default function HomeScreen({ navigation, onLogout }) {
         <TouchableOpacity
           style={styles.primaryAdminCard}
           onPress={() => navigation.navigate('RequestsTab')}
-          activeOpacity={0.9}
+          activeOpacity={0.92}
         >
-          <View style={styles.adminCardText}>
-            <Text style={styles.primaryAdminTitle}>Request Management</Text>
-            <Text style={styles.primaryAdminSubtitle}>
-              Open dashboard, priorities, and request actions
-            </Text>
-          </View>
-          <Text style={styles.arrowWhite}>›</Text>
+          <LinearGradient
+            colors={GRADIENTS.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.adminPrimaryGradient}
+          >
+            <View style={styles.adminCardText}>
+              <Text style={styles.primaryAdminTitle}>Request Management</Text>
+              <Text style={styles.primaryAdminSubtitle}>
+                Open dashboard, priorities, and request actions
+              </Text>
+            </View>
+            <Text style={styles.arrowWhite}>›</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.secondaryAdminCard}
           onPress={() => navigation.navigate('AdminMapTab')}
-          activeOpacity={0.9}
+          activeOpacity={0.92}
         >
           <View style={styles.adminCardText}>
             <Text style={styles.secondaryAdminTitle}>Live Map</Text>
@@ -345,24 +371,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.headerRow}>
-        <TouchableOpacity
-          style={styles.profileHeaderLeft}
-          onPress={() => navigation.navigate('ProfileTab')}
-          activeOpacity={0.9}
-        >
-          {renderProfileImage()}
-          <View>
-            <Text style={styles.headerGreeting}>Hello</Text>
-            <Text style={styles.headerName}>{firstName}</Text>
-            <Text style={styles.headerRole}>Stay safe today</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutChip} onPress={handleLogout}>
-          <Text style={styles.logoutChipText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      <StatusBar barStyle="light-content" />
 
       <LinearGradient
         colors={GRADIENTS.primary}
@@ -370,39 +379,79 @@ export default function HomeScreen({ navigation, onLogout }) {
         end={{ x: 1, y: 1 }}
         style={styles.heroCardUser}
       >
-        <Text style={styles.heroTitle}>Emergency Support</Text>
-        <Text style={styles.heroSubtitle}>
-          Need urgent help? Send a request instantly and track updates live.
-        </Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.profileHeaderLeft}
+            onPress={() => navigation.navigate('ProfileTab')}
+            activeOpacity={0.9}
+          >
+            {renderProfileImage()}
+            <View>
+              <Text style={styles.headerGreetingLight}>Hello</Text>
+              <Text style={styles.headerNameLight}>{firstName}</Text>
+              <Text style={styles.headerRoleLight}>Stay safe today</Text>
+            </View>
+          </TouchableOpacity>
 
-        <View style={styles.heroChipsRow}>
-          <AppChip label="Live Tracking" type="info" />
-          <View style={styles.heroChipSpacer} />
-          <AppChip label="Fast Response" type="purple" />
+          <TouchableOpacity style={styles.logoutChipDark} onPress={handleLogout}>
+            <Text style={styles.logoutChipText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.heroBottomRow}>
+          <View>
+            <Text style={styles.heroTitle}>Emergency Support</Text>
+            <Text style={styles.heroSubtitle}>
+              Need urgent help? Send a request instantly and track updates live.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.heroStatsCard}>
+          <View>
+            <Text style={styles.heroStatsNumber}>{totalRequests}
+            </Text>
+            <Text style={styles.heroStatsLabel}>Total Requests</Text>
+          </View>
+
+          <View style={styles.heroDivider} />
+
+          <View style={styles.heroChipArea}>
+            <AppChip label="Live Tracking" type="info" />
+            <View style={styles.heroChipSpacer} />
+            <AppChip label="Fast Response" type="purple" />
+          </View>
         </View>
       </LinearGradient>
 
-      <View style={styles.sosSection}>
-        <SectionHeader
-          title="Emergency Action"
-          subtitle="Fastest way to request immediate help"
-        />
+      <SectionHeader
+        title="Emergency Action"
+        subtitle="Fastest way to request immediate help"
+      />
 
+      <View style={styles.sosSection}>
         <TouchableOpacity
-          activeOpacity={0.85}
+          activeOpacity={0.88}
           onPress={() => navigation.navigate('Emergency')}
         >
           <Animated.View
             style={[
               styles.sosOuter,
               {
+                opacity: glowAnim,
                 transform: [{ scale: scaleAnim }],
               },
             ]}
           >
-            <View style={styles.sosInner}>
+            <LinearGradient
+              colors={['#ff5a5f', '#ff2d2d']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.sosInner}
+            >
               <Text style={styles.sosText}>SOS</Text>
-            </View>
+              <Text style={styles.sosSubText}>Tap for instant help</Text>
+            </LinearGradient>
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -411,10 +460,12 @@ export default function HomeScreen({ navigation, onLogout }) {
         <TouchableOpacity
           style={styles.quickActionWrap}
           onPress={handleCall112}
-          activeOpacity={0.9}
+          activeOpacity={0.92}
         >
           <AppCard variant="pink" style={styles.quickActionCard}>
-            <Text style={styles.quickActionEmoji}>📞</Text>
+            <View style={styles.quickActionIconWrap}>
+              <Text style={styles.quickActionEmoji}>📞</Text>
+            </View>
             <Text style={styles.quickActionTitle}>Call 112</Text>
             <Text style={styles.quickActionSubtitle}>National emergency</Text>
           </AppCard>
@@ -423,10 +474,12 @@ export default function HomeScreen({ navigation, onLogout }) {
         <TouchableOpacity
           style={styles.quickActionWrap}
           onPress={handleCallEmergencyContact}
-          activeOpacity={0.9}
+          activeOpacity={0.92}
         >
           <AppCard variant="green" style={styles.quickActionCard}>
-            <Text style={styles.quickActionEmoji}>👤</Text>
+            <View style={styles.quickActionIconWrap}>
+              <Text style={styles.quickActionEmoji}>👤</Text>
+            </View>
             <Text style={styles.quickActionTitle}>Contact</Text>
             <Text style={styles.quickActionSubtitle}>Emergency person</Text>
           </AppCard>
@@ -436,7 +489,7 @@ export default function HomeScreen({ navigation, onLogout }) {
       <TouchableOpacity
         style={styles.emergencyOptionsCard}
         onPress={() => navigation.navigate('EmergencyCall')}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
         <LinearGradient
           colors={GRADIENTS.pinkPurple}
@@ -444,6 +497,10 @@ export default function HomeScreen({ navigation, onLogout }) {
           end={{ x: 1, y: 1 }}
           style={styles.emergencyGradient}
         >
+          <View style={styles.emergencyOptionsIconWrap}>
+            <Text style={styles.emergencyOptionsIcon}>☎️</Text>
+          </View>
+
           <View style={styles.emergencyOptionsTextWrap}>
             <Text style={styles.emergencyOptionsTitle}>Emergency Call Options</Text>
             <Text style={styles.emergencyOptionsSubtitle}>
@@ -460,6 +517,11 @@ export default function HomeScreen({ navigation, onLogout }) {
       />
 
       <View style={styles.statusRow}>
+        <AppCard variant="purple" style={styles.totalStatusCard}>
+          <Text style={styles.statusCount}>{totalRequests}</Text>
+          <Text style={styles.statusLabel}>Total</Text>
+        </AppCard>
+
         <AppCard variant="orange" style={styles.statusCard}>
           <Text style={styles.statusCount}>{pendingCount}</Text>
           <Text style={styles.statusLabel}>Pending</Text>
@@ -484,9 +546,10 @@ export default function HomeScreen({ navigation, onLogout }) {
       <TouchableOpacity
         style={styles.serviceWrap}
         onPress={() => navigation.navigate('HistoryTab')}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
         <AppCard style={styles.serviceCard}>
+          <View style={[styles.serviceAccent, { backgroundColor: '#8B5CF6' }]} />
           <View style={styles.serviceTextWrap}>
             <Text style={styles.serviceTitle}>History</Text>
             <Text style={styles.serviceSubtitle}>
@@ -500,9 +563,10 @@ export default function HomeScreen({ navigation, onLogout }) {
       <TouchableOpacity
         style={styles.serviceWrap}
         onPress={() => navigation.navigate('DashboardTab')}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
         <AppCard style={styles.serviceCard}>
+          <View style={[styles.serviceAccent, { backgroundColor: '#3B82F6' }]} />
           <View style={styles.serviceTextWrap}>
             <Text style={styles.serviceTitle}>Dashboard</Text>
             <Text style={styles.serviceSubtitle}>
@@ -516,9 +580,10 @@ export default function HomeScreen({ navigation, onLogout }) {
       <TouchableOpacity
         style={styles.serviceWrap}
         onPress={() => navigation.navigate('ProfileTab')}
-        activeOpacity={0.9}
+        activeOpacity={0.92}
       >
         <AppCard style={styles.serviceCard}>
+          <View style={[styles.serviceAccent, { backgroundColor: '#22C55E' }]} />
           <View style={styles.serviceTextWrap}>
             <Text style={styles.serviceTitle}>Profile</Text>
             <Text style={styles.serviceSubtitle}>
@@ -545,7 +610,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
   },
   profileHeaderLeft: {
     flexDirection: 'row',
@@ -558,6 +622,8 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.25)',
   },
   profilePlaceholder: {
     width: 58,
@@ -572,6 +638,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
   },
+
   headerGreeting: {
     color: COLORS.textSecondary,
     fontSize: 13,
@@ -588,6 +655,24 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontWeight: '600',
   },
+
+  headerGreetingLight: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+  },
+  headerNameLight: {
+    color: COLORS.textLight,
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  headerRoleLight: {
+    color: '#E9D5FF',
+    fontSize: 13,
+    marginTop: 3,
+    fontWeight: '600',
+  },
+
   logoutChip: {
     backgroundColor: COLORS.textPrimary,
     paddingHorizontal: 16,
@@ -595,6 +680,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignSelf: 'flex-start',
     ...SHADOW.soft,
+  },
+  logoutChipDark: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   logoutChipText: {
     color: COLORS.textLight,
@@ -604,13 +698,18 @@ const styles = StyleSheet.create({
 
   heroCardUser: {
     borderRadius: RADIUS.xl,
-    padding: 24,
+    padding: 20,
     marginBottom: 28,
+    ...SHADOW.card,
   },
-  heroCardAdmin: {
+  adminHeroCard: {
     borderRadius: RADIUS.xl,
-    padding: 24,
+    padding: 20,
     marginBottom: 28,
+    ...SHADOW.card,
+  },
+  heroBottomRow: {
+    marginTop: 18,
   },
   heroTitle: {
     color: COLORS.textLight,
@@ -628,6 +727,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     lineHeight: 21,
+  },
+  heroStatsCard: {
+    marginTop: 18,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroStatsNumber: {
+    color: COLORS.textLight,
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  heroStatsLabel: {
+    color: '#E5E7EB',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  heroDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginHorizontal: 14,
+  },
+  heroChipArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   heroChipsRow: {
     flexDirection: 'row',
@@ -660,7 +790,6 @@ const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: '#ff3b30',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -669,6 +798,13 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: 'bold',
     letterSpacing: 2,
+  },
+  sosSubText: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '600',
+    opacity: 0.9,
   },
 
   quickActionRow: {
@@ -680,12 +816,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   quickActionCard: {
-    minHeight: 132,
+    minHeight: 144,
     justifyContent: 'center',
   },
+  quickActionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   quickActionEmoji: {
-    fontSize: 24,
-    marginBottom: 10,
+    fontSize: 22,
   },
   quickActionTitle: {
     fontSize: 16,
@@ -711,6 +855,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 18,
   },
+  emergencyOptionsIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  emergencyOptionsIcon: {
+    fontSize: 22,
+  },
   emergencyOptionsTextWrap: {
     flex: 1,
     paddingRight: 10,
@@ -729,12 +885,19 @@ const styles = StyleSheet.create({
 
   statusRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
     marginBottom: 28,
   },
+  totalStatusCard: {
+    width: '100%',
+    alignItems: 'center',
+    minHeight: 110,
+    justifyContent: 'center',
+  },
   statusCard: {
-    flex: 1,
+    width: '31%',
     alignItems: 'center',
     minHeight: 106,
     justifyContent: 'center',
@@ -760,6 +923,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  serviceAccent: {
+    width: 6,
+    alignSelf: 'stretch',
+    borderRadius: 999,
+    marginRight: 14,
+  },
   serviceTextWrap: {
     flex: 1,
     paddingRight: 10,
@@ -777,14 +946,16 @@ const styles = StyleSheet.create({
   },
 
   primaryAdminCard: {
-    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.xl,
-    padding: 20,
+    overflow: 'hidden',
     marginBottom: 16,
+    ...SHADOW.card,
+  },
+  adminPrimaryGradient: {
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    ...SHADOW.card,
   },
   primaryAdminTitle: {
     color: COLORS.textLight,
