@@ -638,3 +638,32 @@ def get_all_locations():
         return {"error": str(e)}
     finally:
         db.close()
+
+##AI implementation
+
+@app.post("/ai/analyze-emergency")
+def analyze_emergency(data: dict):
+    description = data.get("description", "").lower()
+
+    predicted_type = "other"
+    predicted_priority = "low"
+
+    if "fire" in description:
+        predicted_type = "fire"
+        predicted_priority = "high"
+
+    elif "accident" in description or "crash" in description:
+        predicted_type = "accident"
+        predicted_priority = "high"
+
+    elif "breathing" in description or "collapsed" in description:
+        predicted_type = "medical"
+        predicted_priority = "critical"
+
+    ai_summary = f"Emergency reported: {description[:60]}"
+
+    return {
+        "predicted_type": predicted_type,
+        "predicted_priority": predicted_priority,
+        "ai_summary": ai_summary
+    }
