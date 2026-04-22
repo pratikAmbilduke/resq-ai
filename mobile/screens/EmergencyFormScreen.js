@@ -72,7 +72,10 @@ export default function EmergencyScreen({ navigation }) {
       const response = await fetch(`${API_BASE_URL}/ai/analyze-emergency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({
+          description,
+          selected_type: type,
+        }),
       });
 
       const data = await response.json();
@@ -94,12 +97,12 @@ export default function EmergencyScreen({ navigation }) {
 
   const sendEmergency = async () => {
     if (!description.trim()) {
-      Alert.alert('Enter description');
+      Alert.alert('Validation', 'Enter description');
       return;
     }
 
     if (!locationInfo) {
-      Alert.alert('Get location first');
+      Alert.alert('Validation', 'Get location first');
       return;
     }
 
@@ -118,13 +121,11 @@ export default function EmergencyScreen({ navigation }) {
       setAiPriority(aiResult.predicted_priority);
       setAiSummary(aiResult.ai_summary);
 
-      const finalType = aiResult.predicted_type || type;
-
       const res = await fetch(`${API_BASE_URL}/emergency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: finalType,
+          type,
           description,
           latitude: locationInfo.latitude,
           longitude: locationInfo.longitude,
@@ -135,21 +136,31 @@ export default function EmergencyScreen({ navigation }) {
 
       const data = await res.json();
 
-      if (data.error) {
-        Alert.alert(data.error);
+      if (data?.error) {
+        Alert.alert('Error', data.error);
         return;
       }
 
+      const savedType = data?.data?.type || aiResult.predicted_type || type;
+      const savedPriority =
+        data?.data?.priority || aiResult.predicted_priority || 'medium';
+      const savedSummary =
+        data?.data?.ai_summary || aiResult.ai_summary || description;
+
+      setAiType(savedType);
+      setAiPriority(savedPriority);
+      setAiSummary(savedSummary);
+
       Alert.alert(
-        '🚨 Emergency Sent Successfully',
-        `AI Type: ${aiResult.predicted_type}\nAI Priority: ${aiResult.predicted_priority}`
+        '🚨 Emergency Sent',
+        `Type: ${savedType}\nPriority: ${savedPriority}\nAI: ${savedSummary}`
       );
 
       setDescription('');
       navigation.navigate('HistoryTab');
     } catch (error) {
       console.log('Send emergency error:', error);
-      Alert.alert('Error sending emergency');
+      Alert.alert('Error', 'Error sending emergency');
     } finally {
       setLoading(false);
     }
@@ -157,10 +168,12 @@ export default function EmergencyScreen({ navigation }) {
 
   const renderPriorityColor = (priority) => {
     const value = String(priority || '').toLowerCase();
+
     if (value === 'critical') return '#dc2626';
     if (value === 'high') return '#ea580c';
     if (value === 'medium') return '#2563eb';
     if (value === 'low') return '#16a34a';
+
     return '#6b7280';
   };
 
@@ -196,10 +209,10 @@ export default function EmergencyScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Explain what happened..."
+        placeholderTextColor="#94a3b8"
         multiline
         value={description}
         onChangeText={setDescription}
-        placeholderTextColor="#94a3b8"
       />
 
       <TouchableOpacity
@@ -250,14 +263,22 @@ export default function EmergencyScreen({ navigation }) {
         </View>
       )}
 
-      <TouchableOpacity style={styles.sosBtn} onPress={sendEmergency} activeOpacity={0.9}>
+      <TouchableOpacity
+        style={styles.sosBtn}
+        onPress={sendEmergency}
+        activeOpacity={0.9}
+      >
         <Text style={styles.sosText}>
           {loading ? 'Sending...' : '🚨 SEND EMERGENCY'}
         </Text>
       </TouchableOpacity>
 
       {(loading || fetchingLocation) && (
-        <ActivityIndicator size="large" color="#ff3b30" style={{ marginTop: 15 }} />
+        <ActivityIndicator
+          size="large"
+          color="#ff3b30"
+          style={styles.loader}
+        />
       )}
     </ScrollView>
   );
@@ -438,5 +459,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: 'bold',
+  },
+
+  loader: {
+    marginTop: 15,
   },
 });
