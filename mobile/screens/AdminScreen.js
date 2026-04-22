@@ -11,18 +11,13 @@ import {
   Modal,
   Animated,
   Easing,
-  Vibration,
-  PanResponder,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Audio } from 'expo-av';
 import API_BASE_URL from '../config';
 
 const POLLING_INTERVAL = 3000;
-const SWIPE_CLOSE_THRESHOLD = 120;
-const SWIPE_CLOSE_VELOCITY = 1.1;
 
 export default function AdminScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -49,11 +44,9 @@ export default function AdminScreen({ navigation }) {
   const activePopupIdRef = useRef(null);
   const isScreenActiveRef = useRef(false);
   const isFetchingNewRef = useRef(false);
-  const popupSoundRef = useRef(null);
 
   const slideAnim = useRef(new Animated.Value(420)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const dragY = useRef(new Animated.Value(0)).current;
 
   const clearPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -61,23 +54,6 @@ export default function AdminScreen({ navigation }) {
       intervalRef.current = null;
     }
   }, []);
-
-  const parseResponse = async (response) => {
-    const text = await response.text();
-    let data = null;
-
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (error) {
-      data = { raw: text };
-    }
-
-    return {
-      ok: response.ok,
-      status: response.status,
-      data,
-    };
-  };
 
   const normalizeRequest = useCallback((item) => {
     if (!item) return null;
@@ -124,9 +100,11 @@ export default function AdminScreen({ navigation }) {
 
   const setRequestsAndCounts = useCallback(
     (incoming) => {
-      const normalized = incoming.map((item) => normalizeRequest(item)).filter(Boolean);
-      const sorted = sortRequests(normalized);
+      const normalized = incoming
+        .map((item) => normalizeRequest(item))
+        .filter(Boolean);
 
+      const sorted = sortRequests(normalized);
       setRequests(sorted);
       calculateCounts(sorted);
 
@@ -144,56 +122,7 @@ export default function AdminScreen({ navigation }) {
     [calculateCounts, normalizeRequest, sortRequests]
   );
 
-  const cleanupPopupSound = useCallback(async () => {
-    try {
-      if (popupSoundRef.current) {
-        await popupSoundRef.current.unloadAsync();
-        popupSoundRef.current = null;
-      }
-    } catch (error) {
-      console.log('Cleanup popup sound error:', error);
-    }
-  }, []);
-
-  const playPopupAlert = useCallback(async () => {
-    try {
-      Vibration.vibrate([0, 180, 120, 220]);
-
-      await cleanupPopupSound();
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        staysActiveInBackground: false,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
-
-      const { sound } = await Audio.Sound.createAsync(
-        {
-          uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
-        },
-        {
-          shouldPlay: true,
-          volume: 1.0,
-          isLooping: false,
-        }
-      );
-
-      popupSoundRef.current = sound;
-
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status?.didJustFinish) {
-          cleanupPopupSound();
-        }
-      });
-    } catch (error) {
-      console.log('Popup sound play error:', error);
-    }
-  }, [cleanupPopupSound]);
-
   const animatePopupIn = useCallback(() => {
-    dragY.setValue(0);
     slideAnim.setValue(420);
     fadeAnim.setValue(0);
 
@@ -210,16 +139,7 @@ export default function AdminScreen({ navigation }) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [dragY, fadeAnim, slideAnim]);
-
-  const resetDragPosition = useCallback(() => {
-    Animated.spring(dragY, {
-      toValue: 0,
-      useNativeDriver: true,
-      bounciness: 4,
-      speed: 14,
-    }).start();
-  }, [dragY]);
+  }, [fadeAnim, slideAnim]);
 
   const showNextPopupFromQueue = useCallback(() => {
     if (popupVisible) return;
@@ -232,8 +152,7 @@ export default function AdminScreen({ navigation }) {
     setPopupRequest(nextRequest);
     setPopupVisible(true);
     animatePopupIn();
-    playPopupAlert();
-  }, [animatePopupIn, playPopupAlert, popupVisible]);
+  }, [animatePopupIn, popupVisible]);
 
   const enqueuePopupRequest = useCallback(
     (requestItem) => {
@@ -243,6 +162,7 @@ export default function AdminScreen({ navigation }) {
       const requestStatus = String(requestItem?.status || '').toLowerCase();
 
       if (requestStatus !== 'pending') return;
+
       if (activePopupIdRef.current === requestId) return;
 
       const alreadyQueued = popupQueueRef.current.some(
@@ -271,17 +191,13 @@ export default function AdminScreen({ navigation }) {
           duration: 180,
           useNativeDriver: true,
         }),
-        Animated.timing(dragY, {
-          toValue: 0,
-          duration: 180,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
       ]).start(() => {
-        if (onDone) onDone();
+        if (onDone) {
+          onDone();
+        }
       });
     },
-    [dragY, fadeAnim, slideAnim]
+    [fadeAnim, slideAnim]
   );
 
   const closePopup = useCallback(() => {
@@ -289,7 +205,6 @@ export default function AdminScreen({ navigation }) {
       setPopupVisible(false);
       setPopupRequest(null);
       activePopupIdRef.current = null;
-
       setTimeout(() => {
         showNextPopupFromQueue();
       }, 120);
@@ -348,7 +263,8 @@ export default function AdminScreen({ navigation }) {
         }
       });
 
-      return sortRequests(Array.from(map.values()));
+      const merged = Array.from(map.values());
+      return sortRequests(merged);
     },
     [normalizeRequest, sortRequests]
   );
@@ -369,19 +285,15 @@ export default function AdminScreen({ navigation }) {
         }
 
         const response = await fetch(`${API_BASE_URL}/admin/emergencies/${userId}`);
-        const parsed = await parseResponse(response);
+        const data = await response.json();
 
-        if (!parsed.ok) {
-          console.log('Admin list fetch failed:', parsed.status, parsed.data);
-          if (!silent) {
-            Alert.alert('Error', 'Failed to load admin requests');
-          }
+        if (!Array.isArray(data)) {
+          setRequests([]);
+          calculateCounts([]);
           return;
         }
 
-        const list = Array.isArray(parsed.data) ? parsed.data : [];
-
-        const sorted = setRequestsAndCounts(list);
+        const sorted = setRequestsAndCounts(data);
 
         if (!firstLoadDoneRef.current) {
           firstLoadDoneRef.current = true;
@@ -391,9 +303,6 @@ export default function AdminScreen({ navigation }) {
         }
       } catch (error) {
         console.log('Load admin data error:', error);
-        if (!silent) {
-          Alert.alert('Error', 'Unable to load admin data');
-        }
       } finally {
         if (!silent) {
           setLoading(false);
@@ -420,18 +329,14 @@ export default function AdminScreen({ navigation }) {
       const response = await fetch(
         `${API_BASE_URL}/admin/new-emergencies/${lastId}/${userId}`
       );
-      const parsed = await parseResponse(response);
 
-      if (!parsed.ok) {
-        console.log('Polling failed:', parsed.status, parsed.data);
+      const data = await response.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
         return;
       }
 
-      if (!Array.isArray(parsed.data) || parsed.data.length === 0) {
-        return;
-      }
-
-      const normalizedNewItems = parsed.data
+      const normalizedNewItems = data
         .map((item) => normalizeRequest(item))
         .filter(Boolean)
         .sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
@@ -489,44 +394,14 @@ export default function AdminScreen({ navigation }) {
     return () => {
       isScreenActiveRef.current = false;
       clearPolling();
-      cleanupPopupSound();
     };
-  }, [clearPolling, cleanupPopupSound]);
+  }, [clearPolling]);
 
   useEffect(() => {
     if (popupVisible && popupRequest?.id) {
       activePopupIdRef.current = Number(popupRequest.id);
     }
   }, [popupRequest, popupVisible]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return (
-          Math.abs(gestureState.dy) > 8 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx)
-        );
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          dragY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (
-          gestureState.dy > SWIPE_CLOSE_THRESHOLD ||
-          gestureState.vy > SWIPE_CLOSE_VELOCITY
-        ) {
-          closePopup();
-        } else {
-          resetDragPosition();
-        }
-      },
-      onPanResponderTerminate: () => {
-        resetDragPosition();
-      },
-    })
-  ).current;
 
   const getStatusColor = (status) => {
     const s = String(status || '').toLowerCase();
@@ -628,11 +503,6 @@ export default function AdminScreen({ navigation }) {
     });
   }, [requests, searchText, selectedFilter, adminName]);
 
-  // ---------------------------------------------------------
-  // DELETE FIX:
-  // Show success only after backend confirms actual delete.
-  // Then refresh from server.
-  // ---------------------------------------------------------
   const handleDeleteRequest = async (emergencyId) => {
     try {
       if (!adminUserId) {
@@ -654,25 +524,16 @@ export default function AdminScreen({ navigation }) {
                   `${API_BASE_URL}/admin/emergency/${emergencyId}/${adminUserId}`,
                   {
                     method: 'DELETE',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
                   }
                 );
 
-                const parsed = await parseResponse(response);
+                const data = await response.json();
 
-                if (!parsed.ok || !parsed.data?.success) {
-                  const message =
-                    parsed?.data?.detail ||
-                    parsed?.data?.error ||
-                    parsed?.data?.message ||
-                    'Failed to delete request';
-                  Alert.alert('Error', message);
+                if (data?.error) {
+                  Alert.alert('Error', data.error);
                   return;
                 }
 
-                // Remove from local UI only after backend confirms success
                 setRequests((prev) => {
                   const updated = prev.filter(
                     (item) => Number(item?.id) !== Number(emergencyId)
@@ -689,8 +550,8 @@ export default function AdminScreen({ navigation }) {
                   closePopup();
                 }
 
-                await loadAdminData({ silent: true });
-                Alert.alert('Success', parsed.data.message || 'Request deleted successfully');
+                Alert.alert('Success', 'Request deleted successfully');
+                loadAdminData({ silent: true });
               } catch (error) {
                 console.log('Delete request error:', error);
                 Alert.alert('Error', 'Failed to delete request');
@@ -704,11 +565,6 @@ export default function AdminScreen({ navigation }) {
     }
   };
 
-  // ---------------------------------------------------------
-  // PRIORITY FIX:
-  // Wait for backend success, then update local state using
-  // backend response, then refresh again from server.
-  // ---------------------------------------------------------
   const handleSetPriority = async (emergencyId, priority) => {
     try {
       if (!adminUserId) {
@@ -725,53 +581,31 @@ export default function AdminScreen({ navigation }) {
         }
       );
 
-      const parsed = await parseResponse(response);
+      const data = await response.json();
 
-      if (!parsed.ok || !parsed.data?.success) {
-        const message =
-          parsed?.data?.detail ||
-          parsed?.data?.error ||
-          parsed?.data?.message ||
-          'Failed to update priority';
-        Alert.alert('Error', message);
+      if (data?.error) {
+        Alert.alert('Error', data.error);
         return;
       }
 
-      const updatedEmergency = parsed?.data?.emergency;
+      setRequests((prev) => {
+        const updated = prev.map((item) =>
+          Number(item?.id) === Number(emergencyId)
+            ? { ...item, priority }
+            : item
+        );
+        calculateCounts(updated);
+        return updated;
+      });
 
-      if (updatedEmergency?.id) {
-        setRequests((prev) => {
-          const updated = prev.map((item) =>
-            Number(item?.id) === Number(updatedEmergency.id)
-              ? { ...item, ...updatedEmergency }
-              : item
-          );
-          calculateCounts(updated);
-          return updated;
-        });
-
-        if (popupRequest && Number(popupRequest?.id) === Number(updatedEmergency.id)) {
-          setPopupRequest((prev) => (prev ? { ...prev, ...updatedEmergency } : prev));
-        }
-      } else {
-        // fallback local update
-        setRequests((prev) => {
-          const updated = prev.map((item) =>
-            Number(item?.id) === Number(emergencyId)
-              ? { ...item, priority }
-              : item
-          );
-          calculateCounts(updated);
-          return updated;
-        });
-
-        if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
-          setPopupRequest((prev) => (prev ? { ...prev, priority } : prev));
-        }
+      if (popupRequest && Number(popupRequest?.id) === Number(emergencyId)) {
+        setPopupRequest((prev) =>
+          prev ? { ...prev, priority } : prev
+        );
       }
 
-      await loadAdminData({ silent: true });
-      Alert.alert('Success', parsed.data.message || `Priority updated to ${priority}`);
+      Alert.alert('Success', `Priority updated to ${priority}`);
+      loadAdminData({ silent: true });
     } catch (error) {
       console.log('Priority update error:', error);
       Alert.alert('Error', 'Failed to update priority');
@@ -792,47 +626,58 @@ export default function AdminScreen({ navigation }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             status: nextStatus,
-            accepted_by: nextStatus === 'pending' ? null : adminName || 'Admin',
+            accepted_by:
+              nextStatus === 'pending'
+                ? null
+                : adminName || 'Admin',
           }),
         }
       );
 
-      const parsed = await parseResponse(response);
+      const data = await response.json();
 
-      if (!parsed.ok || !parsed.data?.success) {
-        const message =
-          parsed?.data?.detail ||
-          parsed?.data?.error ||
-          parsed?.data?.message ||
-          'Failed to update request status';
-        Alert.alert('Error', message);
+      if (data?.error) {
+        Alert.alert('Error', data.error);
         return false;
       }
 
-      const updatedEmergency = parsed?.data?.emergency;
+      setRequests((prev) => {
+        const updated = prev.map((item) =>
+          Number(item?.id) === Number(requestItem.id)
+            ? {
+                ...item,
+                status: nextStatus,
+                accepted_by:
+                  nextStatus === 'pending'
+                    ? ''
+                    : adminName || 'Admin',
+              }
+            : item
+        );
+        calculateCounts(updated);
+        return updated;
+      });
 
-      if (updatedEmergency?.id) {
-        setRequests((prev) => {
-          const updated = prev.map((item) =>
-            Number(item?.id) === Number(updatedEmergency.id)
-              ? { ...item, ...updatedEmergency }
-              : item
-          );
-          calculateCounts(updated);
-          return updated;
-        });
+      if (popupRequest && Number(popupRequest?.id) === Number(requestItem.id)) {
+        setPopupRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: nextStatus,
+                accepted_by:
+                  nextStatus === 'pending'
+                    ? ''
+                    : adminName || 'Admin',
+              }
+            : prev
+        );
+      }
 
-        if (popupRequest && Number(popupRequest?.id) === Number(updatedEmergency.id)) {
-          setPopupRequest((prev) => (prev ? { ...prev, ...updatedEmergency } : prev));
-        }
+      if (showSuccess) {
+        Alert.alert('Success', `Request marked as ${nextStatus}`);
       }
 
       await loadAdminData({ silent: true });
-
-      if (showSuccess) {
-        Alert.alert('Success', parsed.data.message || `Request marked as ${nextStatus}`);
-      }
-
       return true;
     } catch (error) {
       console.log('Update request status error:', error);
@@ -1171,105 +1016,75 @@ export default function AdminScreen({ navigation }) {
           style={[
             styles.popupContainer,
             {
-              transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+              transform: [{ translateY: slideAnim }],
             },
           ]}
-          {...panResponder.panHandlers}
         >
-          <View style={styles.dragHandleWrap}>
-            <View style={styles.dragHandle} />
-          </View>
-
           <LinearGradient
-            colors={['#fc8019', '#ff5f1f']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            colors={['#ff416c', '#ff4b2b']}
             style={styles.popupHeader}
           >
-            <View style={styles.popupHeaderRow}>
-              <View style={styles.popupHeaderLeft}>
-                <Text style={styles.popupHeaderEyebrow}>NEW ORDER ALERT</Text>
-                <Text style={styles.popupHeaderTitle}>🚨 New Emergency Request</Text>
-                <Text style={styles.popupHeaderSubtitle}>
-                  A new request just arrived. Take action quickly.
-                </Text>
-              </View>
-
-              <View style={styles.popupPingBadge}>
-                <Text style={styles.popupPingText}>LIVE</Text>
-              </View>
-            </View>
+            <Text style={styles.popupHeaderTitle}>🚨 New Emergency Request</Text>
+            <Text style={styles.popupHeaderSubtitle}>
+              A new user request needs action
+            </Text>
           </LinearGradient>
 
           {popupRequest ? (
             <View style={styles.popupBody}>
-              <View style={styles.popupInfoCard}>
-                <View style={styles.popupTopRow}>
-                  <Text style={styles.popupType}>
-                    {String(popupRequest?.type || 'Emergency').toUpperCase()}
-                  </Text>
+              <View style={styles.popupTopRow}>
+                <Text style={styles.popupType}>
+                  {String(popupRequest?.type || 'Emergency').toUpperCase()}
+                </Text>
 
-                  <View
+                <View
+                  style={[
+                    styles.popupPriorityBadge,
+                    {
+                      backgroundColor: getPriorityBackground(popupRequest?.priority),
+                    },
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.popupPriorityBadge,
+                      styles.popupPriorityText,
                       {
-                        backgroundColor: getPriorityBackground(popupRequest?.priority),
+                        color: getPriorityColor(popupRequest?.priority),
                       },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.popupPriorityText,
-                        {
-                          color: getPriorityColor(popupRequest?.priority),
-                        },
-                      ]}
-                    >
-                      {String(popupRequest?.priority || 'medium').toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.popupLabel}>Description</Text>
-                <Text style={styles.popupDescription}>
-                  {popupRequest?.description || 'No description available'}
-                </Text>
-
-                <Text style={styles.popupLabel}>Location</Text>
-                <Text style={styles.popupLocation}>
-                  📍 {popupRequest?.location_text || 'Location not available'}
-                </Text>
-
-                <View style={styles.popupMetaRow}>
-                  <View
-                    style={[
-                      styles.popupStatusBadge,
-                      {
-                        borderColor: getStatusColor(popupRequest?.status),
-                        backgroundColor: getStatusBackground(popupRequest?.status),
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.popupStatusText,
-                        {
-                          color: getStatusColor(popupRequest?.status),
-                        },
-                      ]}
-                    >
-                      {String(popupRequest?.status || 'pending').toUpperCase()}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.popupIdText}>
-                    Request #{String(popupRequest?.id || '')}
+                    {String(popupRequest?.priority || 'medium').toUpperCase()}
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.popupHintRow}>
-                <Text style={styles.popupHintText}>Swipe down to dismiss</Text>
+              <Text style={styles.popupDescription}>
+                {popupRequest?.description || 'No description available'}
+              </Text>
+
+              <Text style={styles.popupLocation}>
+                📍 {popupRequest?.location_text || 'Location not available'}
+              </Text>
+
+              <View
+                style={[
+                  styles.popupStatusBadge,
+                  {
+                    borderColor: getStatusColor(popupRequest?.status),
+                    backgroundColor: getStatusBackground(popupRequest?.status),
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.popupStatusText,
+                    {
+                      color: getStatusColor(popupRequest?.status),
+                    },
+                  ]}
+                >
+                  {String(popupRequest?.status || 'pending').toUpperCase()}
+                </Text>
               </View>
 
               <View style={styles.popupButtonRow}>
@@ -1651,78 +1466,29 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     overflow: 'hidden',
   },
-  dragHandleWrap: {
-    alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: '#ffffff',
-  },
-  dragHandle: {
-    width: 52,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: '#d1d5db',
-  },
-
   popupHeader: {
     paddingHorizontal: 20,
     paddingVertical: 18,
   },
-  popupHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  popupHeaderLeft: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  popupHeaderEyebrow: {
-    color: '#fff7ed',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
   popupHeaderTitle: {
     color: '#fff',
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   popupHeaderSubtitle: {
-    color: '#fff7ed',
+    color: '#ffe4e6',
     fontSize: 13,
     marginTop: 6,
-    lineHeight: 18,
-  },
-  popupPingBadge: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  popupPingText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '900',
   },
 
   popupBody: {
-    padding: 18,
+    padding: 20,
     paddingBottom: 30,
-    backgroundColor: '#fff',
-  },
-  popupInfoCard: {
-    backgroundColor: '#fffaf5',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
   },
   popupTopRow: {
     flexDirection: 'row',
@@ -1745,33 +1511,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
   },
-  popupLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#6b7280',
-    marginTop: 14,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
   popupDescription: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginTop: 6,
+    marginTop: 14,
     lineHeight: 24,
   },
   popupLocation: {
-    fontSize: 14,
-    color: '#374151',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  popupMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    flexWrap: 'wrap',
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 8,
+    lineHeight: 18,
   },
   popupStatusBadge: {
     alignSelf: 'flex-start',
@@ -1779,38 +1530,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    marginRight: 10,
+    marginTop: 14,
   },
   popupStatusText: {
     fontSize: 12,
     fontWeight: 'bold',
   },
-  popupIdText: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-
-  popupHintRow: {
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  popupHintText: {
-    color: '#9ca3af',
-    fontSize: 12,
-    fontWeight: '600',
-  },
 
   popupButtonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 22,
   },
   popupButton: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 15,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: 'center',
     marginHorizontal: 4,
   },
