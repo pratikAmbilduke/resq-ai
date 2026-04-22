@@ -23,7 +23,10 @@ export default function EmergencyScreen({ navigation }) {
   const [locationInfo, setLocationInfo] = useState(null);
   const [mapRegion, setMapRegion] = useState(null);
 
-  // 📍 LOCATION
+  const [aiType, setAiType] = useState('');
+  const [aiPriority, setAiPriority] = useState('');
+  const [aiSummary, setAiSummary] = useState('');
+
   const fetchCurrentLocation = async () => {
     try {
       setFetchingLocation(true);
@@ -56,28 +59,72 @@ export default function EmergencyScreen({ navigation }) {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       });
-    } catch {
+    } catch (error) {
+      console.log('Location error:', error);
       Alert.alert('Error', 'Failed to get location');
     } finally {
       setFetchingLocation(false);
     }
   };
 
-  // 🚨 SEND
+  const analyzeEmergencyWithAI = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ai/analyze-emergency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description }),
+      });
+
+      const data = await response.json();
+
+      return {
+        predicted_type: data?.predicted_type || type,
+        predicted_priority: data?.predicted_priority || 'medium',
+        ai_summary: data?.ai_summary || description,
+      };
+    } catch (error) {
+      console.log('AI analyze error:', error);
+      return {
+        predicted_type: type,
+        predicted_priority: 'medium',
+        ai_summary: description,
+      };
+    }
+  };
+
   const sendEmergency = async () => {
-    if (!description.trim()) return Alert.alert('Enter description');
-    if (!locationInfo) return Alert.alert('Get location first');
+    if (!description.trim()) {
+      Alert.alert('Enter description');
+      return;
+    }
+
+    if (!locationInfo) {
+      Alert.alert('Get location first');
+      return;
+    }
 
     try {
       setLoading(true);
 
       const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User not found');
+        return;
+      }
+
+      const aiResult = await analyzeEmergencyWithAI();
+
+      setAiType(aiResult.predicted_type);
+      setAiPriority(aiResult.predicted_priority);
+      setAiSummary(aiResult.ai_summary);
+
+      const finalType = aiResult.predicted_type || type;
 
       const res = await fetch(`${API_BASE_URL}/emergency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type,
+          type: finalType,
           description,
           latitude: locationInfo.latitude,
           longitude: locationInfo.longitude,
@@ -88,28 +135,42 @@ export default function EmergencyScreen({ navigation }) {
 
       const data = await res.json();
 
-      if (data.error) return Alert.alert(data.error);
+      if (data.error) {
+        Alert.alert(data.error);
+        return;
+      }
 
-      Alert.alert('🚨 Emergency Sent Successfully');
-      navigation.navigate('HistoryTab');
+      Alert.alert(
+        '🚨 Emergency Sent Successfully',
+        `AI Type: ${aiResult.predicted_type}\nAI Priority: ${aiResult.predicted_priority}`
+      );
+
       setDescription('');
-    } catch {
+      navigation.navigate('HistoryTab');
+    } catch (error) {
+      console.log('Send emergency error:', error);
       Alert.alert('Error sending emergency');
     } finally {
       setLoading(false);
     }
   };
 
+  const renderPriorityColor = (priority) => {
+    const value = String(priority || '').toLowerCase();
+    if (value === 'critical') return '#dc2626';
+    if (value === 'high') return '#ea580c';
+    if (value === 'medium') return '#2563eb';
+    if (value === 'low') return '#16a34a';
+    return '#6b7280';
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
-      {/* HEADER */}
       <LinearGradient colors={['#ff3b30', '#ff6b6b']} style={styles.header}>
         <Text style={styles.headerTitle}>Emergency Request</Text>
         <Text style={styles.headerSub}>Quick help is just one tap away</Text>
       </LinearGradient>
 
-      {/* TYPE */}
       <Text style={styles.label}>Emergency Type</Text>
       <View style={styles.typeRow}>
         {[
@@ -119,26 +180,18 @@ export default function EmergencyScreen({ navigation }) {
         ].map((item) => (
           <TouchableOpacity
             key={item.key}
-            style={[
-              styles.typeCard,
-              type === item.key && styles.activeType,
-            ]}
+            style={[styles.typeCard, type === item.key && styles.activeType]}
             onPress={() => setType(item.key)}
+            activeOpacity={0.9}
           >
             <Text style={styles.icon}>{item.icon}</Text>
-            <Text
-              style={[
-                styles.typeText,
-                type === item.key && { color: '#fff' },
-              ]}
-            >
+            <Text style={[styles.typeText, type === item.key && styles.activeTypeText]}>
               {item.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* DESCRIPTION */}
       <Text style={styles.label}>Describe Situation</Text>
       <TextInput
         style={styles.input}
@@ -146,16 +199,19 @@ export default function EmergencyScreen({ navigation }) {
         multiline
         value={description}
         onChangeText={setDescription}
+        placeholderTextColor="#94a3b8"
       />
 
-      {/* LOCATION BUTTON */}
-      <TouchableOpacity style={styles.locationBtn} onPress={fetchCurrentLocation}>
+      <TouchableOpacity
+        style={styles.locationBtn}
+        onPress={fetchCurrentLocation}
+        activeOpacity={0.9}
+      >
         <Text style={styles.locationText}>
           {fetchingLocation ? 'Fetching location...' : '📍 Detect My Location'}
         </Text>
       </TouchableOpacity>
 
-      {/* MAP */}
       {mapRegion && (
         <View style={styles.mapWrap}>
           <MapView style={styles.map} region={mapRegion}>
@@ -164,7 +220,6 @@ export default function EmergencyScreen({ navigation }) {
         </View>
       )}
 
-      {/* LOCATION TEXT */}
       {locationInfo && (
         <View style={styles.locationCard}>
           <Text style={styles.locationTitle}>Detected Location</Text>
@@ -172,8 +227,30 @@ export default function EmergencyScreen({ navigation }) {
         </View>
       )}
 
-      {/* SOS BUTTON */}
-      <TouchableOpacity style={styles.sosBtn} onPress={sendEmergency}>
+      {(aiType || aiPriority || aiSummary) && (
+        <View style={styles.aiCard}>
+          <Text style={styles.aiTitle}>AI Emergency Analysis</Text>
+
+          <View style={styles.aiRow}>
+            <Text style={styles.aiLabel}>Predicted Type:</Text>
+            <Text style={styles.aiValue}>{aiType || '-'}</Text>
+          </View>
+
+          <View style={styles.aiRow}>
+            <Text style={styles.aiLabel}>Predicted Priority:</Text>
+            <Text style={[styles.aiPriority, { color: renderPriorityColor(aiPriority) }]}>
+              {aiPriority || '-'}
+            </Text>
+          </View>
+
+          <View style={styles.aiSummaryWrap}>
+            <Text style={styles.aiLabel}>AI Summary:</Text>
+            <Text style={styles.aiSummaryText}>{aiSummary || '-'}</Text>
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity style={styles.sosBtn} onPress={sendEmergency} activeOpacity={0.9}>
         <Text style={styles.sosText}>
           {loading ? 'Sending...' : '🚨 SEND EMERGENCY'}
         </Text>
@@ -233,6 +310,9 @@ const styles = StyleSheet.create({
   activeType: {
     backgroundColor: '#ff3b30',
   },
+  activeTypeText: {
+    color: '#fff',
+  },
 
   icon: {
     fontSize: 26,
@@ -241,6 +321,7 @@ const styles = StyleSheet.create({
   typeText: {
     marginTop: 6,
     fontWeight: 'bold',
+    color: '#111827',
   },
 
   input: {
@@ -249,6 +330,8 @@ const styles = StyleSheet.create({
     padding: 15,
     minHeight: 100,
     elevation: 2,
+    textAlignVertical: 'top',
+    color: '#111827',
   },
 
   locationBtn: {
@@ -284,11 +367,62 @@ const styles = StyleSheet.create({
 
   locationTitle: {
     fontWeight: 'bold',
+    color: '#111827',
   },
 
   locationValue: {
     marginTop: 5,
     color: '#555',
+    lineHeight: 20,
+  },
+
+  aiCard: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+
+  aiTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1d4ed8',
+    marginBottom: 12,
+  },
+
+  aiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 10,
+  },
+
+  aiLabel: {
+    fontWeight: '600',
+    color: '#334155',
+  },
+
+  aiValue: {
+    color: '#111827',
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+
+  aiPriority: {
+    fontWeight: 'bold',
+    textTransform: 'capitalize',
+  },
+
+  aiSummaryWrap: {
+    marginTop: 4,
+  },
+
+  aiSummaryText: {
+    marginTop: 6,
+    color: '#475569',
+    lineHeight: 20,
   },
 
   sosBtn: {
