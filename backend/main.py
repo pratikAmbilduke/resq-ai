@@ -42,12 +42,8 @@ def verify_password(plain: str, hashed: str):
     return hashlib.sha256(plain.encode()).hexdigest() == hashed
 
 
-def normalize_status(value: str) -> str:
-    return (value or "").strip().lower()
-
-
-def normalize_priority(value: str) -> str:
-    return (value or "").strip().lower()
+def normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
 
 
 def emergency_to_dict(e: EmergencyModel):
@@ -77,18 +73,19 @@ def analyze_text(description: str, selected_type: str):
         predicted_type = "fire"
         predicted_priority = "high"
 
-    elif any(word in desc for word in ["accident", "crash", "bike", "car hit", "truck", "collision", "road"]):
+    elif any(word in desc for word in ["accident", "crash", "bike", "car", "collision", "truck", "road"]):
         predicted_type = "accident"
         predicted_priority = "high"
 
     elif any(word in desc for word in [
         "breathing", "not breathing", "collapsed", "collapse", "unconscious",
-        "heart", "chest pain", "stroke", "seizure", "bleeding", "blood"
+        "heart", "chest pain", "stroke", "seizure", "bleeding", "blood",
+        "shortness of breath", "sweating", "dizziness"
     ]):
         predicted_type = "medical"
         predicted_priority = "critical"
 
-    elif any(word in desc for word in ["fainted", "injury", "fracture", "broken", "hurt"]):
+    elif any(word in desc for word in ["injury", "fracture", "broken", "hurt", "fever", "pain"]):
         if predicted_type not in ["medical", "accident"]:
             predicted_type = "medical"
         predicted_priority = "high"
@@ -161,9 +158,9 @@ def health():
 
 @app.post("/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    email = req.email.strip().lower()
+    email = normalize_email(req.email)
 
-    existing = db.query(UserModel).filter(UserModel.email == email).first()
+    existing = db.query(UserModel).filter(UserModel.email.ilike(email)).first()
     if existing:
         return {"error": "Email already exists"}
 
@@ -172,7 +169,7 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
     user = UserModel(
         name=req.name.strip(),
         email=email,
-        password=hash_password(req.password),
+        password=hash_password(req.password.strip()),
         role=role,
     )
 
@@ -193,13 +190,19 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    email = req.email.strip().lower()
-    user = db.query(UserModel).filter(UserModel.email == email).first()
+    email = normalize_email(req.email)
+    password = req.password.strip()
+
+    print("LOGIN TRY:", email)
+
+    user = db.query(UserModel).filter(UserModel.email.ilike(email)).first()
+
+    print("USER FOUND:", user.email if user else None)
 
     if not user:
         return {"error": "Email not found"}
 
-    if not verify_password(req.password, user.password):
+    if not verify_password(password, user.password):
         return {"error": "Wrong password"}
 
     return {
@@ -220,13 +223,15 @@ def analyze_emergency(req: AIAnalyzeRequest):
 
 @app.post("/emergency")
 def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
+    user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
+    if not user:
+        return {"error": "User not found"}
+
     ai_result = analyze_text(req.description, req.type)
 
     predicted_type = ai_result["predicted_type"]
     predicted_priority = ai_result["predicted_priority"]
     ai_summary = ai_result["ai_summary"]
-
-    print("🔥 AI RUNNING:", predicted_type, predicted_priority)
 
     emergency = EmergencyModel(
         type=predicted_type,
@@ -246,6 +251,8 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
     db.add(emergency)
     db.commit()
     db.refresh(emergency)
+
+    print("NEW EMERGENCY SAVED:", emergency.id, emergency.type, emergency.priority)
 
     return {
         "message": "Emergency created successfully",
@@ -277,6 +284,8 @@ def get_all_emergencies(user_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
+    print("ADMIN FETCH COUNT:", len(emergencies))
+
     return [emergency_to_dict(e) for e in emergencies]
 
 
@@ -305,13 +314,10 @@ def update_status(emergency_id: int, req: StatusUpdateRequest, db: Session = Dep
         raise HTTPException(status_code=404, detail="Emergency not found")
 
     allowed_statuses = ["pending", "accepted", "in progress", "resolved", "cancelled"]
-    new_status = normalize_status(req.status)
+    new_status = (req.status or "").strip().lower()
 
     if new_status not in allowed_statuses:
         raise HTTPException(status_code=400, detail="Invalid status")
-
-    if new_status == "cancelled" and normalize_status(emergency.status) != "pending":
-        raise HTTPException(status_code=400, detail="Only pending requests can be cancelled")
 
     emergency.status = new_status
     emergency.updated_at = datetime.utcnow()
@@ -332,7 +338,12 @@ def update_status(emergency_id: int, req: StatusUpdateRequest, db: Session = Dep
 
 
 @app.put("/admin/emergency/{emergency_id}/priority/{admin_user_id}")
-def update_priority(emergency_id: int, admin_user_id: int, req: PriorityUpdateRequest, db: Session = Depends(get_db)):
+def update_priority(
+    emergency_id: int,
+    admin_user_id: int,
+    req: PriorityUpdateRequest,
+    db: Session = Depends(get_db),
+):
     admin_user = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
 
     if not admin_user or admin_user.role != "admin":
@@ -343,29 +354,23 @@ def update_priority(emergency_id: int, admin_user_id: int, req: PriorityUpdateRe
     if not emergency:
         return {"error": "Emergency not found"}
 
-    new_priority = normalize_priority(req.priority)
+    new_priority = (req.priority or "").strip().lower()
     allowed_priorities = ["low", "medium", "high", "critical"]
 
     if new_priority not in allowed_priorities:
         return {"error": "Invalid priority"}
 
-    try:
-        print(f"[PRIORITY] ID={emergency_id}, NEW={new_priority}")
-        emergency.priority = new_priority
-        emergency.updated_at = datetime.utcnow()
-        db.commit()
-        db.refresh(emergency)
-        print("[PRIORITY SUCCESS]")
+    emergency.priority = new_priority
+    emergency.updated_at = datetime.utcnow()
 
-        return {
-            "success": True,
-            "message": "Priority updated successfully",
-            "emergency": emergency_to_dict(emergency),
-        }
-    except Exception as e:
-        db.rollback()
-        print("[PRIORITY ERROR]", e)
-        return {"error": "Update failed"}
+    db.commit()
+    db.refresh(emergency)
+
+    return {
+        "success": True,
+        "message": "Priority updated successfully",
+        "emergency": emergency_to_dict(emergency),
+    }
 
 
 @app.delete("/admin/emergency/{emergency_id}/{admin_user_id}")
@@ -380,20 +385,13 @@ def delete_emergency(emergency_id: int, admin_user_id: int, db: Session = Depend
     if not emergency:
         return {"error": "Emergency not found"}
 
-    try:
-        print(f"[DELETE] ID={emergency_id}")
-        db.delete(emergency)
-        db.commit()
-        print("[DELETE SUCCESS]")
+    db.delete(emergency)
+    db.commit()
 
-        return {
-            "success": True,
-            "message": "Emergency deleted successfully",
-        }
-    except Exception as e:
-        db.rollback()
-        print("[DELETE ERROR]", e)
-        return {"error": "Delete failed"}
+    return {
+        "success": True,
+        "message": "Emergency deleted successfully",
+    }
 
 
 @app.get("/provider-location/{emergency_id}")
