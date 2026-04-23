@@ -1,14 +1,16 @@
 from datetime import datetime
+import os
+
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///./emergency.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./emergency.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
 
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
@@ -31,6 +33,7 @@ class EmergencyModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
+
     type = Column(String, default="other")
     description = Column(Text, nullable=False)
     location_text = Column(Text, nullable=True)
@@ -40,7 +43,6 @@ class EmergencyModel(Base):
     status = Column(String, default="pending")
     priority = Column(String, default="medium")
     accepted_by = Column(String, nullable=True)
-
     ai_summary = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
