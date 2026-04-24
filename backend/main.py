@@ -83,36 +83,67 @@ def emergency_to_dict(e):
 # AI LOGIC (IMPROVED)
 # ================================
 def analyze_text(description: str, selected_type: str = "other"):
-    desc = clean_text(description)
+    desc = (description or "").lower()
 
+    score = {
+        "medical": 0,
+        "fire": 0,
+        "accident": 0,
+        "crime": 0
+    }
+
+    # 🔴 CRITICAL CONDITIONS
     if any(x in desc for x in [
-        "not breathing", "unconscious", "collapsed",
+        "unconscious", "not breathing", "collapsed",
         "heart attack", "chest pain", "stroke", "seizure"
     ]):
-        return {
-            "predicted_type": "medical",
-            "predicted_priority": "critical",
-            "ai_summary": "Critical medical emergency detected (life-threatening condition)"
-        }
+        score["medical"] += 100
 
+    # 🔥 FIRE
     if any(x in desc for x in ["fire", "smoke", "explosion", "burn"]):
-        return {
-            "predicted_type": "fire",
-            "predicted_priority": "high",
-            "ai_summary": "Fire emergency detected"
-        }
+        score["fire"] += 80
 
+    # 🚗 ACCIDENT
     if any(x in desc for x in ["accident", "crash", "collision", "hit"]):
-        return {
-            "predicted_type": "accident",
-            "predicted_priority": "high",
-            "ai_summary": "Accident emergency detected"
-        }
+        score["accident"] += 70
+
+    # 🚨 CRIME
+    if any(x in desc for x in ["attack", "robbery", "fight", "gun"]):
+        score["crime"] += 60
+
+    # 🧠 SELECT BEST TYPE
+    predicted_type = max(score, key=score.get)
+    severity = score[predicted_type]
+
+    # ⚡ PRIORITY BASED ON SCORE
+    if severity >= 90:
+        priority = "critical"
+    elif severity >= 70:
+        priority = "high"
+    elif severity >= 40:
+        priority = "medium"
+    else:
+        priority = "low"
+
+    # 🚑 AUTO HELP SUGGESTION
+    help_map = {
+        "medical": ["ambulance"],
+        "fire": ["fire brigade"],
+        "accident": ["ambulance", "police"],
+        "crime": ["police"]
+    }
+
+    suggested_help = help_map.get(predicted_type, [])
+
+    # 🧾 SUMMARY
+    ai_summary = f"{priority.capitalize()} {predicted_type} emergency detected"
 
     return {
-        "predicted_type": selected_type,
-        "predicted_priority": "medium",
-        "ai_summary": "General emergency"
+        "predicted_type": predicted_type,
+        "predicted_priority": priority,
+        "severity": severity,
+        "suggested_help": suggested_help,
+        "ai_summary": ai_summary,
     }
 
 # ================================

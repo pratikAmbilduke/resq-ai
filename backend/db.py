@@ -59,6 +59,9 @@ class EmergencyModel(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
 
+    severity = Column(Integer, default=0)
+    suggested_help = Column(String, nullable=True)
+
     status = Column(String, default="pending")
     priority = Column(String, default="medium")
 
