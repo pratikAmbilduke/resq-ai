@@ -19,52 +19,70 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    try {
-      if (!name.trim() || !email.trim() || !password.trim()) {
-        Alert.alert('Error', 'Please fill all fields');
-        return;
-      }
+    if (loading) return;
 
+    const finalName = name.trim();
+    const finalEmail = email.trim().toLowerCase();
+    const finalPassword = password.trim();
+
+    if (!finalName || !finalEmail || !finalPassword) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    try {
       setLoading(true);
 
       const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          password: password.trim(),
+          name: finalName,
+          email: finalEmail,
+          password: finalPassword,
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
 
-      console.log('REGISTER RESPONSE:', data);
-
-      if (!response.ok || data?.error) {
-        Alert.alert('Error', data?.error || 'Registration failed');
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.log('REGISTER RAW RESPONSE:', text);
+        Alert.alert('Server Error', 'Invalid server response');
         return;
       }
 
-      Alert.alert('Success', 'Account created successfully');
-      navigation.navigate('Login');
+      console.log('REGISTER RESPONSE:', data);
 
+      if (data?.error) {
+        Alert.alert('Register Failed', data.error);
+        return;
+      }
+
+      if (!response.ok) {
+        Alert.alert('Register Failed', data?.detail || 'Server error');
+        return;
+      }
+
+      Alert.alert('Success', 'Account created successfully', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Login'),
+        },
+      ]);
     } catch (error) {
       console.log('REGISTER ERROR:', error);
-      Alert.alert('Error', 'Something went wrong');
+      Alert.alert('Error', 'Network or server error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ flex: 1 }}>
-
-      {/* HEADER */}
-      <LinearGradient
-        colors={['#4f46e5', '#9333ea']}
-        style={styles.header}
-      >
+    <View style={styles.main}>
+      <LinearGradient colors={['#4f46e5', '#9333ea']} style={styles.header}>
         <Text style={styles.logo}>R</Text>
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>
@@ -72,10 +90,8 @@ export default function RegisterScreen({ navigation }) {
         </Text>
       </LinearGradient>
 
-      {/* FORM */}
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.card}>
-
           <Text style={styles.cardTitle}>Register</Text>
 
           <TextInput
@@ -91,6 +107,7 @@ export default function RegisterScreen({ navigation }) {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            keyboardType="email-address"
           />
 
           <TextInput
@@ -102,7 +119,7 @@ export default function RegisterScreen({ navigation }) {
           />
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, loading && styles.disabledButton]}
             onPress={handleRegister}
             disabled={loading}
           >
@@ -113,12 +130,12 @@ export default function RegisterScreen({ navigation }) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.link}>
-              Already have an account? Login
-            </Text>
+          <TouchableOpacity
+            disabled={loading}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={styles.link}>Already have an account? Login</Text>
           </TouchableOpacity>
-
         </View>
       </ScrollView>
     </View>
@@ -126,6 +143,10 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  main: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
   header: {
     height: 220,
     justifyContent: 'center',
@@ -178,6 +199,9 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',
