@@ -1,16 +1,22 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   Alert,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import API_BASE_URL from '../config';
+
+// ✅ FIX: Import correct function
+import { fetchJson } from '../utils/api';
 
 export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -18,257 +24,181 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    try {
-      if (!email.trim() || !password.trim()) {
-        Alert.alert('Error', 'Please fill all fields');
-        return;
-      }
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
 
+    if (!trimmedEmail || !trimmedPassword) {
+      Alert.alert('Validation Error', 'Please enter email and password');
+      return;
+    }
+
+    try {
       setLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const result = await fetchJson(`${API_BASE_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: email.trim(),
-          password,
+          email: trimmedEmail,
+          password: trimmedPassword,
         }),
       });
 
-      const data = await response.json();
+      console.log('LOGIN RESPONSE:', result);
 
-      if (data.error) {
-        Alert.alert('Login Failed', data.error);
+      // ❌ OLD WRONG
+      // if (!result.ok)
+
+      // ✅ FIXED
+      if (result.error) {
+        Alert.alert('Login Failed', result.error);
         return;
       }
 
-      await AsyncStorage.setItem('userId', String(data.data.id));
-      await AsyncStorage.setItem('userName', data.data.name || '');
-      await AsyncStorage.setItem('userEmail', data.data.email || '');
-      await AsyncStorage.setItem('userRole', data.data.role || 'user');
+      const user = result.data;
 
-      Alert.alert('Success', 'Login successful');
+      if (!user?.id || !user?.role) {
+        Alert.alert('Error', 'Invalid server response');
+        return;
+      }
+
+      await AsyncStorage.multiSet([
+        ['userId', String(user.id)],
+        ['userName', String(user.name || '')],
+        ['userEmail', String(user.email || trimmedEmail)],
+        ['userRole', String(user.role || 'user')],
+      ]);
 
       if (onLoginSuccess) {
-        onLoginSuccess();
+        onLoginSuccess(user);
       }
     } catch (error) {
-      console.log('Login Error:', error);
-      Alert.alert('Error', 'Cannot connect to server');
+      console.log('LOGIN ERROR:', error);
+      Alert.alert('Error', 'Failed to login');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient
-        colors={['#0d6efd', '#7c3aed']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.topSection}
-      >
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoText}>R</Text>
-        </View>
+    <KeyboardAvoidingView
+      style={styles.keyboardWrap}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <LinearGradient
+          colors={['#2563eb', '#4f46e5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.topCard}
+        >
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>R</Text>
+          </View>
 
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>
-          Sign in to continue using ResQ AI
-        </Text>
-      </LinearGradient>
+          <Text style={styles.topTitle}>Welcome Back</Text>
+          <Text style={styles.topSubtitle}>Sign in to continue using ResQ AI</Text>
+        </LinearGradient>
 
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Login</Text>
-        <Text style={styles.formSubTitle}>Enter your credentials</Text>
+        <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Login</Text>
+          <Text style={styles.formSubtitle}>Enter your details to continue</Text>
 
-        <Text style={styles.label}>Email</Text>
-        <View style={styles.inputBox}>
-          <Text style={styles.inputIcon}>✉️</Text>
-          <TextInputCustom
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your email"
+            placeholderTextColor="#9ca3af"
             value={email}
             onChangeText={setEmail}
-            placeholder="Enter your email"
             keyboardType="email-address"
             autoCapitalize="none"
           />
-        </View>
 
-        <Text style={styles.label}>Password</Text>
-        <View style={styles.inputBox}>
-          <Text style={styles.inputIcon}>🔒</Text>
-          <TextInputCustom
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter password"
+            placeholderTextColor="#9ca3af"
             value={password}
             onChangeText={setPassword}
-            placeholder="Enter your password"
             secureTextEntry
           />
+
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={handleLogin}
+            activeOpacity={0.9}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.registerText}>
+              Don't have an account? <Text style={styles.registerLink}>Register</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[styles.loginButton, loading && styles.disabledButton]}
-          onPress={handleLogin}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.registerLinkWrap}
-          onPress={() => navigation.navigate('Register')}
-        >
-          <Text style={styles.registerText}>
-            Don&apos;t have an account? Register
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-import { TextInput } from 'react-native';
-
-const TextInputCustom = ({ style, ...props }) => (
-  <TextInput
-    {...props}
-    style={[styles.input, style]}
-    placeholderTextColor="#9ca3af"
-  />
-);
-
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: '#f3f5f7',
-    paddingBottom: 40,
-  },
-
-  topSection: {
-    paddingTop: 70,
-    paddingBottom: 40,
+  keyboardWrap: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flexGrow: 1, padding: 18, justifyContent: 'center' },
+  topCard: {
+    borderRadius: 28,
+    paddingVertical: 34,
     paddingHorizontal: 24,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
     alignItems: 'center',
+    marginBottom: -24,
   },
-
-  logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+  avatarCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 18,
   },
-
-  logoText: {
-    color: '#fff',
-    fontSize: 40,
-    fontWeight: 'bold',
-  },
-
-  title: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: 'bold',
-  },
-
-  subtitle: {
-    color: '#e5e7ff',
-    fontSize: 14,
-    marginTop: 8,
+  avatarText: { color: '#fff', fontSize: 34, fontWeight: 'bold' },
+  topTitle: { color: '#fff', fontSize: 34, fontWeight: 'bold' },
+  topSubtitle: {
+    color: '#e0e7ff',
+    fontSize: 15,
     textAlign: 'center',
+    marginTop: 10,
   },
-
   formCard: {
     backgroundColor: '#fff',
-    marginHorizontal: 18,
-    marginTop: -18,
     borderRadius: 24,
-    padding: 20,
+    padding: 22,
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
   },
-
-  formTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-
-  formSubTitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
-    marginBottom: 16,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-
-  inputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
+  formTitle: { fontSize: 23, fontWeight: 'bold' },
+  formSubtitle: { marginBottom: 18 },
+  label: { marginTop: 10, marginBottom: 8 },
+  input: {
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    borderRadius: 16,
+    padding: 15,
   },
-
-  inputIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    color: '#111827',
-    fontSize: 15,
-  },
-
   loginButton: {
-    marginTop: 20,
-    backgroundColor: '#0d6efd',
-    paddingVertical: 16,
-    borderRadius: 14,
+    backgroundColor: '#2563eb',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
+    marginTop: 24,
   },
-
-  disabledButton: {
-    opacity: 0.7,
-  },
-
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  registerLinkWrap: {
-    marginTop: 18,
-    alignItems: 'center',
-  },
-
-  registerText: {
-    color: '#7c3aed',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  loginButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+  registerText: { textAlign: 'center', marginTop: 18 },
+  registerLink: { color: '#2563eb', fontWeight: 'bold' },
 });
