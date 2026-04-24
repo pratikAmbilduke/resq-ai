@@ -24,60 +24,68 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const trimmedPassword = password.trim();
+  try {
+    setLoading(true);
 
-    if (!trimmedEmail || !trimmedPassword) {
-      Alert.alert('Validation Error', 'Please enter email and password');
+    const res = await fetch(`${API_BASE_URL}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    // ✅ ALWAYS read text first
+    const text = await res.text();
+    console.log("LOGIN RAW:", text);
+
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      Alert.alert("Error", "Server returned invalid JSON");
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const result = await fetchJson(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        body: JSON.stringify({
-          email: trimmedEmail,
-          password: trimmedPassword,
-        }),
-      });
-
-      console.log('LOGIN RESPONSE:', result);
-
-      // ❌ OLD WRONG
-      // if (!result.ok)
-
-      // ✅ FIXED
-      if (result.error) {
-        Alert.alert('Login Failed', result.error);
-        return;
-      }
-
-      const user = result.data;
-
-      if (!user?.id || !user?.role) {
-        Alert.alert('Error', 'Invalid server response');
-        return;
-      }
-
-      await AsyncStorage.multiSet([
-        ['userId', String(user.id)],
-        ['userName', String(user.name || '')],
-        ['userEmail', String(user.email || trimmedEmail)],
-        ['userRole', String(user.role || 'user')],
-      ]);
-
-      if (onLoginSuccess) {
-        onLoginSuccess(user);
-      }
-    } catch (error) {
-      console.log('LOGIN ERROR:', error);
-      Alert.alert('Error', 'Failed to login');
-    } finally {
+    // ❌ Handle backend error
+    if (data.error) {
+      Alert.alert("Login Failed", data.error);
       setLoading(false);
+      return;
     }
-  };
+
+    // ❌ Handle unexpected structure
+    if (!data.data) {
+      Alert.alert("Error", "Invalid server response");
+      setLoading(false);
+      return;
+    }
+
+    // ✅ SUCCESS
+    const user = data.data;
+
+    await AsyncStorage.setItem("userId", user.id.toString());
+    await AsyncStorage.setItem("userName", user.name);
+    await AsyncStorage.setItem("userRole", user.role);
+
+    Alert.alert("Success", "Login successful");
+
+    if (onLoginSuccess) {
+  onLoginSuccess(user);
+}
+
+  } catch (err) {
+    console.log("LOGIN ERROR:", err);
+    Alert.alert("Error", "Network error");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView
