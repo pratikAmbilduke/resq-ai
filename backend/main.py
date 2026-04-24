@@ -2,14 +2,18 @@ from datetime import datetime
 import hashlib
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import SessionLocal, UserModel, EmergencyModel, ProfileModel, Base, engine
 
-app = FastAPI()
+
+# ================================
+# APP INIT
+# ================================
+app = FastAPI(title="ResQ AI Backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +30,9 @@ def startup():
     print("✅ RESQ AI BACKEND LIVE")
 
 
+# ================================
+# DB SESSION
+# ================================
 def get_db():
     db = SessionLocal()
     try:
@@ -34,6 +41,9 @@ def get_db():
         db.close()
 
 
+# ================================
+# UTIL FUNCTIONS
+# ================================
 def hash_password(password: str):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -42,8 +52,14 @@ def verify_password(plain: str, hashed: str):
     return hashlib.sha256(plain.encode()).hexdigest() == hashed
 
 
-def normalize_email(email: str) -> str:
+def normalize_email(email: str):
     return (email or "").strip().lower()
+
+
+def dt(value):
+    if not value:
+        return None
+    return value.isoformat()
 
 
 def emergency_to_dict(e: EmergencyModel):
@@ -59,38 +75,33 @@ def emergency_to_dict(e: EmergencyModel):
         "priority": e.priority or "medium",
         "accepted_by": e.accepted_by,
         "ai_summary": e.ai_summary,
-        "created_at": e.created_at,
-        "updated_at": e.updated_at,
+        "created_at": dt(e.created_at),
+        "updated_at": dt(e.updated_at),
     }
 
 
-def analyze_text(description: str, selected_type: str):
+# ================================
+# AI LOGIC
+# ================================
+def analyze_text(description: str, selected_type: str = "other"):
     desc = (description or "").lower().strip()
+
     predicted_type = (selected_type or "other").lower()
     predicted_priority = "medium"
 
-    if any(word in desc for word in ["fire", "smoke", "burn", "burning", "blast", "explosion"]):
+    if any(word in desc for word in ["fire", "smoke", "burn", "explosion"]):
         predicted_type = "fire"
         predicted_priority = "high"
 
-    elif any(word in desc for word in ["accident", "crash", "bike", "car", "collision", "truck", "road"]):
+    elif any(word in desc for word in ["accident", "crash", "collision", "road"]):
         predicted_type = "accident"
         predicted_priority = "high"
 
-    elif any(word in desc for word in [
-        "breathing", "not breathing", "collapsed", "collapse", "unconscious",
-        "heart", "chest pain", "stroke", "seizure", "bleeding", "blood",
-        "shortness of breath", "sweating", "dizziness"
-    ]):
+    elif any(word in desc for word in ["breathing", "unconscious", "collapsed", "heart"]):
         predicted_type = "medical"
         predicted_priority = "critical"
 
-    elif any(word in desc for word in ["injury", "fracture", "broken", "hurt", "fever", "pain"]):
-        if predicted_type not in ["medical", "accident"]:
-            predicted_type = "medical"
-        predicted_priority = "high"
-
-    ai_summary = f"Emergency reported: {description[:120].strip()}" if description else "Emergency reported"
+    ai_summary = f"AI detected {predicted_type} emergency with {predicted_priority} priority."
 
     return {
         "predicted_type": predicted_type,
@@ -99,6 +110,9 @@ def analyze_text(description: str, selected_type: str):
     }
 
 
+# ================================
+# REQUEST MODELS
+# ================================
 class RegisterRequest(BaseModel):
     name: str
     email: str
@@ -127,7 +141,9 @@ class StatusUpdateRequest(BaseModel):
 class PriorityUpdateRequest(BaseModel):
     priority: str
 
-
+    # ================================
+# EXTRA REQUEST MODELS
+# ================================
 class ProfileUpdateRequest(BaseModel):
     blood_group: Optional[str] = None
     emergency_contact_phone: Optional[str] = None
@@ -146,6 +162,9 @@ class AIAnalyzeRequest(BaseModel):
     selected_type: Optional[str] = "other"
 
 
+# ================================
+# BASIC ROUTES
+# ================================
 @app.get("/")
 def root():
     return {"message": "RESQ AI BACKEND LIVE ✅"}
@@ -156,401 +175,406 @@ def health():
     return {"status": "ok"}
 
 
+# ================================
+# AUTH ROUTES
+# ================================
 @app.post("/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    email = normalize_email(req.email)
+    try:
+        email = normalize_email(req.email)
 
-    existing = db.query(UserModel).filter(UserModel.email.ilike(email)).first()
-    if existing:
-        return {"error": "Email already exists"}
+        if not req.name.strip() or not email or not req.password.strip():
+            return {"error": "All fields are required"}
 
-    role = "admin" if email == "admin@resqai.com" else "user"
+        existing = db.query(UserModel).filter(UserModel.email == email).first()
+        if existing:
+            return {"error": "Email already exists"}
 
-    user = UserModel(
-        name=req.name.strip(),
-        email=email,
-        password=hash_password(req.password.strip()),
-        role=role,
-    )
+        role = "admin" if email == "admin@resqai.com" else "user"
 
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+        user = UserModel(
+            name=req.name.strip(),
+            email=email,
+            password=hash_password(req.password.strip()),
+            role=role,
+            created_at=datetime.utcnow(),
+        )
 
-    return {
-        "message": "Registered successfully",
-        "data": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role,
-        },
-    }
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        return {
+            "success": True,
+            "message": "Registered successfully",
+            "data": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
+            },
+        }
+
+    except Exception as e:
+        db.rollback()
+        print("REGISTER ERROR:", str(e))
+        return {"error": str(e)}
 
 
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
-    email = normalize_email(req.email)
-    password = req.password.strip()
+    try:
+        email = normalize_email(req.email)
+        password = req.password.strip()
 
-    print("LOGIN TRY:", email)
+        user = db.query(UserModel).filter(UserModel.email == email).first()
 
-    user = db.query(UserModel).filter(UserModel.email.ilike(email)).first()
+        if not user:
+            return {"error": "Email not found"}
 
-    print("USER FOUND:", user.email if user else None)
+        if not verify_password(password, user.password):
+            return {"error": "Wrong password"}
 
-    if not user:
-        return {"error": "Email not found"}
+        return {
+            "success": True,
+            "message": "Login success",
+            "data": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "role": user.role,
+            },
+        }
 
-    if not verify_password(password, user.password):
-        return {"error": "Wrong password"}
-
-    return {
-        "message": "Login success",
-        "data": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role,
-        },
-    }
+    except Exception as e:
+        print("LOGIN ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# AI + EMERGENCY
+# ================================
 @app.post("/ai/analyze-emergency")
 def analyze_emergency(req: AIAnalyzeRequest):
-    return analyze_text(req.description, req.selected_type or "other")
+    try:
+        return analyze_text(req.description, req.selected_type or "other")
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/emergency")
 def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
-    if not user:
-        return {"error": "User not found"}
+    try:
+        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
 
-    ai_result = analyze_text(req.description, req.type)
+        if not user:
+            return {"error": "User not found"}
 
-    predicted_type = ai_result["predicted_type"]
-    predicted_priority = ai_result["predicted_priority"]
-    ai_summary = ai_result["ai_summary"]
+        ai = analyze_text(req.description, req.type)
 
-    emergency = EmergencyModel(
-        type=predicted_type,
-        description=req.description,
-        latitude=req.latitude,
-        longitude=req.longitude,
-        location_text=req.location_text,
-        user_id=req.user_id,
-        status="pending",
-        accepted_by=None,
-        priority=predicted_priority,
-        ai_summary=ai_summary,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    )
+        emergency = EmergencyModel(
+            type=ai["predicted_type"],
+            description=req.description,
+            latitude=req.latitude,
+            longitude=req.longitude,
+            location_text=req.location_text,
+            user_id=req.user_id,
+            status="pending",
+            accepted_by=None,
+            priority=ai["predicted_priority"],
+            ai_summary=ai["ai_summary"],
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
 
-    db.add(emergency)
-    db.commit()
-    db.refresh(emergency)
+        db.add(emergency)
+        db.commit()
+        db.refresh(emergency)
 
-    print("NEW EMERGENCY SAVED:", emergency.id, emergency.type, emergency.priority)
+        return {
+            "success": True,
+            "message": "Emergency created successfully",
+            "data": emergency_to_dict(emergency),
+        }
 
-    return {
-        "message": "Emergency created successfully",
-        "data": emergency_to_dict(emergency),
-    }
-
-
+    except Exception as e:
+        db.rollback()
+        print("EMERGENCY ERROR:", str(e))
+        return {"error": str(e)}
+    
+    # ================================
+# USER EMERGENCIES
+# ================================
 @app.get("/emergencies/{user_id}")
 def get_user_emergencies(user_id: int, db: Session = Depends(get_db)):
-    emergencies = (
-        db.query(EmergencyModel)
-        .filter(EmergencyModel.user_id == user_id)
-        .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
-        .all()
-    )
-    return [emergency_to_dict(e) for e in emergencies]
+    try:
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(EmergencyModel.user_id == user_id)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
+
+        return [emergency_to_dict(e) for e in emergencies]
+
+    except Exception as e:
+        print("USER HISTORY ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# ADMIN: ALL EMERGENCIES
+# ================================
 @app.get("/admin/emergencies/{user_id}")
 def get_all_emergencies(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
-    if not user or user.role != "admin":
-        return {"error": "Access denied"}
+        if not user or user.role != "admin":
+            return {"error": "Access denied"}
 
-    emergencies = (
-        db.query(EmergencyModel)
-        .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
-        .all()
-    )
+        emergencies = (
+            db.query(EmergencyModel)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
 
-    print("ADMIN FETCH COUNT:", len(emergencies))
+        return [emergency_to_dict(e) for e in emergencies]
 
-    return [emergency_to_dict(e) for e in emergencies]
+    except Exception as e:
+        print("ADMIN FETCH ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# ADMIN: NEW EMERGENCIES (REAL-TIME)
+# ================================
 @app.get("/admin/new-emergencies/{last_id}/{user_id}")
 def get_new_emergencies(last_id: int, user_id: int, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
-    if not user or user.role != "admin":
-        return {"error": "Access denied"}
+        if not user or user.role != "admin":
+            return {"error": "Access denied"}
 
-    emergencies = (
-        db.query(EmergencyModel)
-        .filter(EmergencyModel.id > last_id)
-        .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
-        .all()
-    )
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(EmergencyModel.id > last_id)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
 
-    return [emergency_to_dict(e) for e in emergencies]
+        return [emergency_to_dict(e) for e in emergencies]
+
+    except Exception as e:
+        print("NEW EMERGENCY ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# UPDATE STATUS
+# ================================
 @app.put("/emergency/{emergency_id}/status")
 def update_status(emergency_id: int, req: StatusUpdateRequest, db: Session = Depends(get_db)):
-    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+    try:
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
-    if not emergency:
-        raise HTTPException(status_code=404, detail="Emergency not found")
+        if not emergency:
+            return {"error": "Emergency not found"}
 
-    allowed_statuses = ["pending", "accepted", "in progress", "resolved", "cancelled"]
-    new_status = (req.status or "").strip().lower()
+        new_status = (req.status or "").strip().lower()
+        allowed = ["pending", "accepted", "in progress", "resolved", "cancelled"]
 
-    if new_status not in allowed_statuses:
-        raise HTTPException(status_code=400, detail="Invalid status")
+        if new_status not in allowed:
+            return {"error": "Invalid status"}
 
-    emergency.status = new_status
-    emergency.updated_at = datetime.utcnow()
+        emergency.status = new_status
+        emergency.updated_at = datetime.utcnow()
 
-    if new_status == "accepted":
-        emergency.accepted_by = (req.accepted_by or "").strip()
-    elif new_status in ["pending", "cancelled"]:
-        emergency.accepted_by = None
+        if new_status == "accepted":
+            emergency.accepted_by = (req.accepted_by or "Admin").strip()
+        elif new_status in ["pending", "cancelled"]:
+            emergency.accepted_by = None
 
-    db.commit()
-    db.refresh(emergency)
+        db.commit()
+        db.refresh(emergency)
 
-    return {
-        "success": True,
-        "message": "Status updated",
-        "emergency": emergency_to_dict(emergency),
-    }
+        return {
+            "success": True,
+            "message": "Status updated",
+            "emergency": emergency_to_dict(emergency),
+        }
+
+    except Exception as e:
+        db.rollback()
+        print("STATUS ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# UPDATE PRIORITY
+# ================================
 @app.put("/admin/emergency/{emergency_id}/priority/{admin_user_id}")
-def update_priority(
-    emergency_id: int,
-    admin_user_id: int,
-    req: PriorityUpdateRequest,
-    db: Session = Depends(get_db),
-):
-    admin_user = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
+def update_priority(emergency_id: int, admin_user_id: int, req: PriorityUpdateRequest, db: Session = Depends(get_db)):
+    try:
+        admin = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
 
-    if not admin_user or admin_user.role != "admin":
-        return {"error": "Access denied"}
+        if not admin or admin.role != "admin":
+            return {"error": "Access denied"}
 
-    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
-    if not emergency:
-        return {"error": "Emergency not found"}
+        if not emergency:
+            return {"error": "Emergency not found"}
 
-    new_priority = (req.priority or "").strip().lower()
-    allowed_priorities = ["low", "medium", "high", "critical"]
+        priority = (req.priority or "").strip().lower()
+        allowed = ["low", "medium", "high", "critical"]
 
-    if new_priority not in allowed_priorities:
-        return {"error": "Invalid priority"}
+        if priority not in allowed:
+            return {"error": "Invalid priority"}
 
-    emergency.priority = new_priority
-    emergency.updated_at = datetime.utcnow()
+        emergency.priority = priority
+        emergency.updated_at = datetime.utcnow()
 
-    db.commit()
-    db.refresh(emergency)
+        db.commit()
+        db.refresh(emergency)
 
-    return {
-        "success": True,
-        "message": "Priority updated successfully",
-        "emergency": emergency_to_dict(emergency),
-    }
+        return {
+            "success": True,
+            "message": "Priority updated successfully",
+            "emergency": emergency_to_dict(emergency),
+        }
+
+    except Exception as e:
+        db.rollback()
+        print("PRIORITY ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# DELETE EMERGENCY
+# ================================
 @app.delete("/admin/emergency/{emergency_id}/{admin_user_id}")
 def delete_emergency(emergency_id: int, admin_user_id: int, db: Session = Depends(get_db)):
-    admin_user = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
+    try:
+        admin = db.query(UserModel).filter(UserModel.id == admin_user_id).first()
 
-    if not admin_user or admin_user.role != "admin":
-        return {"error": "Access denied"}
+        if not admin or admin.role != "admin":
+            return {"error": "Access denied"}
 
-    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
+        emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
 
-    if not emergency:
-        return {"error": "Emergency not found"}
+        if not emergency:
+            return {"error": "Emergency not found"}
 
-    db.delete(emergency)
-    db.commit()
+        db.delete(emergency)
+        db.commit()
 
-    return {
-        "success": True,
-        "message": "Emergency deleted successfully",
-    }
-
-
-@app.get("/provider-location/{emergency_id}")
-def get_provider_location(emergency_id: int, db: Session = Depends(get_db)):
-    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
-
-    if not emergency:
-        return {"error": "Emergency not found"}
-
-    if not emergency.accepted_by:
-        return {"message": "No provider assigned yet"}
-
-    provider = db.query(UserModel).filter(UserModel.name == emergency.accepted_by).first()
-
-    if not provider:
-        return {"error": "Assigned provider not found"}
-
-    if provider.latitude is None or provider.longitude is None:
         return {
-            "message": "Provider location not available yet",
-            "data": {
-                "provider_name": provider.name,
-                "latitude": None,
-                "longitude": None,
-            },
+            "success": True,
+            "message": "Emergency deleted successfully",
         }
 
-    return {
-        "data": {
-            "provider_name": provider.name,
-            "latitude": provider.latitude,
-            "longitude": provider.longitude,
-        }
-    }
+    except Exception as e:
+        db.rollback()
+        print("DELETE ERROR:", str(e))
+        return {"error": str(e)}
 
 
+# ================================
+# PROFILE APIs
+# ================================
 @app.get("/profile/{user_id}")
 def get_profile(user_id: int, db: Session = Depends(get_db)):
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
+    try:
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
 
-    if not profile:
-        return {}
+        if not profile:
+            return {}
 
-    return {
-        "id": profile.id,
-        "user_id": profile.user_id,
-        "blood_group": profile.blood_group,
-        "emergency_contact_phone": profile.emergency_contact_phone,
-        "medical_notes": profile.medical_notes,
-        "address": profile.address,
-    }
-
-
-@app.put("/profile/{user_id}")
-def update_profile(user_id: int, req: ProfileUpdateRequest, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-
-    if not user:
-        return {"error": "User not found"}
-
-    profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
-
-    if not profile:
-        profile = ProfileModel(user_id=user_id)
-        db.add(profile)
-
-    profile.blood_group = req.blood_group
-    profile.emergency_contact_phone = req.emergency_contact_phone
-    profile.medical_notes = req.medical_notes
-    profile.address = req.address
-    profile.updated_at = datetime.utcnow()
-
-    db.commit()
-    db.refresh(profile)
-
-    return {
-        "message": "Profile updated successfully",
-        "data": {
+        return {
             "id": profile.id,
             "user_id": profile.user_id,
             "blood_group": profile.blood_group,
             "emergency_contact_phone": profile.emergency_contact_phone,
             "medical_notes": profile.medical_notes,
             "address": profile.address,
-        },
-    }
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 
+@app.put("/profile/{user_id}")
+def update_profile(user_id: int, req: ProfileUpdateRequest, db: Session = Depends(get_db)):
+    try:
+        profile = db.query(ProfileModel).filter(ProfileModel.user_id == user_id).first()
+
+        if not profile:
+            profile = ProfileModel(user_id=user_id)
+            db.add(profile)
+
+        profile.blood_group = req.blood_group
+        profile.emergency_contact_phone = req.emergency_contact_phone
+        profile.medical_notes = req.medical_notes
+        profile.address = req.address
+        profile.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(profile)
+
+        return {"success": True, "message": "Profile updated"}
+
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+
+
+# ================================
+# LOCATION APIs
+# ================================
 @app.post("/update-location")
 def update_location(req: LocationUpdateRequest, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
+    try:
+        user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
 
-    if not user:
-        return {"error": "User not found"}
+        if not user:
+            return {"error": "User not found"}
 
-    user.latitude = req.latitude
-    user.longitude = req.longitude
-    db.commit()
-    db.refresh(user)
+        user.latitude = req.latitude
+        user.longitude = req.longitude
 
-    return {
-        "message": "Location updated successfully",
-        "data": {
-            "id": user.id,
-            "name": user.name,
-            "latitude": user.latitude,
-            "longitude": user.longitude,
-        },
-    }
+        db.commit()
+        db.refresh(user)
+
+        return {"success": True, "message": "Location updated"}
+
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
 
 
 @app.get("/all-locations")
 def get_all_locations(db: Session = Depends(get_db)):
-    emergencies = (
-        db.query(EmergencyModel)
-        .filter(
-            EmergencyModel.latitude.isnot(None),
-            EmergencyModel.longitude.isnot(None),
+    try:
+        emergencies = (
+            db.query(EmergencyModel)
+            .filter(EmergencyModel.latitude.isnot(None))
+            .all()
         )
-        .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
-        .all()
-    )
 
-    return [
-        {
-            "id": e.id,
-            "name": f"{e.type} - {e.status}",
-            "latitude": e.latitude,
-            "longitude": e.longitude,
-            "description": e.description,
-            "location_text": e.location_text,
-            "accepted_by": e.accepted_by,
-            "priority": e.priority,
-            "ai_summary": e.ai_summary,
-            "created_at": e.created_at,
-        }
-        for e in emergencies
-    ]
+        return [
+            {
+                "id": e.id,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "type": e.type,
+                "priority": e.priority,
+            }
+            for e in emergencies
+        ]
 
-
-@app.get("/debug-priority")
-def debug_priority():
-    return {
-        "message": "priority route live",
-        "allowed_priorities": ["low", "medium", "high", "critical"],
-    }
-
-
-@app.get("/debug-priority-value/{emergency_id}")
-def debug_priority_value(emergency_id: int, db: Session = Depends(get_db)):
-    emergency = db.query(EmergencyModel).filter(EmergencyModel.id == emergency_id).first()
-
-    if not emergency:
-        return {"error": "Emergency not found"}
-
-    return {
-        "id": emergency.id,
-        "type": emergency.type,
-        "priority": emergency.priority,
-        "ai_summary": emergency.ai_summary,
-        "created_at": emergency.created_at,
-    }
+    except Exception as e:
+        return {"error": str(e)}
+    
+    
