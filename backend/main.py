@@ -1,3 +1,4 @@
+print("new ai version loaded")
 from datetime import datetime
 import hashlib
 import re
