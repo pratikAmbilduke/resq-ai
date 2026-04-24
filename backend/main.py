@@ -85,21 +85,24 @@ def emergency_to_dict(e):
 def analyze_text(description: str, selected_type: str = "other"):
     desc = clean_text(description)
 
-    if any(x in desc for x in ["not breathing","unconscious","heart","chest pain"]):
+    if any(x in desc for x in [
+        "not breathing", "unconscious", "collapsed",
+        "heart attack", "chest pain", "stroke", "seizure"
+    ]):
         return {
             "predicted_type": "medical",
             "predicted_priority": "critical",
-            "ai_summary": "Critical medical emergency detected"
+            "ai_summary": "Critical medical emergency detected (life-threatening condition)"
         }
 
-    if any(x in desc for x in ["fire","smoke","explosion"]):
+    if any(x in desc for x in ["fire", "smoke", "explosion", "burn"]):
         return {
             "predicted_type": "fire",
             "predicted_priority": "high",
             "ai_summary": "Fire emergency detected"
         }
 
-    if any(x in desc for x in ["accident","crash","collision"]):
+    if any(x in desc for x in ["accident", "crash", "collision", "hit"]):
         return {
             "predicted_type": "accident",
             "predicted_priority": "high",
@@ -111,7 +114,6 @@ def analyze_text(description: str, selected_type: str = "other"):
         "predicted_priority": "medium",
         "ai_summary": "General emergency"
     }
-
 
 # ================================
 # MODELS
