@@ -97,7 +97,9 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
     return ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5
 
-#Auto Assign Nearest Hospital
+
+
+#Auto Assign provider
 
 def auto_assign_provider(emergency, db):
     providers = db.query(UserModel).all()
@@ -368,7 +370,6 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
     accepted_by=None,
     priority=ai["predicted_priority"],
 
-    # ✅ ADD THESE TWO LINES (IMPORTANT)
     severity=ai.get("severity", 0),
     suggested_help=ai.get("suggested_help", "admin review"),
 
@@ -377,14 +378,16 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
     updated_at=datetime.utcnow(),
 )
 
-        # 🔹 STEP 1: SAVE FIRST
         db.add(emergency)
         db.commit()
         db.refresh(emergency)
 
-        # 🔹 STEP 2: AUTO ASSIGN (ADD HERE)
+        print("Emergency Location:", emergency.latitude, emergency.longitude)
+ 
         provider = auto_assign_provider(emergency, db)
-        print("Assigned Provider:",provider)
+
+        print("Assigned Provider:", provider.name if provider else None)
+
 
         if provider:
             emergency.accepted_by = provider.name
