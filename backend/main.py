@@ -82,24 +82,27 @@ def emergency_to_dict(e: EmergencyModel):
 #calculate Distance
 
 def calculate_distance(lat1, lon1, lat2, lon2):
-    if not lat1 or not lon1 or not lat2 or not lon2:
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
         return 999999
 
-    return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
+    return ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5
 
 #Auto Assign Nearest Hospital
 
 def auto_assign_provider(emergency, db):
-    providers = db.query(UserModel).filter(UserModel.role == "admin").all()
+    providers = db.query(UserModel).all()
+
+    providers = [p for p in providers if (p.role or "").lower() == "admin"]
 
     if not providers:
+        print("❌ No providers found")
         return None
 
     nearest = None
     min_distance = 999999
 
     for p in providers:
-        if p.latitude and p.longitude:
+        if p.latitude is not None and p.longitude is not None:
             dist = calculate_distance(
                 emergency.latitude,
                 emergency.longitude,
@@ -107,9 +110,16 @@ def auto_assign_provider(emergency, db):
                 p.longitude,
             )
 
+            print("Checking:", p.name, "Distance:", dist)
+
             if dist < min_distance:
                 min_distance = dist
                 nearest = p
+
+    if nearest:
+        print("✅ Assigned:", nearest.name)
+    else:
+        print("❌ No valid provider")
 
     return nearest
 
