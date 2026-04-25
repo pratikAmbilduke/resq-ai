@@ -61,6 +61,16 @@ def normalize_email(email: str):
 def dt(value):
     return value.isoformat() if value else None
 
+def calculate_distance_km(lat1, lon1, lat2, lon2):
+    radius = 6371
+
+    d_lat = math.radians(lat2 - lat1)
+    d_lon = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians
+
 
 def emergency_to_dict(e: EmergencyModel):
     return {
@@ -348,21 +358,24 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
         ai = analyze_text(req.description, req.type)
 
         emergency = EmergencyModel(
-            type=ai["predicted_type"],
-            description=req.description,
-            latitude=req.latitude,
-            longitude=req.longitude,
-            location_text=req.location_text,
-            user_id=req.user_id,
-            status="pending",
-            accepted_by=None,
-            priority=ai["predicted_priority"],
-            ai_summary=ai["ai_summary"],
-            severity=ai.get("severity", ai.get("severity_score", 0)),
-            suggested_help=ai.get("suggested_help", "admin review"),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
+    type=ai["predicted_type"],
+    description=req.description,
+    latitude=req.latitude,
+    longitude=req.longitude,
+    location_text=req.location_text,
+    user_id=req.user_id,
+    status="pending",
+    accepted_by=None,
+    priority=ai["predicted_priority"],
+
+    # ✅ ADD THESE TWO LINES (IMPORTANT)
+    severity=ai.get("severity", 0),
+    suggested_help=ai.get("suggested_help", "admin review"),
+
+    ai_summary=ai["ai_summary"],
+    created_at=datetime.utcnow(),
+    updated_at=datetime.utcnow(),
+)
 
         # 🔹 STEP 1: SAVE FIRST
         db.add(emergency)
