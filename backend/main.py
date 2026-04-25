@@ -1,3 +1,5 @@
+import math
+import requests
 from datetime import datetime
 import hashlib
 from typing import Optional
@@ -76,6 +78,40 @@ def emergency_to_dict(e: EmergencyModel):
         "created_at": dt(e.created_at),
         "updated_at": dt(e.updated_at),
     }
+
+#calculate Distance
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    if not lat1 or not lon1 or not lat2 or not lon2:
+        return 999999
+
+    return math.sqrt((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2)
+
+#Auto Assign Nearest Hospital
+
+def auto_assign_provider(emergency, db):
+    providers = db.query(UserModel).filter(UserModel.role == "admin").all()
+
+    if not providers:
+        return None
+
+    nearest = None
+    min_distance = 999999
+
+    for p in providers:
+        if p.latitude and p.longitude:
+            dist = calculate_distance(
+                emergency.latitude,
+                emergency.longitude,
+                p.latitude,
+                p.longitude,
+            )
+
+            if dist < min_distance:
+                min_distance = dist
+                nearest = p
+
+    return nearest
 
 
 # ================================
@@ -286,6 +322,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
     try:
         user = db.query(UserModel).filter(UserModel.id == req.user_id).first()
+
         if not user:
             return {"error": "User not found"}
 
@@ -302,22 +339,37 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
             accepted_by=None,
             priority=ai["predicted_priority"],
             ai_summary=ai["ai_summary"],
+            severity=ai["severity"],
+            suggested_help=ai["suggested_help"],
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
 
+        # 🔹 STEP 1: SAVE FIRST
         db.add(emergency)
         db.commit()
         db.refresh(emergency)
 
+        # 🔹 STEP 2: AUTO ASSIGN (ADD HERE)
+        provider = auto_assign_provider(emergency, db)
+
+        if provider:
+            emergency.accepted_by = provider.name
+            emergency.status = "accepted"
+
+            db.commit()
+            db.refresh(emergency)
+
+        # 🔹 STEP 3: RETURN
         return {
             "success": True,
-            "message": "Emergency created",
+            "message": "Emergency created successfully",
             "data": emergency_to_dict(emergency),
         }
 
     except Exception as e:
         db.rollback()
+        print("EMERGENCY ERROR:", str(e))
         return {"error": str(e)}
 
 
@@ -410,4 +462,37 @@ def delete_emergency(emergency_id: int, admin_user_id: int, db: Session = Depend
 
     except Exception as e:
         db.rollback()
+        return {"error": str(e)}
+    
+
+#AI nearest hospital suggest
+
+@app.get("/nearest-hospital")
+def get_nearest_hospital(lat: float, lon: float):
+    try:
+        url = f"https://nominatim.openstreetmap.org/search?format=json&q=hospital&limit=5"
+
+        response = requests.get(url, headers={"User-Agent": "resq-ai"})
+        data = response.json()
+
+        if not data:
+            return {"error": "No hospitals found"}
+
+        hospitals = []
+
+        for h in data:
+            hospitals.append({
+                "name": h.get("display_name"),
+                "lat": float(h["lat"]),
+                "lon": float(h["lon"]),
+            })
+
+        nearest = min(
+            hospitals,
+            key=lambda x: calculate_distance(lat, lon, x["lat"], x["lon"])
+        )
+
+        return {"success": True, "data": nearest}
+
+    except Exception as e:
         return {"error": str(e)}
