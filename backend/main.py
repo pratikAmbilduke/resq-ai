@@ -330,11 +330,14 @@ def get_user_emergencies(user_id: int, db: Session = Depends(get_db)):
         emergencies = (
             db.query(EmergencyModel)
             .filter(EmergencyModel.user_id == user_id)
-            .order_by(EmergencyModel.created_at.desc())
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
             .all()
         )
-        return {"success": True, "data": [emergency_to_dict(e) for e in emergencies]}
+
+        return [emergency_to_dict(e) for e in emergencies]
+
     except Exception as e:
+        print("USER HISTORY ERROR:", str(e))
         return {"error": str(e)}
 
 
@@ -346,14 +349,41 @@ def get_all_emergencies(user_id: int, db: Session = Depends(get_db)):
     try:
         user = db.query(UserModel).filter(UserModel.id == user_id).first()
 
-        if not user or user.role != "admin":
+        if not user:
+            return {"error": "User not found"}
+
+        if user.role != "admin":
             return {"error": "Access denied"}
 
-        emergencies = db.query(EmergencyModel).order_by(EmergencyModel.created_at.desc()).all()
+        emergencies = (
+            db.query(EmergencyModel)
+            .order_by(EmergencyModel.created_at.desc(), EmergencyModel.id.desc())
+            .all()
+        )
 
-        return {"success": True, "data": [emergency_to_dict(e) for e in emergencies]}
+        result = []
+
+        for e in emergencies:
+            result.append({
+                "id": e.id,
+                "user_id": e.user_id,
+                "type": e.type,
+                "description": e.description,
+                "location_text": e.location_text,
+                "latitude": e.latitude,
+                "longitude": e.longitude,
+                "status": e.status,
+                "priority": e.priority,
+                "accepted_by": e.accepted_by,
+                "ai_summary": e.ai_summary,
+                "created_at": e.created_at,
+                "updated_at": e.updated_at,
+            })
+
+        return result   # ⚠️ IMPORTANT: RETURN ARRAY ONLY
 
     except Exception as e:
+        print("ADMIN ERROR:", str(e))
         return {"error": str(e)}
 
 
