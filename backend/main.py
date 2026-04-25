@@ -362,6 +362,7 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
 
         # 🔹 STEP 2: AUTO ASSIGN (ADD HERE)
         provider = auto_assign_provider(emergency, db)
+        print("Assigned Provider:",provider)
 
         if provider:
             emergency.accepted_by = provider.name
