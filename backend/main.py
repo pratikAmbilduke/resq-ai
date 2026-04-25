@@ -128,51 +128,60 @@ def auto_assign_provider(emergency, db):
 # AI LOGIC (UPGRADED)
 # ================================
 def analyze_text(description: str, selected_type: str = "other"):
-    desc = (description or "").lower()
+    desc = (description or "").lower().strip()
 
-    score = {
-        "medical": 0,
-        "fire": 0,
-        "accident": 0,
-        "crime": 0
-    }
+    # ========================
+    # CRITICAL MEDICAL
+    # ========================
+    if any(x in desc for x in [
+        "unconscious", "not breathing", "collapsed",
+        "heart", "chest pain", "heart attack"
+    ]):
+        return {
+            "predicted_type": "medical",
+            "predicted_priority": "critical",
+            "severity": 100,
+            "suggested_help": "ambulance",
+            "ai_summary": "CRITICAL medical emergency detected. Send ambulance immediately.",
+        }
 
-    # MEDICAL (CRITICAL)
-    if any(x in desc for x in ["breathing", "unconscious", "heart", "chest pain", "collapsed"]):
-        score["medical"] += 100
-
+    # ========================
     # FIRE
-    if any(x in desc for x in ["fire", "smoke", "burn", "explosion"]):
-        score["fire"] += 80
+    # ========================
+    if any(x in desc for x in [
+        "fire", "smoke", "burn", "explosion"
+    ]):
+        return {
+            "predicted_type": "fire",
+            "predicted_priority": "high",
+            "severity": 80,
+            "suggested_help": "fire brigade",
+            "ai_summary": "HIGH fire emergency detected. Dispatch fire brigade.",
+        }
 
+    # ========================
     # ACCIDENT
-    if any(x in desc for x in ["accident", "crash", "collision", "road"]):
-        score["accident"] += 70
+    # ========================
+    if any(x in desc for x in [
+        "accident", "crash", "collision", "hit", "road"
+    ]):
+        return {
+            "predicted_type": "accident",
+            "predicted_priority": "high",
+            "severity": 70,
+            "suggested_help": "ambulance + police",
+            "ai_summary": "HIGH accident emergency detected. Send ambulance and police.",
+        }
 
-    # CRIME
-    if any(x in desc for x in ["attack", "fight", "weapon", "robbery"]):
-        score["crime"] += 60
-
-    predicted_type = max(score, key=score.get)
-    severity_score = score[predicted_type]
-
-    # PRIORITY
-    if severity_score >= 90:
-        priority = "critical"
-    elif severity_score >= 70:
-        priority = "high"
-    elif severity_score >= 40:
-        priority = "medium"
-    else:
-        priority = "low"
-
-    ai_summary = f"{priority.upper()} {predicted_type} emergency detected"
-
+    # ========================
+    # FALLBACK
+    # ========================
     return {
-        "predicted_type": predicted_type,
-        "predicted_priority": priority,
-        "severity_score": severity_score,
-        "ai_summary": ai_summary,
+        "predicted_type": selected_type or "other",
+        "predicted_priority": "medium",
+        "severity": 40,
+        "suggested_help": "admin review",
+        "ai_summary": "MEDIUM emergency detected. Needs admin review.",
     }
 
 
@@ -349,8 +358,8 @@ def create_emergency(req: EmergencyRequest, db: Session = Depends(get_db)):
             accepted_by=None,
             priority=ai["predicted_priority"],
             ai_summary=ai["ai_summary"],
-            severity=ai["severity"],
-            suggested_help=ai["suggested_help"],
+            severity=ai.get("severity", ai.get("severity_score", 0)),
+            suggested_help=ai.get("suggested_help", "admin review"),
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
