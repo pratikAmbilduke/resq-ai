@@ -62,6 +62,9 @@ def dt(value):
     return value.isoformat() if value else None
 
 def calculate_distance_km(lat1, lon1, lat2, lon2):
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+        return 999999
+
     radius = 6371
 
     d_lat = math.radians(lat2 - lat1)
@@ -69,7 +72,13 @@ def calculate_distance_km(lat1, lon1, lat2, lon2):
 
     a = (
         math.sin(d_lat / 2) ** 2
-        + math.cos(math.radians
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lon / 2) ** 2
+    )
+
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius * c
 
 
 def emergency_to_dict(e: EmergencyModel):
@@ -524,9 +533,9 @@ def get_nearest_hospital(lat: float, lon: float):
             })
 
         nearest = min(
-            hospitals,
-            key=lambda x: calculate_distance(lat, lon, x["lat"], x["lon"])
-        )
+        hospitals,
+        key=lambda x: calculate_distance_km(lat, lon, x["lat"], x["lon"])
+)
 
         return {"success": True, "data": nearest}
 
